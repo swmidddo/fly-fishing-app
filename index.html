@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Middo's Fly Fishing</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Main Style -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="dark-theme">
+    
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <svg class="brand-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2C6.5 2 2 6.5 2 12c0 3.5 1.8 6.6 4.5 8.4V22l3-1.5 3 1.5V18.5c.7-.2 1.3-.5 2-.8v2.8l3-1.5 3 1.5v-3.6c2.7-1.8 4.5-4.9 4.5-8.4 0-5.5-4.5-10-10-10z"/>
+                    <path d="M12 6a3 3 0 0 0-3 3"/>
+                    <path d="M7 12h10"/>
+                </svg>
+                <span class="brand-name">Middo's Fly Fishing</span>
+            </div>
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="dashboard">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-item" data-tab="map">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
+                    <span>Interactive Map</span>
+                </button>
+                <button class="nav-item" data-tab="catches">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    <span>Catch Logs</span>
+                </button>
+                <button class="nav-item" data-tab="tackle">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+                    <span>Tackle Library</span>
+                </button>
+                <button class="nav-item" data-tab="regulations">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    <span>Fish Size Guide</span>
+                </button>
+                <button class="nav-item" data-tab="weather">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path><circle cx="12" cy="12" r="5"></circle></svg>
+                    <span>Weather & Tides</span>
+                </button>
+                <button class="nav-item" data-tab="licenses">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><line x1="15" y1="8" x2="19" y2="8"></line><line x1="15" y1="12" x2="17" y2="12"></line><path d="M7 16c0-1 1-2 2-2s2 1 2 2"></path></svg>
+                    <span>My Licenses</span>
+                </button>
+                <button class="nav-item" data-tab="settings">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    <span>Settings</span>
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="gps-indicator" id="gps-status">
+                    <span class="pulse-dot red"></span>
+                    <span class="gps-text">GPS Inactive</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            
+            <!-- Dashboard View -->
+            <section id="tab-dashboard" class="tab-content active">
+                <header class="section-header">
+                    <h1>Fisherman Dashboard</h1>
+                    <p class="subtitle">Tight lines and blue skies. Here is your fishing summary.</p>
+                </header>
+
+                <div class="dashboard-grid">
+                    <!-- Weather Widget -->
+                    <div class="card glass shadow-lg card-weather-summary">
+                        <h3>Local Weather</h3>
+                        <div class="weather-current-details">
+                            <span class="weather-large-icon" id="dash-weather-icon">🌧️</span>
+                            <div class="weather-temp-group">
+                                <span class="weather-large-temp" id="dash-weather-temp">--°C</span>
+                                <span class="weather-condition" id="dash-weather-desc">Loading Weather...</span>
+                            </div>
+                        </div>
+                        <div class="weather-meta-info">
+                            <div>💨 Wind: <span id="dash-wind">-- km/h</span></div>
+                            <div>🎈 Pressure: <span id="dash-pressure">-- hPa</span></div>
+                            <div>🌅 Sunrise: <span id="dash-sunrise">--</span></div>
+                            <div>🌇 Sunset: <span id="dash-sunset">--</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Astro & Tide Widget -->
+                    <div class="card glass shadow-lg card-astro-summary">
+                        <h3>Moon & Tides</h3>
+                        <div class="astro-details">
+                            <div class="astro-item">
+                                <span class="astro-icon" id="dash-moon-icon">🌑</span>
+                                <div>
+                                    <div class="label">Moon Phase</div>
+                                    <strong id="dash-moon-phase">New Moon</strong>
+                                    <div class="sub" id="dash-moon-illum">0% Illumination</div>
+                                </div>
+                            </div>
+                            <div class="astro-item">
+                                <span class="astro-icon">🌊</span>
+                                <div>
+                                    <div class="label">Current Tide</div>
+                                    <strong id="dash-tide-height">-- m</strong>
+                                    <div class="sub" id="dash-tide-dir">Calculating...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Solunar Prime Feeding Windows Card -->
+                    <div class="card glass shadow-lg card-solunar-summary" style="border-left: 4px solid var(--accent-teal);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h3 style="margin: 0;">🔥 Solunar Feeding Windows</h3>
+                            <span id="dash-solunar-badge" class="badge-active" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); border: 1px solid var(--accent-teal);">Prime 92%</span>
+                        </div>
+                        <div id="dash-solunar-windows" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11.5px;">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Stats Card -->
+                    <div class="card glass shadow-lg card-stats">
+                        <h3>Catch Stats</h3>
+                        <div class="stats-row">
+                            <div class="stat-box">
+                                <span class="stat-val" id="stat-total-catches">0</span>
+                                <span class="stat-lbl">Total Catches</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-val" id="stat-fav-species">-</span>
+                                <span class="stat-lbl">Top Species</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-val" id="stat-fav-rod">-</span>
+                                <span class="stat-lbl">Top Fly Rod</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fishing License Status Card -->
+                    <div class="card glass shadow-lg card-license-summary" id="dash-license-card">
+                        <h3>Fishing Licenses</h3>
+                        <div class="license-dash-status-container">
+                            <span class="license-large-icon" id="dash-license-status-icon">🪪</span>
+                            <div class="license-status-group">
+                                <span class="license-status-title" id="dash-license-status-title">No Licenses Registered</span>
+                                <span class="license-status-desc" id="dash-license-status-desc">Log your fishing permits to track expiration.</span>
+                            </div>
+                        </div>
+                        <div class="license-expiry-warnings" id="dash-license-warnings">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Catches Section -->
+                <div class="section-title-bar" style="cursor: pointer;" onclick="window.switchTab('catches')">
+                    <h2 style="display: flex; align-items: center; gap: 8px; margin: 0;">
+                        <span>Recent Catches</span>
+                        <span style="font-size: 12px; color: var(--accent-teal); font-weight: normal; margin-left: 4px;">(View All Catches →)</span>
+                    </h2>
+                    <button class="btn btn-primary" onclick="event.stopPropagation(); window.showLogCatchModal()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        Log Catch
+                    </button>
+                </div>
+                <div class="recent-catches-list grid-three-col" id="dashboard-recent-catches">
+                    <!-- Dynamic catches will load here -->
+                    <p class="placeholder-text">No catches logged yet. Go catch some fish!</p>
+                </div>
+            </section>
+
+            <!-- Map View -->
+            <section id="tab-map" class="tab-content">
+                <div class="map-controls">
+                    <div class="map-actions">
+                        <button class="btn btn-glass" id="btn-map-type">Type: Default</button>
+                        <button class="btn btn-glass" id="btn-map-radar">🌧️ Radar: Off</button>
+                        <button class="btn btn-glass" id="btn-map-weather">🌤️ Weather info</button>
+                        <button class="btn btn-glass" id="btn-set-car">📍 Mark Car/Start</button>
+                        <button class="btn btn-glass btn-danger" id="btn-clear-car">Clear Car</button>
+                        <button class="btn btn-glass" id="btn-add-spot-here">🌲 Add Spot Here</button>
+                        <button class="btn btn-primary" id="btn-map-recenter">🎯 Move Map to My Location</button>
+                    </div>
+                    <div class="map-distance-overlay" id="map-distance-info" style="display: none;">
+                        Car to Fishing Location: <b>Calculating...</b>
+                    </div>
+                </div>
+
+                <!-- Floating Local Weather, Radar & Warnings Tabbed Overlay -->
+                <div class="map-weather-overlay card glass" id="map-weather-overlay" style="display: none;">
+                    <div class="weather-overlay-header">
+                        <h4>Localised Weather</h4>
+                        <span class="close-overlay-btn" id="btn-close-weather-overlay">&times;</span>
+                    </div>
+                    
+                    <!-- Tab Navigation -->
+                    <div class="overlay-tabs">
+                        <button class="overlay-tab-btn active" data-overlay-tab="overlay-weather">🌤️ Weather</button>
+                        <button class="overlay-tab-btn" data-overlay-tab="overlay-radar">🌧️ Radar</button>
+                        <button class="overlay-tab-btn" data-overlay-tab="overlay-warnings">
+                            ⚠️ Warnings
+                            <span class="warning-badge-dot" id="overlay-warning-badge" style="display: none;"></span>
+                        </button>
+                    </div>
+
+                    <div class="weather-overlay-content">
+                        <!-- Tab 1: Weather -->
+                        <div class="overlay-tab-pane active" id="overlay-weather">
+                            <div class="weather-overlay-main">
+                                <span class="weather-overlay-icon" id="map-w-icon">☀️</span>
+                                <div>
+                                    <strong id="map-w-temp">--°C</strong>
+                                    <span class="desc" id="map-w-desc">Hovering center...</span>
+                                </div>
+                            </div>
+                            <div class="weather-overlay-meta">
+                                <div>💨 Wind: <span id="map-w-wind">--</span></div>
+                                <div>🎈 Pressure: <span id="map-w-pressure">--</span></div>
+                            </div>
+                            
+                            <!-- Mini 3-Day Forecast -->
+                            <div class="mini-forecast-title">3-Day Forecast</div>
+                            <div class="mini-forecast-container" id="map-w-mini-forecast">
+                                <!-- Populated dynamically -->
+                                <div style="font-size: 11px; color: var(--text-secondary); text-align: center; padding: 4px;">Loading forecast...</div>
+                            </div>
+                        </div>
+
+                        <!-- Tab 2: Radar -->
+                        <div class="overlay-tab-pane" id="overlay-radar">
+                            <div class="radar-control-group">
+                                <label class="radar-toggle-label">
+                                    <span>Enable Radar Overlay</span>
+                                    <input type="checkbox" id="overlay-radar-toggle">
+                                </label>
+                                
+                                <div class="radar-opacity-group">
+                                    <div class="slider-header">
+                                        <span>Radar Opacity</span>
+                                        <span id="radar-opacity-val">50%</span>
+                                    </div>
+                                    <input type="range" id="overlay-radar-opacity" min="0" max="100" value="50" class="radar-slider">
+                                </div>
+
+                                <div class="radar-status-info">
+                                    <div class="radar-status-dot green"></div>
+                                    <div>
+                                        <span class="status-title">RainViewer Live Tiles</span>
+                                        <span class="status-time" id="radar-timestamp-label">Status: Online</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab 3: Warnings -->
+                        <div class="overlay-tab-pane" id="overlay-warnings">
+                            <div class="weather-overlay-warnings" id="map-w-warnings">
+                                <div class="warning-banner warning-ok">✅ No active weather warnings for this area.</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="weather-overlay-footer">
+                        Ref: <span id="map-w-coords">Lat, Lon</span>
+                    </div>
+                </div>
+
+                <!-- Map Container -->
+                <div id="map-container">
+                    <div class="map-placeholder">
+                        <div class="spinner"></div>
+                        <p>Initializing Maps Engine...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Catch Logs View -->
+            <section id="tab-catches" class="tab-content">
+                <header class="section-header-flex">
+                    <div>
+                        <h1>Catch Logs</h1>
+                        <p class="subtitle">Complete catalog of your angling success.</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="window.showLogCatchModal()">+ Log New Catch</button>
+                </header>
+
+                <div class="filters-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; gap: 10px; flex-grow: 1;">
+                        <input type="text" id="catch-search" class="form-input search-input" placeholder="Search species, fly, location...">
+                        <select id="catch-filter-water" class="form-select">
+                            <option value="all">All Water</option>
+                            <option value="freshwater">Freshwater</option>
+                            <option value="saltwater">Saltwater</option>
+                        </select>
+                    </div>
+                    <div class="view-toggle-group" style="display: flex; gap: 5px; background: rgba(255,255,255,0.05); padding: 3px; border-radius: 8px;">
+                        <button type="button" class="btn btn-sm btn-glass active" id="btn-catch-view-cards" style="padding: 6px 12px; font-size: 11.5px;">📋 Cards</button>
+                        <button type="button" class="btn btn-sm btn-glass" id="btn-catch-view-gallery" style="padding: 6px 12px; font-size: 11.5px;">📸 Photo Gallery</button>
+                    </div>
+                </div>
+
+                <div class="catches-list-container grid-three-col" id="catches-list">
+                    <!-- Dynamically populated -->
+                </div>
+                <div class="catches-gallery-container grid-three-col" id="catches-gallery-grid" style="display: none;">
+                    <!-- Dynamically populated photo grid -->
+                </div>
+            </section>
+
+            <!-- Tackle Library View -->
+            <section id="tab-tackle" class="tab-content">
+                <header class="section-header-flex">
+                    <div>
+                        <h1>Tackle & Equipment Library</h1>
+                        <p class="subtitle">Organize and keep track of your rods, reels, lines, and flies.</p>
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn btn-glass" onclick="window.showAddRigModal()">+ Create Combo</button>
+                        <button class="btn btn-primary" onclick="window.showAddTackleModal()">+ Add Equipment</button>
+                    </div>
+                </header>
+
+                <div class="tackle-tabs-container">
+                    <div class="tackle-sub-tabs">
+                        <button class="tackle-tab active" data-tackle-type="all">All</button>
+                        <button class="tackle-tab" data-tackle-type="combo">Combos</button>
+                        <button class="tackle-tab" data-tackle-type="rod">Rods</button>
+                        <button class="tackle-tab" data-tackle-type="reel">Reels</button>
+                        <button class="tackle-tab" data-tackle-type="flyline">Fly Lines</button>
+                        <button class="tackle-tab" data-tackle-type="fly">Flies / Lures</button>
+                        <button class="tackle-tab" data-tackle-type="leader">Leaders</button>
+                        <button class="tackle-tab" data-tackle-type="tippet">Tippets</button>
+                    </div>
+                </div>
+
+                <div class="tackle-grid grid-three-col" id="tackle-list">
+                    <!-- Dynamically populated -->
+                </div>
+            </section>
+
+            <!-- Regulations View -->
+            <section id="tab-regulations" class="tab-content">
+                <header class="section-header">
+                    <h1>Australian Fish Size Guide</h1>
+                    <p class="subtitle">Access legal limits, bag quotas, and closed seasons for all Australian states.</p>
+                </header>
+
+                <div class="regulations-control-bar card glass">
+                    <div class="form-group-inline">
+                        <label for="reg-state">State:</label>
+                        <select id="reg-state" class="form-select">
+                            <option value="ALL">All States</option>
+                            <option value="NSW">New South Wales (NSW)</option>
+                            <option value="VIC">Victoria (VIC)</option>
+                            <option value="QLD">Queensland (QLD)</option>
+                            <option value="WA">Western Australia (WA)</option>
+                            <option value="SA">South Australia (SA)</option>
+                            <option value="TAS">Tasmania (TAS)</option>
+                            <option value="NT">Northern Territory (NT)</option>
+                            <option value="ACT">Australian Capital Territory (ACT)</option>
+                        </select>
+                    </div>
+                    <div class="form-group-inline">
+                        <label for="reg-water-type">Water:</label>
+                        <select id="reg-water-type" class="form-select">
+                            <option value="ALL">All Water Types</option>
+                            <option value="saltwater">🌊 Saltwater</option>
+                            <option value="freshwater">🌲 Freshwater</option>
+                        </select>
+                    </div>
+                    <div class="form-group-inline">
+                        <label for="reg-species-select">Species:</label>
+                        <select id="reg-species-select" class="form-select">
+                            <option value="ALL">All Species</option>
+                            <!-- Dynamically populated -->
+                        </select>
+                    </div>
+                    <div class="form-group-inline flex-grow">
+                        <label for="reg-search">Search:</label>
+                        <input type="text" id="reg-search" class="form-input" placeholder="Search species..." list="species-suggestions">
+                        <datalist id="species-suggestions"></datalist>
+                    </div>
+                </div>
+
+                <div class="card glass list-card mt-20">
+                    <table class="table" id="regulations-table">
+                        <thead>
+                            <tr>
+                                <th>State</th>
+                                <th>Species</th>
+                                <th>Min Size (cm)</th>
+                                <th>Max Size (cm)</th>
+                                <th>Bag Limit</th>
+                                <th>Possession Limit</th>
+                                <th>Season / Comments</th>
+                            </tr>
+                        </thead>
+                        <tbody id="regulations-tbody">
+                            <!-- Dynamically populated -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Weather & Tides View -->
+            <section id="tab-weather" class="tab-content">
+                <header class="section-header">
+                    <h1>Weather & Marine Forecast</h1>
+                    <p class="subtitle">Analyze air temperature, wind strength, lunar phase, and live tides.</p>
+                </header>
+
+                <div class="weather-station-info card glass" id="weather-station-info" style="display:none; padding: 12px 18px; font-size:13px; margin-bottom: 20px; border-left: 4px solid var(--accent-blue);">
+                    📍 <b>Weather Data Source:</b> Interpolated from Open-Meteo Grid Cell <span id="weather-source-coords" style="color: var(--accent-blue); font-weight: 600;">[Lat, Lon]</span>
+                </div>
+
+                <div class="weather-detailed-grid">
+                    <!-- Forecast Details -->
+                    <div class="card glass card-forecast-detail">
+                        <div class="card-header-flex">
+                            <h3>7-Day Forecast</h3>
+                            <button class="btn btn-glass btn-sm" id="btn-refresh-weather">🔄 Refresh</button>
+                        </div>
+                        <div class="forecast-scroller" id="weather-forecast-list">
+                            <!-- Dynamic Forecast Cards -->
+                        </div>
+                    </div>
+
+                    <!-- Tide Analysis -->
+                    <div class="card glass card-tide-detail">
+                        <h3>Tide Cycle & Heights</h3>
+                        <p class="text-secondary" style="font-size:11px; margin-top:-2px;" id="tide-station-info">📍 Tide Reference Location: Calculating...</p>
+                        <div class="tide-stat-row">
+                            <div class="tide-stat-item">
+                                <span class="value" id="tide-current-height">0.0m</span>
+                                <span class="label">Tide Level</span>
+                            </div>
+                            <div class="tide-stat-item">
+                                <span class="value" id="tide-current-dir">Steady</span>
+                                <span class="label">Direction</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Visual Tide Chart -->
+                        <div class="tide-chart-container">
+                            <canvas id="tide-chart-canvas" width="400" height="150"></canvas>
+                        </div>
+                        
+                        <h4 class="mt-20">Upcoming Tides</h4>
+                        <ul class="tide-events-list" id="tide-events-list">
+                            <!-- Dynamic next tides -->
+                        </ul>
+                    </div>
+
+                    <!-- Moon Cycle Details -->
+                    <div class="card glass card-moon-detail">
+                        <h3>Moon Cycle</h3>
+                        <div class="moon-large-display">
+                            <span class="moon-huge-icon" id="moon-detailed-icon">🌑</span>
+                            <h2 id="moon-detailed-phase">New Moon</h2>
+                            <p id="moon-detailed-illum">0% Illumination</p>
+                        </div>
+                        <div class="moon-meta-info mt-20">
+                            <p>🌕 <b>Spring Tides:</b> Stronger currents and higher/lower tides happen during Full & New Moons.</p>
+                            <p>🌗 <b>Neap Tides:</b> Moderate currents and milder tides happen during Quarter Moons.</p>
+                        </div>
+                    </div>
+
+                    <!-- Barometer & Fishing Indicator -->
+                    <div class="card glass card-barometer-detail">
+                        <h3>Barometric Pressure</h3>
+                        <div class="barometer-display">
+                            <span class="barometer-icon">🎈</span>
+                            <div class="barometer-value-group">
+                                <h2 id="weather-detailed-pressure">-- hPa</h2>
+                                <p id="weather-detailed-pressure-trend">Stable Pressure</p>
+                            </div>
+                        </div>
+                        <div class="barometer-fishing-impact" id="weather-detailed-pressure-impact">
+                            <!-- Populated dynamically -->
+                            <p>⏳ Loading pressure trend analyses...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings View -->
+            <section id="tab-settings" class="tab-content">
+                <header class="section-header">
+                    <h1>Application Settings</h1>
+                    <p class="subtitle">Configure maps, storage, offline capability, and API keys.</p>
+                </header>
+
+                <div class="settings-container max-w-600">
+                    <!-- Google Maps API Key Card -->
+                    <div class="card glass mb-20">
+                        <h3>Google Maps Configuration</h3>
+                        <p class="text-secondary mb-15">To use Google Satellite and Hybrid maps, enter your Google Maps API Key. If left blank, the app will fall back to Leaflet.js with OpenStreetMap layers.</p>
+                        <div class="form-group">
+                            <label for="settings-gmaps-key">Google Maps API Key</label>
+                            <input type="password" id="settings-gmaps-key" class="form-input" placeholder="AIzaSy...">
+                        </div>
+                        <button class="btn btn-primary" id="btn-save-settings">Save API Key</button>
+                    </div>
+
+
+
+                    <!-- Gemini AI Fish Vision Configuration Card -->
+                    <div class="card glass mb-20">
+                        <h3>Gemini Vision AI Fish Identification</h3>
+                        <p class="text-secondary mb-15">Enter your Gemini API Key to enable live AI photo scanning. The app will visually identify fish species from photos and query internet regulation databases automatically. If left blank, a smart offline fallback classifier will be used.</p>
+                        <div class="form-row mb-15">
+                            <div class="form-group flex-grow">
+                                <label for="settings-gemini-key">Gemini API Key</label>
+                                <input type="password" id="settings-gemini-key" class="form-input" placeholder="AIzaSy...">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="btn-save-gemini-settings">Save Gemini Key</button>
+                    </div>
+
+                    <!-- Roboflow AI Fish Recognition Configuration Card -->
+                    <div class="card glass mb-20">
+                        <h3>Roboflow AI Fish Recognition</h3>
+                        <p class="text-secondary mb-15">Roboflow Neural Network model integration for high-speed automated computer vision fish species recognition.</p>
+                        <div class="form-row mb-15">
+                            <div class="form-group flex-grow">
+                                <label for="settings-roboflow-key">Roboflow API Key</label>
+                                <input type="password" id="settings-roboflow-key" class="form-input" placeholder="Enter Roboflow API Key...">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="btn-save-roboflow-settings">Save Roboflow Key</button>
+                    </div>
+
+                    <!-- Developer/Test Utilities Card -->
+                    <div class="card glass mb-20">
+                        <h3>Demo Data Controls</h3>
+                        <p class="text-secondary mb-15">Quickly pre-populate your library with standard fly rod gears, reels, common flies, and simulated catch logs to preview app layouts.</p>
+                        <div class="btn-group">
+                            <button class="btn btn-glass" id="btn-import-demo">⚡ Load Demo Library & Catches</button>
+                            <button class="btn btn-glass btn-danger" id="btn-clear-db">⚠️ Erase All Local Data</button>
+                        </div>
+                    </div>
+
+                    <!-- Data Backup Export / Import Card -->
+                    <div class="card glass mb-20">
+                        <h3>📥 Backup & Data Transfer Across Devices</h3>
+                        <p class="text-secondary mb-15">Export your complete fly fishing catches, tackle library, combos, and licenses into a JSON backup file to transfer to your deployed website or mobile devices.</p>
+                        <div class="btn-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="btn btn-primary" id="btn-export-backup-file">📤 Export Backup File (.json)</button>
+                            <button class="btn btn-glass" id="btn-import-backup-file-trigger">📥 Import Backup File (.json)</button>
+                            <input type="file" id="input-import-backup-file" accept=".json" style="display: none;">
+                        </div>
+                    </div>
+
+                    <!-- Service Worker / Offline Card -->
+                    <div class="card glass mb-20">
+                        <h3>Offline & Sync</h3>
+                        <p class="text-secondary mb-15">Check local companion offline features. The app is fully configured to function offline inside remote canyons.</p>
+                        <div class="sync-status">
+                            <p><b>Storage Mode:</b> IndexedDB & LocalStorage (100% Local)</p>
+                            <p><b>Cache Status:</b> <span id="sw-status-label">Offline ready</span></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Licenses View -->
+            <section id="tab-licenses" class="tab-content">
+                <header class="section-header-flex">
+                    <div>
+                        <h1>Licenses & Permits</h1>
+                        <p class="subtitle">Record and monitor your state recreational fishing licenses.</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="window.showAddLicenseModal()">+ Add License</button>
+                </header>
+
+                <div class="licenses-grid grid-three-col" id="licenses-list">
+                    <!-- Dynamically populated -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Log Catch Modal -->
+    <div class="modal" id="modal-log-catch">
+        <div class="modal-content glass">
+            <span class="modal-close" onclick="window.hideLogCatchModal()">&times;</span>
+            <h2 id="modal-log-catch-title">Log Fish Catch</h2>
+            <form id="form-log-catch" class="modal-form">
+                <div class="form-row">
+                    <div class="form-group flex-2">
+                        <label for="catch-species">Fish Species *</label>
+                        <input type="text" id="catch-species" class="form-input" list="fish-species-list" placeholder="e.g. Rainbow Trout, Giant Trevally, Barramundi" autocomplete="off" required>
+                        <datalist id="fish-species-list"></datalist>
+                        <div id="catch-species-chips" style="display: none; flex-wrap: wrap; gap: 6px; margin-top: 6px;"></div>
+                    </div>
+                    <div class="form-group flex-1">
+                        <label for="catch-water">Water Type</label>
+                        <select id="catch-water" class="form-select">
+                            <option value="freshwater">Freshwater</option>
+                            <option value="saltwater">Saltwater</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="catch-length">Length (cm)</label>
+                        <input type="number" id="catch-length" class="form-input" placeholder="e.g. 45" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label for="catch-weight">Weight (kg)</label>
+                        <input type="number" id="catch-weight" class="form-input" placeholder="e.g. 1.2" step="0.01">
+                    </div>
+                </div>
+
+                <!-- Stream & Environmental Conditions -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="catch-clarity">Water Clarity</label>
+                        <select id="catch-clarity" class="form-select">
+                            <option value="">Select Clarity...</option>
+                            <option value="Gin Clear">Gin Clear (High Visibility)</option>
+                            <option value="Slightly Stained">Slightly Stained (Tea/Peat)</option>
+                            <option value="Muddied / High">Muddied / High Flow</option>
+                            <option value="Tidal Surge">Tidal Surge / Murky</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="catch-hatch">Active Hatch / Prey</label>
+                        <select id="catch-hatch" class="form-select">
+                            <option value="">Select Hatch/Prey...</option>
+                            <option value="Mayfly (Dun/Spinner)">Mayfly (Dun/Spinner)</option>
+                            <option value="Caddis (Sedge)">Caddis (Sedge)</option>
+                            <option value="Stonefly">Stonefly</option>
+                            <option value="Midges / Chironomids">Midges / Chironomids</option>
+                            <option value="Terrestrials (Hoppers/Ants)">Terrestrials (Hoppers/Ants)</option>
+                            <option value="Shrimp / Crab">Shrimp / Crab</option>
+                            <option value="Baitfish / Fry">Baitfish / Fry</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Tackle & Rig Used</label>
+                    <div class="tackle-rig-inputs">
+                        <select id="rig-combo-select" class="form-select mb-10" style="border-color: var(--accent-teal); box-shadow: 0 0 4px rgba(100, 255, 218, 0.2);">
+                            <option value="">-- Or Select Saved Combo / Rig --</option>
+                        </select>
+                        <select id="rig-rod" class="form-select mb-5"><option value="">Select Rod...</option></select>
+                        <select id="rig-reel" class="form-select mb-5"><option value="">Select Reel...</option></select>
+                        <select id="rig-flyline" class="form-select mb-5"><option value="">Select Fly Line...</option></select>
+                        <select id="rig-fly" class="form-select"><option value="">Select Fly/Lure...</option></select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="catch-date">Date *</label>
+                        <input type="date" id="catch-date" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="catch-time">Time *</label>
+                        <input type="time" id="catch-time" class="form-input" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="catch-lat">Latitude</label>
+                        <input type="number" id="catch-lat" class="form-input" step="0.000001">
+                    </div>
+                    <div class="form-group">
+                        <label for="catch-lng">Longitude</label>
+                        <input type="number" id="catch-lng" class="form-input" step="0.000001">
+                    </div>
+                    <div class="form-group align-self-end">
+                        <button type="button" class="btn btn-glass w-100" id="btn-catch-use-gps">🎯 Use GPS</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="catch-photo">Photo Attachment</label>
+                    <div style="display: flex; gap: 10px; margin-bottom: 5px;">
+                        <input type="file" id="catch-photo" class="form-input" accept="image/*" capture="environment" style="flex-grow: 1;">
+                    </div>
+                    <div class="photo-preview-container mt-10" id="catch-photo-preview-container" style="display:none; position: relative;">
+                        <img id="catch-photo-preview" src="" style="max-width: 100%; max-height: 180px; border-radius: 5px; display: block; margin: 0 auto;">
+                        <div class="scan-overlay" id="photo-scan-overlay" style="display:none;">
+                            <div class="scanline"></div>
+                            <span class="scan-status-label" id="scan-status-label">🔬 Extracting image contours & color profile...</span>
+                        </div>
+                        <button type="button" class="btn btn-glass btn-sm mt-5" id="btn-rescan-photo" style="width: 100%; border: 1px dashed var(--accent-teal); color: var(--accent-teal); margin-top: 8px;">
+                            🔬 AI Scan & Identify Fish Photo
+                        </button>
+                    </div>
+                    <div id="catch-regulation-box" class="card glass" style="display: none; padding: 14px; margin-top: 10px; border-left: 4px solid var(--accent-teal); font-size: 12.5px; line-height: 1.5;">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="catch-notes">Catches Notes</label>
+                    <textarea id="catch-notes" class="form-input" rows="3" placeholder="Weather conditions, water temperature, structure, retrieve speed, etc..."></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-glass" onclick="window.hideLogCatchModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Catch</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Tackle Modal -->
+    <div class="modal" id="modal-add-tackle">
+        <div class="modal-content glass">
+            <span class="modal-close" onclick="window.hideAddTackleModal()">&times;</span>
+            <h2 id="modal-tackle-title">Add Tackle or Equipment</h2>
+            <form id="form-add-tackle" class="modal-form">
+                <div class="form-group">
+                    <label for="tackle-type">Equipment Category *</label>
+                    <select id="tackle-type" class="form-select" required>
+                        <option value="rod">🎣 Fly Rod</option>
+                        <option value="reel">⚙️ Fly Reel</option>
+                        <option value="flyline">🧵 Fly Line</option>
+                        <option value="leader">🖇️ Leader</option>
+                        <option value="tippet">🪢 Tippet</option>
+                        <option value="fly">🪰 Fly / Lure</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="tackle-name">Equipment Name *</label>
+                    <input type="text" id="tackle-name" class="form-input" list="tackle-name-list" placeholder="e.g. Sage R8 Core, Woolly Bugger, Clouser Minnow" autocomplete="off" required>
+                    <datalist id="tackle-name-list"></datalist>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="tackle-brand">Brand / Manufacturer</label>
+                        <input type="text" id="tackle-brand" class="form-input" list="tackle-brand-list" placeholder="e.g. Orvis, Sage, Hatch, Rio, Loop" autocomplete="off">
+                        <datalist id="tackle-brand-list"></datalist>
+                    </div>
+                    <div class="form-group">
+                        <label for="tackle-spec">Specification / Line Wt / Hook Size</label>
+                        <input type="text" id="tackle-spec" class="form-input" list="tackle-spec-list" placeholder="e.g. 9ft 5wt, WF5F, #14 Olive, 4X 6lb" autocomplete="off">
+                        <datalist id="tackle-spec-list"></datalist>
+                    </div>
+                </div>
+
+                <!-- Leader-Tippet Rule Calculator -->
+                <div id="tackle-tippet-calc-box" style="display: none; padding: 10px; background: rgba(0, 210, 255, 0.08); border-left: 3px solid var(--accent-teal); border-radius: 6px; font-size: 11.5px; margin-bottom: 12px;">
+                    <div style="color: var(--accent-teal); font-weight: 600; margin-bottom: 2px;">📐 Leader / Tippet Formula Recommendation:</div>
+                    <div id="tackle-tippet-calc-text">Select or type a fly size to calculate tippet formula.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="tackle-notes">Details / Library Notes</label>
+                    <textarea id="tackle-notes" class="form-input" rows="3" placeholder="Condition, purchase date, fly tying materials, backing capacity, etc..."></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-glass" onclick="window.hideAddTackleModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="btn-tackle-submit">Save Equipment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Tackle Combo (Rig) Modal -->
+    <div class="modal" id="modal-add-rig">
+        <div class="modal-content glass">
+            <span class="modal-close" onclick="window.hideAddRigModal()">&times;</span>
+            <h2 id="modal-rig-title">Create Tackle Combo / Rig</h2>
+            <form id="form-add-rig" class="modal-form">
+                <div class="form-group">
+                    <label for="rig-name">Combo / Rig Name *</label>
+                    <input type="text" id="rig-name" class="form-input" placeholder="e.g. Saltwater 8WT, Freshwater 5WT, Murray Cod 8WT" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="rig-combo-rod">Fly Rod *</label>
+                    <select id="rig-combo-rod" class="form-select" required>
+                        <option value="">Select a Rod from Library...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="rig-combo-reel">Fly Reel *</label>
+                    <select id="rig-combo-reel" class="form-select" required>
+                        <option value="">Select a Reel from Library...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="rig-combo-line">Fly Line *</label>
+                    <select id="rig-combo-line" class="form-select" required>
+                        <option value="">Select a Fly Line from Library...</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="rig-combo-leader">Leader</label>
+                        <select id="rig-combo-leader" class="form-select">
+                            <option value="">Select a Leader...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="rig-combo-tippet">Tippet</label>
+                        <select id="rig-combo-tippet" class="form-select">
+                            <option value="">Select a Tippet...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="rig-combo-notes">Combo Notes</label>
+                    <textarea id="rig-combo-notes" class="form-input" rows="3" placeholder="Flats setup, backup rig, heavy sink-tip combo, etc..."></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-glass" onclick="window.hideAddRigModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="btn-rig-submit">Save Combo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Fishing Spot Modal -->
+    <div class="modal" id="modal-add-spot">
+        <div class="modal-content glass">
+            <span class="modal-close" onclick="window.hideAddSpotModal()">&times;</span>
+            <h2>Add Fishing Spot</h2>
+            <form id="form-add-spot" class="modal-form">
+                <div class="form-group">
+                    <label for="spot-name">Spot Name *</label>
+                    <input type="text" id="spot-name" class="form-input" placeholder="e.g. Goulburn River Bend" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="spot-type">Water Type *</label>
+                    <select id="spot-type" class="form-select" required>
+                        <option value="freshwater">🌲 Freshwater</option>
+                        <option value="saltwater">🌊 Saltwater</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="spot-lat">Latitude *</label>
+                        <input type="number" id="spot-lat" class="form-input" step="0.000001" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="spot-lng">Longitude *</label>
+                        <input type="number" id="spot-lng" class="form-input" step="0.000001" required>
+                    </div>
+                    <div class="form-group align-self-end">
+                        <button type="button" class="btn btn-glass w-100" id="btn-spot-use-gps" style="padding: 10px;">🎯 Use GPS</button>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-glass" onclick="window.hideAddSpotModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Fishing Spot</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add License Modal -->
+    <div class="modal" id="modal-add-license">
+        <div class="modal-content glass">
+            <span class="modal-close" onclick="window.hideAddLicenseModal()">&times;</span>
+            <h2 id="modal-license-title">Add Fishing License</h2>
+            <form id="form-add-license" class="modal-form">
+                <div class="form-row">
+                    <div class="form-group flex-2">
+                        <label for="license-state">State of Issue *</label>
+                        <select id="license-state" class="form-select" required>
+                            <option value="">Select State...</option>
+                            <option value="NSW">New South Wales (NSW)</option>
+                            <option value="VIC">Victoria (VIC)</option>
+                            <option value="QLD">Queensland (QLD)</option>
+                            <option value="TAS">Tasmania (TAS)</option>
+                            <option value="SA">South Australia (SA)</option>
+                            <option value="WA">Western Australia (WA)</option>
+                            <option value="NT">Northern Territory (NT)</option>
+                            <option value="ACT">Australian Capital Territory (ACT)</option>
+                        </select>
+                    </div>
+                    <div class="form-group flex-1">
+                        <label for="license-number">License/Permit ID *</label>
+                        <input type="text" id="license-number" class="form-input" placeholder="e.g. 48293A" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="license-expiry">Expiry Date *</label>
+                    <input type="date" id="license-expiry" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="license-conditions">Conditions & Permitted Types</label>
+                    <textarea id="license-conditions" class="form-input" rows="3" placeholder="e.g. Rod limit: 2, Trout waters allowed, Concession, Freshwater only..."></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-glass" onclick="window.hideAddLicenseModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="btn-license-submit">Save License</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Google Photos Mock Chooser Modal -->
+    <div class="modal" id="modal-gphotos-chooser">
+        <div class="modal-content glass" style="max-width: 600px; padding: 25px;">
+            <span class="modal-close" id="btn-close-gphotos-modal">&times;</span>
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                <span style="font-size: 24px;">🖼️</span>
+                <h2 style="margin: 0;">Google Photos Library</h2>
+            </div>
+            <p class="text-secondary mb-15" id="gphotos-chooser-status">Select a photo from your Google Photos library. (Test Mode: Curated fishing photos)</p>
+            
+            <div class="gphotos-grid" id="gphotos-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; max-height: 350px; overflow-y: auto; padding: 5px;">
+                <!-- Curated list of high-quality fishing photos -->
+            </div>
+            
+            <div class="modal-actions" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+                <p style="font-size: 11px; color: var(--text-secondary); margin: 0; text-align: left; max-width: 60%;">Configure Google Photos Client ID & API Key in Settings to link your live Google account.</p>
+                <button type="button" class="btn btn-glass" id="btn-close-gphotos-modal-cancel">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="db.js"></script>
+    <script src="regulations.js"></script>
+    <script src="weather.js"></script>
+    <script src="exif.js"></script>
+    <script src="map.js"></script>
+    <script src="tackle_db.js"></script>
+    <script src="fish_db.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

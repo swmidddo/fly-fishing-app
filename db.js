@@ -1,0 +1,281 @@
+// db.js - IndexedDB Wrapper for Fly Fishing App
+
+const DB_NAME = 'FlyFishingDB';
+const DB_VERSION = 4;
+let dbInstance = null;
+
+function initDB() {
+    return new Promise((resolve, reject) => {
+        if (dbInstance) {
+            resolve(dbInstance);
+            return;
+        }
+
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onerror = (event) => {
+            console.error('Database error:', event.target.error);
+            reject(event.target.error);
+        };
+
+        request.onsuccess = (event) => {
+            dbInstance = event.target.result;
+            resolve(dbInstance);
+        };
+
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            
+            // Create object store for catches
+            if (!db.objectStoreNames.contains('catches')) {
+                const catchStore = db.createObjectStore('catches', { keyPath: 'id', autoIncrement: true });
+                catchStore.createIndex('species', 'species', { unique: false });
+                catchStore.createIndex('date', 'date', { unique: false });
+            }
+
+            // Create object store for tackle
+            if (!db.objectStoreNames.contains('tackle')) {
+                const tackleStore = db.createObjectStore('tackle', { keyPath: 'id', autoIncrement: true });
+                tackleStore.createIndex('type', 'type', { unique: false });
+                tackleStore.createIndex('name', 'name', { unique: false });
+            }
+
+            // Create object store for rigs / combinations
+            if (!db.objectStoreNames.contains('rigs')) {
+                const rigStore = db.createObjectStore('rigs', { keyPath: 'id', autoIncrement: true });
+                rigStore.createIndex('name', 'name', { unique: false });
+            }
+
+            // Create object store for licenses
+            if (!db.objectStoreNames.contains('licenses')) {
+                const licenseStore = db.createObjectStore('licenses', { keyPath: 'id', autoIncrement: true });
+                licenseStore.createIndex('state', 'state', { unique: false });
+            }
+
+            // Create object store for AI model training samples
+            if (!db.objectStoreNames.contains('fish_training_samples')) {
+                const trainStore = db.createObjectStore('fish_training_samples', { keyPath: 'id', autoIncrement: true });
+                trainStore.createIndex('species', 'species', { unique: false });
+            }
+        };
+    });
+}
+
+function getStore(storeName, mode = 'readonly') {
+    return initDB().then((db) => {
+        const transaction = db.transaction(storeName, mode);
+        return transaction.objectStore(storeName);
+    });
+}
+
+const DB = {
+    // Tackle Operations
+    addTackle(item) {
+        return getStore('tackle', 'readwrite').then((store) => {
+            return new Promise((resolve, reject) => {
+                const request = store.add(item);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        });
+    },
+
+    getAllTackle() {
+        return getStore('tackle', 'readonly').then((store) => {
+            return new Promise((resolve, reject) => {
+                const request = store.getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = () => reject(request.error);
+            });
+        });
+    },
+
+    updateTackle(item) {
+        return getStore('tackle', 'readwrite').then((store) => {
+            return new Promise((resolve, reject) => {
+                const request = store.put(item);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        });
+    },
+
+    deleteTackle(id) {
+        return getStore('tackle', 'readwrite').then((store) => {
+            return new Promise((resolve, reject) => {
+                const request = store.delete(Number(id));
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        });
+    },
+
+    clearAllTackle() {
+        return getStore('tackle', 'readwrite').then((store) => {
+            return new Promise((resolve, reject) => {
+                const request = store.clear();
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        });
+    },
+
+    // Catch Operations
+    addCatch(item) {
+        return getStore('catches', 'readwrite').then((store) => {
+            return new Promise((resolve, reject) => {
+                const request = store.add(item);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        });
+    },
+
+    getAllCatches() {
+        return getStore('catches', 'readonly').then((store) => {
+            return new Promise((resolve, reject) => {
+                const request = store.getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = () => reject(request.error);
+            });
+        });
+    },
+
+    updateCatch(item) {
+        return getStore('catches', 'readwrite').then((store) => {
+            return new Promise((resolve, reject) => {
+                const request = store.put(item);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        });
+    },
+
+    deleteCatch(id) {
+        return getStore('catches', 'readwrite').then((store) => {
+            return new Promise((resolve, reject) => {
+                const request = store.delete(Number(id));
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        });
+    },
+
+    clearAllCatches() {
+        return getStore('catches', 'readwrite').then((store) => {
+            return new Promise((resolve, reject) => {
+                const request = store.clear();
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        });
+    },
+
+    // Rig / Combo Operations
+    addRig(item) {
+        return getStore('rigs', 'readwrite').then((store) => {
+            return new Promise((resolve, reject) => {
+                const request = store.add(item);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        });
+    },
+
+    getAllRigs() {
+        return getStore('rigs', 'readonly').then((store) => {
+            return new Promise((resolve, reject) => {
+                const request = store.getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = () => reject(request.error);
+            });
+        });
+    },
+
+    updateRig(item) {
+        return getStore('rigs', 'readwrite').then((store) => {
+            return new Promise((resolve, reject) => {
+                const request = store.put(item);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        });
+    },
+
+    deleteRig(id) {
+        return getStore('rigs', 'readwrite').then((store) => {
+            return new Promise((resolve, reject) => {
+                const request = store.delete(Number(id));
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        });
+    },
+
+    // License Operations
+    addLicense(item) {
+        return getStore('licenses', 'readwrite').then((store) => {
+            return new Promise((resolve, reject) => {
+                const request = store.add(item);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        });
+    },
+
+    getAllLicenses() {
+        return getStore('licenses', 'readonly').then((store) => {
+            return new Promise((resolve, reject) => {
+                const request = store.getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = () => reject(request.error);
+            });
+        });
+    },
+
+    updateLicense(item) {
+        return getStore('licenses', 'readwrite').then((store) => {
+            return new Promise((resolve, reject) => {
+                const request = store.put(item);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        });
+    },
+
+    deleteLicense(id) {
+        return getStore('licenses', 'readwrite').then((store) => {
+            return new Promise((resolve, reject) => {
+                const request = store.delete(Number(id));
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        });
+    },
+
+    // AI Model Training & Reinforcement Sample Storage
+    addTrainingSample(species, photoDataUrl) {
+        if (!species || !photoDataUrl) return Promise.resolve();
+        return getStore('fish_training_samples', 'readwrite').then((store) => {
+            return new Promise((resolve) => {
+                const sample = { species, photo: photoDataUrl, timestamp: new Date().toISOString() };
+                const req = store.add(sample);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => resolve(null);
+            });
+        });
+    },
+
+    getAllTrainingSamples() {
+        return getStore('fish_training_samples', 'readonly').then((store) => {
+            return new Promise((resolve) => {
+                const req = store.getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => resolve([]);
+            });
+        });
+    }
+};
+
+// Export to window for access in other scripts
+window.DB = DB;
