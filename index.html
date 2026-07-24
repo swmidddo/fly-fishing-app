@@ -59,6 +59,7 @@
                 </button>
             </nav>
             <div class="sidebar-footer">
+                <div id="nav-user-profile" style="margin-bottom: 10px;"></div>
                 <div class="gps-indicator" id="gps-status">
                     <span class="pulse-dot red"></span>
                     <span class="gps-text">GPS Inactive</span>
@@ -503,6 +504,11 @@
                 </header>
 
                 <div class="settings-container max-w-600">
+                    <!-- User Account & Cloud Vault Sync Card -->
+                    <div class="card glass mb-20" id="settings-user-card">
+                        <!-- Dynamic user account card renders here via auth.js -->
+                    </div>
+
                     <!-- Google Maps API Key Card -->
                     <div class="card glass mb-20">
                         <h3>Google Maps Configuration</h3>
@@ -943,6 +949,49 @@
                 <p style="font-size: 11px; color: var(--text-secondary); margin: 0; text-align: left; max-width: 60%;">Configure Google Photos Client ID & API Key in Settings to link your live Google account.</p>
                 <button type="button" class="btn btn-glass" id="btn-close-gphotos-modal-cancel">Close</button>
             </div>
+    <!-- User Authentication Modal -->
+    <div class="modal-backdrop" id="modal-auth">
+        <div class="modal-card glass max-w-400" style="padding: 25px; border-radius: 16px; border: 1px solid rgba(0, 210, 255, 0.2);">
+            <button class="modal-close" onclick="window.AuthApp.closeAuthModal()">&times;</button>
+            <div class="text-center mb-20">
+                <span style="font-size: 42px; display: block; margin-bottom: 5px;">👤</span>
+                <h3 id="auth-modal-title">Angler Cloud Sign In</h3>
+                <p class="text-secondary" style="font-size: 12px; margin-top: 4px;">Sync your catches, tackle library, and secret spots across all your devices.</p>
+            </div>
+
+            <!-- Auth Mode Switcher -->
+            <div class="btn-group mb-20" style="display: flex; gap: 5px; background: rgba(0,0,0,0.2); padding: 4px; border-radius: 8px;">
+                <button type="button" class="btn btn-sm flex-grow active" id="btn-auth-tab-signin" style="flex: 1;">Sign In</button>
+                <button type="button" class="btn btn-sm flex-grow btn-glass" id="btn-auth-tab-register" style="flex: 1;">Create Account</button>
+            </div>
+
+            <!-- Auth Form -->
+            <form id="form-auth">
+                <div class="form-group mb-15" id="auth-group-name" style="display: none;">
+                    <label for="auth-name">Angler Name</label>
+                    <input type="text" id="auth-name" class="form-input" placeholder="e.g. Captain Jack">
+                </div>
+                <div class="form-group mb-15">
+                    <label for="auth-email">Email Address</label>
+                    <input type="email" id="auth-email" class="form-input" placeholder="angler@example.com" required>
+                </div>
+                <div class="form-group mb-20">
+                    <label for="auth-password">Password</label>
+                    <input type="password" id="auth-password" class="form-input" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block mb-15" id="btn-auth-submit" style="width: 100%;">Sign In</button>
+            </form>
+
+            <div style="display: flex; align-items: center; margin: 15px 0; color: var(--text-secondary); font-size: 11px;">
+                <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
+                <span style="padding: 0 10px;">OR</span>
+                <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
+            </div>
+
+            <button type="button" class="btn btn-glass btn-block" id="btn-auth-google" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.15C3.25 21.36 7.34 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.24C.45 8.16 0 9.99 0 12s.45 3.84 1.24 5.42l4.04-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.25 2.64 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
+                <span>Continue with Google</span>
+            </button>
         </div>
     </div>
 
@@ -954,6 +1003,7 @@
     <script src="map.js"></script>
     <script src="tackle_db.js"></script>
     <script src="fish_db.js"></script>
+    <script src="auth.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

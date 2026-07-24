@@ -1,6 +1,6 @@
 // sw.js - Service Worker for Offline fly fishing app companion caching
 
-const CACHE_NAME = 'fly-fishing-v84';
+const CACHE_NAME = 'fly-fishing-v86';
 const STATIC_ASSETS = [
     './',
     'index.html',
@@ -12,6 +12,7 @@ const STATIC_ASSETS = [
     'map.js',
     'tackle_db.js',
     'fish_db.js',
+    'auth.js',
     'app.js',
     'https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap',
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',

@@ -2779,11 +2779,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function restoreBackupData() {
         try {
+            const db = await initDB();
+
+            const currentCatches = await window.DB.getAllCatches();
+            const currentTackle = await window.DB.getAllTackle();
+
+            // CRITICAL SAFEGUARD: Do NOT overwrite active user data! Only restore from backup if database is completely empty.
+            if (currentCatches.length > 0 || currentTackle.length > 0) {
+                console.log("Active user database detected. Preserving user catches and tackle.");
+                return;
+            }
+
             const response = await fetch('session_backup.json');
             if (!response.ok) return;
             const backup = await response.json();
             
-            console.log("Found session backup file from previous session. Synchronizing...");
+            console.log("Empty database detected. Restoring initial backup dataset...");
             
             // Sync LocalStorage spots and car coordinates
             if (backup.fishingSpots && backup.fishingSpots.length > 0) {
@@ -2801,18 +2812,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
 
-            // Sync IndexedDB tables with real session backup data
-            const db = await initDB();
-            
             const syncStore = async (storeName, dataList) => {
                 if (!dataList || dataList.length === 0) return;
                 const tx = db.transaction(storeName, 'readwrite');
                 const store = tx.objectStore(storeName);
-                store.clear();
                 for (const item of dataList) {
                     store.put(item);
                 }
-                console.log(`Synchronized ${dataList.length} items to ${storeName}`);
+                console.log(`Restored ${dataList.length} items to ${storeName}`);
             };
 
             if (backup.tackle && backup.tackle.length > 0) await syncStore('tackle', backup.tackle);
@@ -3591,6 +3598,76 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error("Database init failed", e);
     }
     
+    // User Auth Modal Event Listeners
+    const btnAuthSignin = document.getElementById('btn-auth-tab-signin');
+    const btnAuthRegister = document.getElementById('btn-auth-tab-register');
+    const authGroupName = document.getElementById('auth-group-name');
+    const authTitle = document.getElementById('auth-modal-title');
+    const authSubmit = document.getElementById('btn-auth-submit');
+    const formAuth = document.getElementById('form-auth');
+    const btnAuthGoogle = document.getElementById('btn-auth-google');
+
+    let isRegisterMode = false;
+
+    if (btnAuthSignin && btnAuthRegister) {
+        btnAuthSignin.addEventListener('click', () => {
+            isRegisterMode = false;
+            btnAuthSignin.classList.add('active');
+            btnAuthSignin.classList.remove('btn-glass');
+            btnAuthRegister.classList.remove('active');
+            btnAuthRegister.classList.add('btn-glass');
+            if (authGroupName) authGroupName.style.display = 'none';
+            if (authTitle) authTitle.textContent = 'Angler Cloud Sign In';
+            if (authSubmit) authSubmit.textContent = 'Sign In';
+        });
+
+        btnAuthRegister.addEventListener('click', () => {
+            isRegisterMode = true;
+            btnAuthRegister.classList.add('active');
+            btnAuthRegister.classList.remove('btn-glass');
+            btnAuthSignin.classList.remove('active');
+            btnAuthSignin.classList.add('btn-glass');
+            if (authGroupName) authGroupName.style.display = 'block';
+            if (authTitle) authTitle.textContent = 'Create Angler Account';
+            if (authSubmit) authSubmit.textContent = 'Create Account';
+        });
+    }
+
+    if (formAuth) {
+        formAuth.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const name = document.getElementById('auth-name') ? document.getElementById('auth-name').value : '';
+
+            try {
+                if (isRegisterMode) {
+                    await window.AuthApp.register(name, email, password);
+                } else {
+                    await window.AuthApp.login(email, password);
+                }
+                window.AuthApp.closeAuthModal();
+                alert(`Welcome back! Cloud sync enabled for ${email}`);
+            } catch (err) {
+                alert("Authentication error: " + err.message);
+            }
+        });
+    }
+
+    if (btnAuthGoogle) {
+        btnAuthGoogle.addEventListener('click', async () => {
+            try {
+                await window.AuthApp.loginWithGoogle();
+                window.AuthApp.closeAuthModal();
+                alert("Google Sign-In successful! Cloud sync enabled.");
+            } catch (err) {
+                alert("Google sign-in error: " + err.message);
+            }
+        });
+    }
+
+    try { if (window.AuthApp) window.AuthApp.initAuth(); } catch (e) { console.error("Auth init failed", e); }
+
     try { initLocationTracking(); } catch (e) { console.error("GPS init failed", e); }
     try { await initMapEngine(); } catch (e) { console.error("Map init failed", e); }
     try { initRegulations(); } catch (e) { console.error("Regulations init failed", e); }
