@@ -912,7 +912,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         elements.rigFly.innerHTML = '<option value="">Select Fly/Lure...</option>';
 
         AppState.tackle.forEach(item => {
-            const option = `<option value="${item.name}">${item.name} (${item.brand || 'No Brand'})</option>`;
+            const specStr = item.spec ? ` (${item.spec})` : '';
+            const brandStr = item.brand ? `${item.brand} ` : '';
+            const labelText = `${brandStr}${item.name}${specStr}`;
+            const option = `<option value="${labelText}">${labelText}</option>`;
+            
             if (item.type === 'rod') elements.rigRod.insertAdjacentHTML('beforeend', option);
             else if (item.type === 'reel') elements.rigReel.insertAdjacentHTML('beforeend', option);
             else if (item.type === 'flyline') elements.rigFlyline.insertAdjacentHTML('beforeend', option);
@@ -931,7 +935,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         elements.rigComboTippet.innerHTML = '<option value="">Select a Tippet...</option>';
 
         AppState.tackle.forEach(item => {
-            const option = `<option value="${item.id}">${item.brand ? item.brand + ' ' : ''}${item.name}</option>`;
+            const specStr = item.spec ? ` (${item.spec})` : '';
+            const brandStr = item.brand ? `${item.brand} ` : '';
+            const labelText = `${brandStr}${item.name}${specStr}`;
+            const option = `<option value="${item.id}">${labelText}</option>`;
+            
             if (item.type === 'rod') elements.rigComboRod.insertAdjacentHTML('beforeend', option);
             else if (item.type === 'reel') elements.rigComboReel.insertAdjacentHTML('beforeend', option);
             else if (item.type === 'flyline') elements.rigComboLine.insertAdjacentHTML('beforeend', option);
@@ -2692,19 +2700,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const currentCatches = await window.DB.getAllCatches();
             const currentTackle = await window.DB.getAllTackle();
 
-            if ((!currentCatches || currentCatches.length === 0) && (!currentTackle || currentTackle.length === 0)) {
-                console.log("Empty database detected on fresh deployment. Seeding initial tackle & catches...");
-
-                const defaultTackle = [
-                    { type: 'rod', name: 'Orvis Helios 4 5wt', brand: 'Orvis', spec: '9ft 5wt 4pc', notes: 'My primary stream dry fly rod.' },
-                    { type: 'rod', name: 'Sage Igniter 10wt', brand: 'Sage', spec: '9ft 10wt 4pc', notes: 'Heavy saltwater flats & reef rod.' },
-                    { type: 'reel', name: 'Orvis Mirage LT II', brand: 'Orvis', spec: '3-5wt Sealed Drag', notes: 'Loaded with SA Amplitude Smooth WF5F.' },
-                    { type: 'reel', name: 'Hatch Iconic 9 Plus', brand: 'Hatch', spec: '9-11wt Saltwater', notes: 'Sealed drag, loaded with 300m Gel Spun backing.' },
-                    { type: 'flyline', name: 'SA Amplitude Smooth WF5F', brand: 'Scientific Anglers', spec: 'WF5F Floating', notes: 'Smooth textured dry fly taper.' },
-                    { type: 'fly', name: 'Royal Wulff #12', brand: 'Hand Tied', spec: 'Size 12', notes: 'High floating attractor dry fly.' },
-                    { type: 'fly', name: 'Clouser Minnow (Chartreuse) #2/0', brand: 'Tied', spec: 'Size 2/0', notes: 'Weighted dumbbell eyes baitfish streamer.' }
-                ];
-
+            if (!currentCatches || currentCatches.length === 0) {
+                console.log("Empty catches detected. Seeding sample catch logs...");
                 const defaultCatches = [
                     {
                         species: "Rainbow Trout",
@@ -2715,9 +2712,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         lng: 145.8932,
                         photo: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=600&q=80",
                         notes: "Caught in a deep bubble line pool just before dusk on the Goulburn River. Rose slowly to a Royal Wulff #12. High jumping runs!",
-                        rod: "Orvis Helios 4 5wt",
-                        reel: "Orvis Mirage LT II",
-                        flyline: "SA Amplitude Smooth WF5F",
+                        rod: "Orvis Helios 4 D (Distance)",
+                        reel: "Lamson Litespeed M8",
+                        flyline: "SA Amplitude Smooth Grand Slam",
                         fly: "Royal Wulff #12",
                         date: "2026-07-20",
                         time: "17:45",
@@ -2738,10 +2735,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                         lng: 145.771,
                         photo: "https://images.unsplash.com/photo-1542382257-201b3ff74667?auto=format&fit=crop&w=600&q=80",
                         notes: "Sighted feeding on outer reef dropoff near Cairns. Aggressive strike on a 2/0 Chartreuse Clouser Minnow. Required 10wt rod with backing run!",
-                        rod: "Sage Igniter 10wt",
-                        reel: "Hatch Iconic 9 Plus",
-                        flyline: "Rio Leviathan 400gr Sinking",
-                        fly: "Clouser Minnow (Chartreuse) #2/0",
+                        rod: "Primal Mega CCC",
+                        reel: "Tibor Riptide",
+                        flyline: "SA Amplitude Textured Infinity",
+                        fly: "EP Minnow",
                         date: "2026-07-22",
                         time: "11:15",
                         weatherCondition: "Mainly clear",
@@ -2754,11 +2751,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 ];
 
-                for (const item of defaultTackle) {
-                    await window.DB.addTackle(item);
-                }
                 for (const item of defaultCatches) {
                     await window.DB.addCatch(item);
+                }
+            }
+
+            if (!currentTackle || currentTackle.length === 0) {
+                console.log("Empty tackle detected. Seeding sample tackle library...");
+                const defaultTackle = [
+                    { type: 'rod', name: 'Orvis Helios 4 5wt', brand: 'Orvis', spec: '9ft 5wt 4pc', notes: 'My primary stream dry fly rod.' },
+                    { type: 'rod', name: 'Sage Igniter 10wt', brand: 'Sage', spec: '9ft 10wt 4pc', notes: 'Heavy saltwater flats & reef rod.' },
+                    { type: 'reel', name: 'Orvis Mirage LT II', brand: 'Orvis', spec: '3-5wt Sealed Drag', notes: 'Loaded with SA Amplitude Smooth WF5F.' },
+                    { type: 'reel', name: 'Hatch Iconic 9 Plus', brand: 'Hatch', spec: '9-11wt Saltwater', notes: 'Sealed drag, loaded with 300m Gel Spun backing.' },
+                    { type: 'flyline', name: 'SA Amplitude Smooth WF5F', brand: 'Scientific Anglers', spec: 'WF5F Floating', notes: 'Smooth textured dry fly taper.' },
+                    { type: 'fly', name: 'Royal Wulff #12', brand: 'Hand Tied', spec: 'Size 12', notes: 'High floating attractor dry fly.' },
+                    { type: 'fly', name: 'Clouser Minnow (Chartreuse) #2/0', brand: 'Tied', spec: 'Size 2/0', notes: 'Weighted dumbbell eyes baitfish streamer.' }
+                ];
+
+                for (const item of defaultTackle) {
+                    await window.DB.addTackle(item);
                 }
             }
         } catch (e) {
@@ -2794,7 +2805,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const db = await initDB();
             
             const syncStore = async (storeName, dataList) => {
-                if (!dataList) return;
+                if (!dataList || dataList.length === 0) return;
                 const tx = db.transaction(storeName, 'readwrite');
                 const store = tx.objectStore(storeName);
                 store.clear();
@@ -2805,7 +2816,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
 
             if (backup.tackle && backup.tackle.length > 0) await syncStore('tackle', backup.tackle);
-            if (backup.catches) await syncStore('catches', backup.catches);
+            if (backup.catches && backup.catches.length > 0) await syncStore('catches', backup.catches);
             if (backup.rigs && backup.rigs.length > 0) await syncStore('rigs', backup.rigs);
             if (backup.licenses && backup.licenses.length > 0) await syncStore('licenses', backup.licenses);
         } catch (e) {
