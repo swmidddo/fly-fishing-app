@@ -794,6 +794,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             populateTackleDropdowns();
             populateRigDropdowns();
             updateStats();
+            saveBackupData();
         } catch (error) {
             console.error("Failed to load tackle library:", error);
         }
@@ -1245,6 +1246,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateStats();
             if (window.AppMap) window.AppMap.renderAllMarkers();
             triggerBackgroundEnvironmentalFetch();
+            saveBackupData();
         } catch (error) {
             console.error("Failed to load catches:", error);
         }
