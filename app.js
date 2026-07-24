@@ -2388,9 +2388,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                         const db = await initDB();
                         const importStore = async (storeName, list) => {
-                            if (!list || list.length === 0) return;
+                            if (!list) return;
                             const tx = db.transaction(storeName, 'readwrite');
                             const store = tx.objectStore(storeName);
+                            store.clear();
                             for (const item of list) {
                                 store.put(item);
                             }
@@ -2404,7 +2405,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         if (backup.fishingSpots) localStorage.setItem('fishingSpots', JSON.stringify(backup.fishingSpots));
                         if (backup.carCoords) localStorage.setItem('carCoords', JSON.stringify(backup.carCoords));
 
-                        alert("Backup data imported successfully!");
+                        alert("Backup data imported successfully! All custom gear & catches loaded.");
                         window.location.reload();
                     } catch (err) {
                         alert("Import failed: " + err.message);
@@ -2789,32 +2790,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
 
-            // Sync IndexedDB tables if they are empty or have fewer items
+            // Sync IndexedDB tables with real session backup data
             const db = await initDB();
             
             const syncStore = async (storeName, dataList) => {
-                if (!dataList || dataList.length === 0) return;
-                const currentItems = await new Promise((resolve) => {
-                    const tx = db.transaction(storeName, 'readonly');
-                    const req = tx.objectStore(storeName).getAll();
-                    req.onsuccess = () => resolve(req.result || []);
-                    req.onerror = () => resolve([]);
-                });
-                
-                if (currentItems.length < dataList.length) {
-                    const tx = db.transaction(storeName, 'readwrite');
-                    const store = tx.objectStore(storeName);
-                    for (const item of dataList) {
-                        store.put(item);
-                    }
-                    console.log(`Synchronized ${dataList.length} items to ${storeName}`);
+                if (!dataList) return;
+                const tx = db.transaction(storeName, 'readwrite');
+                const store = tx.objectStore(storeName);
+                store.clear();
+                for (const item of dataList) {
+                    store.put(item);
                 }
+                console.log(`Synchronized ${dataList.length} items to ${storeName}`);
             };
 
-            await syncStore('tackle', backup.tackle);
-            await syncStore('catches', backup.catches);
-            await syncStore('rigs', backup.rigs);
-            await syncStore('licenses', backup.licenses);
+            if (backup.tackle && backup.tackle.length > 0) await syncStore('tackle', backup.tackle);
+            if (backup.catches) await syncStore('catches', backup.catches);
+            if (backup.rigs && backup.rigs.length > 0) await syncStore('rigs', backup.rigs);
+            if (backup.licenses && backup.licenses.length > 0) await syncStore('licenses', backup.licenses);
         } catch (e) {
             console.warn("Failed to synchronize from session backup file:", e);
         }
