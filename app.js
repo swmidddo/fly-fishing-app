@@ -312,15 +312,15 @@ const initMainApp = async () => {
 
     // 3. Location Tracking (GPS)
     window.requestGpsLocation = function() {
-        const fallbackLat = -33.8688;
-        const fallbackLon = 151.2093;
+        const fallbackLat = -30.3183; // Narrabri Airport NSW
+        const fallbackLon = 149.8265;
 
         // Instant 2.5-second safety timer: Ensures live weather & location ALWAYS load on mobile HTTP
         const gpsSafetyTimer = setTimeout(() => {
             if (!AppState.userCoords) {
                 console.warn("GPS lock timed out, applying default NSW coordinates for live weather");
                 AppState.userCoords = { lat: fallbackLat, lng: fallbackLon };
-                updateGpsStatus(true, `📍 Location: NSW Waters`);
+                updateGpsStatus(true, `📍 Location: Narrabri Airport, NSW`);
                 if (typeof loadWeatherAndTides === 'function') {
                     loadWeatherAndTides(fallbackLat, fallbackLon);
                 }
@@ -1127,6 +1127,15 @@ const initMainApp = async () => {
     }
 
     // Tackle Modals
+    window.showAddFlyModal = (prefillCategory = 'fly') => {
+        const tackleTypeEl = document.getElementById('tackle-type');
+        if (tackleTypeEl) {
+            tackleTypeEl.value = prefillCategory;
+            tackleTypeEl.dispatchEvent(new Event('change'));
+        }
+        window.showAddTackleModal();
+    };
+
     window.showAddTackleModal = () => {
         if (window.updateTackleSuggestions) window.updateTackleSuggestions();
         elements.modalAddTackle.classList.add('active');
@@ -2078,16 +2087,42 @@ const initMainApp = async () => {
     }
 
     // 8. Weather, Moon and Tides logic
-    async function loadWeatherAndTides(lat, lon) {
+    let lastWeatherFetchTime = 0;
+    let lastWeatherFetchLat = null;
+    let lastWeatherFetchLon = null;
+
+    async function loadWeatherAndTides(lat, lon, forceRefresh = false) {
         if (!lat || !lon) {
-            lat = -33.8688;
-            lon = 151.2093;
+            lat = -30.3183;
+            lon = 149.8265;
         }
 
+        const now = Date.now();
+        const timeDiff = now - lastWeatherFetchTime;
+        
+        let distanceKm = 0;
+        if (lastWeatherFetchLat !== null && lastWeatherFetchLon !== null) {
+            const dLat = (lat - lastWeatherFetchLat) * (Math.PI / 180);
+            const dLon = (lon - lastWeatherFetchLon) * (Math.PI / 180);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lastWeatherFetchLat * (Math.PI / 180)) * Math.cos(lat * (Math.PI / 180)) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            distanceKm = 6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+        }
+
+        // Throttle: Re-fetch only if forced, or > 10 minutes passed, or moved > 2 km
+        if (!forceRefresh && lastWeatherFetchTime > 0 && timeDiff < 600000 && distanceKm < 2.0) {
+            return;
+        }
+
+        lastWeatherFetchTime = now;
+        lastWeatherFetchLat = lat;
+        lastWeatherFetchLon = lon;
+
         try {
-            const now = new Date();
-            const moon = window.WEATHER ? window.WEATHER.getMoonPhase(now) : { label: 'New Moon', icon: '🌑', illumination: 0 };
-            const tides = window.WEATHER ? window.WEATHER.getTideData(lat, lon, now) : { currentHeight: '1.2m', tideDirection: 'Rising', nextEvents: [] };
+            const nowObj = new Date();
+            const moon = window.WEATHER ? window.WEATHER.getMoonPhase(nowObj) : { label: 'New Moon', icon: '🌑', illumination: 0 };
+            const tides = window.WEATHER ? window.WEATHER.getTideData(lat, lon, nowObj) : { currentHeight: '1.2m', tideDirection: 'Rising', nextEvents: [] };
 
             AppState.moonData = moon;
             AppState.tideData = tides;
@@ -2098,7 +2133,6 @@ const initMainApp = async () => {
         }
 
         try {
-            if (elements.dashWeatherDesc) elements.dashWeatherDesc.textContent = "Updating forecast...";
             const weather = window.WEATHER ? await window.WEATHER.fetchForecast(lat, lon) : null;
             if (weather) {
                 AppState.weatherData = weather;
@@ -2112,34 +2146,42 @@ const initMainApp = async () => {
 
     function displayAstroData(moon, tides, lat, lon) {
         const now = new Date();
-        // Dashboard
-        if (document.getElementById('dash-moon-phase')) {
-            document.getElementById('dash-moon-phase').textContent = moon.label;
-            document.getElementById('dash-moon-illum').textContent = `${moon.illumination}% Illumination`;
-            // Also need moon icon
-            const moonIconEl = document.getElementById('dash-moon-icon');
-            if (moonIconEl) moonIconEl.textContent = moon.icon;
+        
+        // Moon & Tide Dashboard Elements
+        if (elements.dashMoonIcon) elements.dashMoonIcon.textContent = moon.icon;
+        if (elements.dashMoonPhase) elements.dashMoonPhase.textContent = moon.label;
+        if (elements.dashMoonIllum) elements.dashMoonIllum.textContent = `${moon.illumination}% Illumination`;
+
+        if (elements.dashTideHeight) elements.dashTideHeight.textContent = tides.currentHeight;
+        if (elements.dashTideDir) {
+            elements.dashTideDir.textContent = tides.tideDirection;
+            elements.dashTideDir.style.color = tides.tideDirection === 'Rising' ? 'var(--accent-teal)' : 'var(--accent-orange)';
         }
 
-        if (elements.dashTideHeight) {
-            elements.dashTideHeight.textContent = tides.currentHeight;
-            elements.dashTideDir.textContent = `${tides.tideDirection} Tide`;
-        }
+        // Calculate Solunar Feeding Windows
+        const solunar = (window.WEATHER && typeof window.WEATHER.getSolunarData === 'function')
+            ? window.WEATHER.getSolunarData(now, lat, lon)
+            : {
+                score: 85,
+                rating: "Prime",
+                ratingIcon: "🔥",
+                ratingColor: "var(--accent-teal)",
+                majorWindows: [{ start: "07:15 AM", end: "09:15 AM" }, { start: "07:45 PM", end: "09:45 PM" }],
+                minorWindows: [{ start: "01:30 AM", end: "02:30 AM" }, { start: "01:55 PM", end: "02:55 PM" }]
+            };
 
-        // Display Solunar Feeding Windows
-        const solunar = window.WEATHER.getSolunarData(now, lat, lon);
         AppState.solunarData = solunar;
 
         const solunarBadge = document.getElementById('dash-solunar-badge');
         const solunarWindows = document.getElementById('dash-solunar-windows');
 
         if (solunarBadge) {
-            solunarBadge.textContent = `${solunar.ratingIcon} ${solunar.rating} ${solunar.score}%`;
-            solunarBadge.style.color = solunar.ratingColor;
-            solunarBadge.style.borderColor = solunar.ratingColor;
+            solunarBadge.textContent = `${solunar.ratingIcon || '🔥'} ${solunar.rating || 'Prime'} ${solunar.score || 85}%`;
+            solunarBadge.style.color = solunar.ratingColor || 'var(--accent-teal)';
+            solunarBadge.style.borderColor = solunar.ratingColor || 'var(--accent-teal)';
         }
 
-        if (solunarWindows) {
+        if (solunarWindows && solunar.majorWindows && solunar.minorWindows) {
             solunarWindows.innerHTML = `
                 <div style="background: rgba(255,255,255,0.04); padding: 6px 8px; border-radius: 6px; border-left: 2px solid var(--accent-teal);">
                     <strong>🔥 Major Window 1:</strong><br>${solunar.majorWindows[0].start} - ${solunar.majorWindows[0].end}
@@ -2341,9 +2383,9 @@ const initMainApp = async () => {
 
     if (elements.refreshWeatherBtn) {
         elements.refreshWeatherBtn.addEventListener('click', () => {
-            const lat = AppState.userCoords ? AppState.userCoords.lat : -25.2744;
-            const lon = AppState.userCoords ? AppState.userCoords.lng : 133.7751;
-            loadWeatherAndTides(lat, lon);
+            const lat = AppState.userCoords ? AppState.userCoords.lat : -33.8688;
+            const lon = AppState.userCoords ? AppState.userCoords.lng : 151.2093;
+            loadWeatherAndTides(lat, lon, true);
         });
     }
 

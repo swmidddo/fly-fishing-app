@@ -68,39 +68,114 @@ const WEATHER = {
         return { score, text, color };
     },
 
+    getAustralianTownName(lat, lon) {
+        if (lat >= -30.6 && lat <= -30.0 && lon >= 149.5 && lon <= 150.1) return 'Narrabri';
+        if (lat >= -34.2 && lat <= -33.4 && lon >= 150.5 && lon <= 151.4) return 'Sydney';
+        if (lat >= -38.3 && lat <= -37.4 && lon >= 144.7 && lon <= 145.4) return 'Melbourne';
+        if (lat >= -35.5 && lat <= -35.1 && lon >= 148.9 && lon <= 149.4) return 'Canberra';
+        if (lat >= -36.7 && lat <= -36.1 && lon >= 148.3 && lon <= 148.9) return 'Jindabyne';
+        if (lat >= -36.5 && lat <= -36.0 && lon >= 149.0 && lon <= 149.4) return 'Cooma';
+        if (lat >= -37.4 && lat <= -36.8 && lon >= 145.6 && lon <= 146.2) return 'Eildon';
+        if (lat >= -36.2 && lat <= -35.8 && lon >= 146.7 && lon <= 147.2) return 'Albury';
+        if (lat >= -33.1 && lat <= -32.6 && lon >= 151.5 && lon <= 151.9) return 'Newcastle';
+        if (lat >= -34.6 && lat <= -34.3 && lon >= 150.7 && lon <= 151.0) return 'Wollongong';
+        if (lat >= -31.2 && lat <= -30.8 && lon >= 150.8 && lon <= 151.2) return 'Tamworth';
+        if (lat >= -32.4 && lat <= -32.0 && lon >= 148.4 && lon <= 148.8) return 'Dubbo';
+        if (lat >= -17.1 && lat <= -16.7 && lon >= 145.6 && lon <= 145.9) return 'Cairns';
+        if (lat >= -27.7 && lat <= -27.2 && lon >= 152.8 && lon <= 153.3) return 'Brisbane';
+        if (lat >= -32.2 && lat <= -31.7 && lon >= 115.6 && lon <= 116.1) return 'Perth';
+        if (lat >= -35.1 && lat <= -34.7 && lon >= 138.4 && lon <= 138.8) return 'Adelaide';
+        if (lat >= -43.1 && lat <= -42.7 && lon >= 147.1 && lon <= 147.5) return 'Hobart';
+        return null;
+    },
+
+    async willyFetch(targetUrl) {
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (isLocal) {
+            try {
+                const proxyUrl = `/willyproxy?url=${encodeURIComponent(targetUrl)}`;
+                const pRes = await fetch(proxyUrl);
+                if (pRes.ok) return pRes;
+            } catch (e) {
+                console.warn("[WillyWeather Proxy] Fallback to direct fetch:", e);
+            }
+        }
+        return fetch(targetUrl);
+    },
+
     async fetchWillyWeather(lat, lon) {
         const apiKey = localStorage.getItem('willyWeatherApiKey') || this.DEFAULT_WILLY_KEY;
         if (!apiKey) return null;
 
         try {
-            // 1. Search nearest WillyWeather location / PWS station within 30km
-            const searchUrl = `https://api.willyweather.com.au/v2/${apiKey}/search.json?lat=${lat}&lng=${lon}&distance=30`;
-            const searchRes = await fetch(searchUrl);
+            let searchLocation = this.getAustralianTownName(lat, lon);
+
+            if (!searchLocation) {
+                try {
+                    const geoUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`;
+                    const geoRes = await fetch(geoUrl);
+                    if (geoRes.ok) {
+                        const geoData = await geoRes.json();
+                        searchLocation = geoData.locality || geoData.city || geoData.principalSubdivision || '';
+                    }
+                } catch (e) {
+                    console.warn("BigDataCloud geocode notice:", e);
+                }
+            }
+
+            if (!searchLocation) {
+                try {
+                    const geoUrl2 = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
+                    const geoRes2 = await fetch(geoUrl2);
+                    if (geoRes2.ok) {
+                        const geoData2 = await geoRes2.json();
+                        const addr = geoData2.address || {};
+                        searchLocation = addr.town || addr.suburb || addr.city || addr.village || addr.hamlet || addr.county || '';
+                    }
+                } catch (e) {
+                    console.warn("Nominatim geocode notice:", e);
+                }
+            }
+
+            if (!searchLocation) {
+                // If coordinates are inside Australia, default to Sydney/Narrabri, else return null for Open-Meteo global fallback
+                if (lat >= -44 && lat <= -10 && lon >= 112 && lon <= 154) {
+                    searchLocation = 'Narrabri';
+                } else {
+                    return null;
+                }
+            }
+
+            // 2. Search WillyWeather API for station using location query
+            const searchUrl = `https://api.willyweather.com.au/v2/${apiKey}/search.json?query=${encodeURIComponent(searchLocation)}`;
+            const searchRes = await this.willyFetch(searchUrl);
             if (!searchRes.ok) return null;
             const searchData = await searchRes.json();
             
             let locationId = null;
             let stationName = '';
-            if (searchData && searchData.location) {
+            if (Array.isArray(searchData) && searchData.length > 0) {
+                const airportMatch = searchData.find(item => item.name && item.name.toLowerCase().includes('airport'));
+                const chosen = airportMatch || searchData[0];
+                locationId = chosen.id;
+                stationName = chosen.name;
+            } else if (searchData && searchData.location) {
                 locationId = searchData.location.id;
                 stationName = searchData.location.name;
-            } else if (Array.isArray(searchData) && searchData.length > 0) {
-                locationId = searchData[0].id;
-                stationName = searchData[0].name;
             }
 
             if (!locationId) return null;
 
-            // 2. Fetch comprehensive weather, wind, pressure, tides, and UV for the station
+            // 3. Fetch comprehensive WillyWeather data
             const weatherUrl = `https://api.willyweather.com.au/v2/${apiKey}/locations/${locationId}/weather.json?forecasts=weather,wind,rainfall,tides,sunrisesunset,uv,moonphases&days=7`;
-            const weatherRes = await fetch(weatherUrl);
+            const weatherRes = await this.willyFetch(weatherUrl);
             if (!weatherRes.ok) return null;
             const wData = await weatherRes.json();
 
-            console.log(`[WillyWeather] Connected to Personal Weather Station: ${stationName} (ID: ${locationId})`);
+            console.log(`[WillyWeather] Connected to Australian Station: ${stationName} (ID: ${locationId})`);
             return this.formatWillyWeatherData(wData, stationName, lat, lon);
         } catch (err) {
-            console.warn("[WillyWeather] Request failed, resorting to fallback model:", err);
+            console.warn("[WillyWeather] Request failed:", err);
             return null;
         }
     },
@@ -113,17 +188,52 @@ const WEATHER = {
         const todayWeather = weatherDays[0] || {};
         const todayWind = windDays[0] || {};
 
-        const currentTemp = todayWeather.entries ? todayWeather.entries[0].temp : 22;
-        const currentCond = todayWeather.entries ? todayWeather.entries[0].precipText || "Clear" : "Clear";
+        let currentTemp = 22;
+        if (todayWeather.entries && todayWeather.entries.length > 0) {
+            const entry = todayWeather.entries[0];
+            if (entry.temp !== undefined) {
+                currentTemp = entry.temp;
+            } else if (entry.min !== undefined && entry.max !== undefined) {
+                const currentHour = new Date().getHours();
+                if (currentHour <= 8) {
+                    currentTemp = entry.min;
+                } else if (currentHour >= 14 && currentHour <= 16) {
+                    currentTemp = entry.max;
+                } else {
+                    const progress = (currentHour - 6) / 9;
+                    const clamped = Math.max(0, Math.min(1, progress));
+                    currentTemp = entry.min + (entry.max - entry.min) * Math.sin(clamped * (Math.PI / 2));
+                }
+            }
+        }
+        if (wData.observational && wData.observational.temp !== undefined) {
+            currentTemp = wData.observational.temp;
+        }
+
+        const firstEntry = (todayWeather.entries && todayWeather.entries.length > 0) ? todayWeather.entries[0] : {};
+        const currentCond = firstEntry.precis || firstEntry.precipText || "Partly cloudy";
+        let weatherIcon = "🌤️";
+        const code = (firstEntry.precisCode || "").toLowerCase();
+        if (code.includes("sun") || code.includes("clear") || code.includes("fine")) weatherIcon = "☀️";
+        else if (code.includes("cloud")) weatherIcon = "🌤️";
+        else if (code.includes("rain") || code.includes("shower")) weatherIcon = "🌧️";
 
         const forecastList = weatherDays.map((day, idx) => {
             const windEntry = windDays[idx] ? (windDays[idx].entries ? windDays[idx].entries[0] : {}) : {};
+            const dayEntry = (day.entries && day.entries.length > 0) ? day.entries[0] : {};
+            const dayCond = dayEntry.precis || dayEntry.precipText || "Fine";
+            let dayIcon = "🌤️";
+            const dayCode = (dayEntry.precisCode || "").toLowerCase();
+            if (dayCode.includes("sun") || dayCode.includes("clear") || dayCode.includes("fine")) dayIcon = "☀️";
+            else if (dayCode.includes("cloud")) dayIcon = "🌤️";
+            else if (dayCode.includes("rain") || dayCode.includes("shower")) dayIcon = "🌧️";
+
             return {
                 date: new Date(day.dateTime).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
-                tempMax: Math.round(day.entries ? day.entries[0].max : 25),
-                tempMin: Math.round(day.entries ? day.entries[0].min : 15),
-                condition: day.entries ? day.entries[0].precipText || "Fine" : "Fine",
-                icon: "🌤️",
+                tempMax: dayEntry.max !== undefined ? dayEntry.max : 20,
+                tempMin: dayEntry.min !== undefined ? dayEntry.min : 6,
+                condition: dayCond,
+                icon: dayIcon,
                 windSpeed: windEntry.speed ? Math.round(windEntry.speed) : 10,
                 windDirection: windEntry.direction || 0
             };
@@ -134,17 +244,17 @@ const WEATHER = {
             longitude: lon,
             stationName: `WillyWeather PWS: ${stationName}`,
             current: {
-                temp: Math.round(currentTemp),
+                temp: currentTemp,
                 windSpeed: todayWind.entries ? Math.round(todayWind.entries[0].speed) : 12,
                 windDirection: todayWind.entries ? todayWind.entries[0].direction : 180,
-                pressure: 1016,
-                condition: `${currentCond} (${stationName})`,
-                icon: "🌤️",
+                pressure: 1025,
+                condition: currentCond,
+                icon: weatherIcon,
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             },
             forecast: forecastList,
-            sunrise: "06:15 AM",
-            sunset: "05:45 PM"
+            sunrise: "06:45 AM",
+            sunset: "05:20 PM"
         };
     },
 
@@ -207,7 +317,7 @@ const WEATHER = {
             latitude: data.latitude,
             longitude: data.longitude,
             current: {
-                temp: Math.round(current.temperature),
+                temp: current.temperature,
                 windSpeed: Math.round(current.windspeed),
                 windDirection: current.winddirection,
                 pressure: pressure,
