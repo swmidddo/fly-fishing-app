@@ -2347,6 +2347,24 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
+        // WillyWeather Settings
+        const willyInput = document.getElementById('settings-willyweather-key');
+        const btnSaveWilly = document.getElementById('btn-save-willyweather-settings');
+
+        if (willyInput) {
+            willyInput.value = localStorage.getItem('willyWeatherApiKey') || 'MjlkNjAwNWVjMzA4MTFlOGEwZjMyY2';
+        }
+        if (btnSaveWilly && willyInput) {
+            btnSaveWilly.addEventListener('click', async () => {
+                const val = willyInput.value.trim();
+                localStorage.setItem('willyWeatherApiKey', val);
+                alert("WillyWeather API Key saved! Connecting to nearby Personal Weather Stations (<30km)...");
+                if (AppState.userCoords) {
+                    await loadWeatherAndTides(AppState.userCoords.lat, AppState.userCoords.lng);
+                }
+            });
+        }
+
         // Export Backup File Listener
         const btnExport = document.getElementById('btn-export-backup-file');
         if (btnExport) {

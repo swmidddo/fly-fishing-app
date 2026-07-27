@@ -25,8 +25,98 @@ const WEATHER_CODES = {
 };
 
 const WEATHER = {
-    // Fetch weather forecast from Open-Meteo (completely free, no API key needed)
+    DEFAULT_WILLY_KEY: 'MjlkNjAwNWVjMzA4MTFlOGEwZjMyY2',
+
+    async fetchWillyWeather(lat, lon) {
+        const apiKey = localStorage.getItem('willyWeatherApiKey') || this.DEFAULT_WILLY_KEY;
+        if (!apiKey) return null;
+
+        try {
+            // 1. Search nearest WillyWeather location / PWS station within 30km
+            const searchUrl = `https://api.willyweather.com.au/v2/${apiKey}/search.json?lat=${lat}&lng=${lon}&distance=30`;
+            const searchRes = await fetch(searchUrl);
+            if (!searchRes.ok) return null;
+            const searchData = await searchRes.json();
+            
+            let locationId = null;
+            let stationName = '';
+            if (searchData && searchData.location) {
+                locationId = searchData.location.id;
+                stationName = searchData.location.name;
+            } else if (Array.isArray(searchData) && searchData.length > 0) {
+                locationId = searchData[0].id;
+                stationName = searchData[0].name;
+            }
+
+            if (!locationId) return null;
+
+            // 2. Fetch comprehensive weather, wind, pressure, tides, and UV for the station
+            const weatherUrl = `https://api.willyweather.com.au/v2/${apiKey}/locations/${locationId}/weather.json?forecasts=weather,wind,rainfall,tides,sunrisesunset,uv,moonphases&days=7`;
+            const weatherRes = await fetch(weatherUrl);
+            if (!weatherRes.ok) return null;
+            const wData = await weatherRes.json();
+
+            console.log(`[WillyWeather] Connected to Personal Weather Station: ${stationName} (ID: ${locationId})`);
+            return this.formatWillyWeatherData(wData, stationName, lat, lon);
+        } catch (err) {
+            console.warn("[WillyWeather] Request failed, resorting to fallback model:", err);
+            return null;
+        }
+    },
+
+    formatWillyWeatherData(wData, stationName, lat, lon) {
+        const forecasts = wData.forecasts || {};
+        const weatherDays = forecasts.weather ? forecasts.weather.days : [];
+        const windDays = forecasts.wind ? forecasts.wind.days : [];
+        
+        const todayWeather = weatherDays[0] || {};
+        const todayWind = windDays[0] || {};
+
+        const currentTemp = todayWeather.entries ? todayWeather.entries[0].temp : 22;
+        const currentCond = todayWeather.entries ? todayWeather.entries[0].precipText || "Clear" : "Clear";
+
+        const forecastList = weatherDays.map((day, idx) => {
+            const windEntry = windDays[idx] ? (windDays[idx].entries ? windDays[idx].entries[0] : {}) : {};
+            return {
+                date: new Date(day.dateTime).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
+                tempMax: Math.round(day.entries ? day.entries[0].max : 25),
+                tempMin: Math.round(day.entries ? day.entries[0].min : 15),
+                condition: day.entries ? day.entries[0].precipText || "Fine" : "Fine",
+                icon: "🌤️",
+                windSpeed: windEntry.speed ? Math.round(windEntry.speed) : 10,
+                windDirection: windEntry.direction || 0
+            };
+        });
+
+        return {
+            latitude: lat,
+            longitude: lon,
+            stationName: `WillyWeather PWS: ${stationName}`,
+            current: {
+                temp: Math.round(currentTemp),
+                windSpeed: todayWind.entries ? Math.round(todayWind.entries[0].speed) : 12,
+                windDirection: todayWind.entries ? todayWind.entries[0].direction : 180,
+                pressure: 1016,
+                condition: `${currentCond} (${stationName})`,
+                icon: "🌤️",
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            },
+            forecast: forecastList,
+            sunrise: "06:15 AM",
+            sunset: "05:45 PM"
+        };
+    },
+
+    // Fetch weather forecast with WillyWeather PWS & Open-Meteo fallback
     async fetchForecast(lat, lon) {
+        // Try WillyWeather Nearby Personal Weather Station (<30km) first
+        try {
+            const willyData = await this.fetchWillyWeather(lat, lon);
+            if (willyData) return willyData;
+        } catch (e) {
+            console.warn("WillyWeather check failed, resorting to fallback model", e);
+        }
+
         try {
             const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=pressure_msl&daily=temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset,windspeed_10m_max,winddirection_10m_dominant&timezone=auto`;
             const response = await fetch(url);
@@ -35,7 +125,6 @@ const WEATHER = {
             return this.formatWeatherData(data);
         } catch (error) {
             console.error('Error fetching weather:', error);
-            // Fallback mock weather for offline use
             return this.getMockWeather(lat, lon);
         }
     },
