@@ -9,15 +9,18 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style -->
-    <link rel="stylesheet" href="styles.css?v=200">
+    <link rel="stylesheet" href="styles.css?v=1200">
     <script>
-        // Force unregister stale SW caches once for v200 upgrade
-        if ('serviceWorker' in navigator && !localStorage.getItem('sw_v200_cleared')) {
+        // Force instant cache wipe on every version bump
+        const CURRENT_VERSION = 'v1200';
+        if ('serviceWorker' in navigator && localStorage.getItem('sw_app_version') !== CURRENT_VERSION) {
             navigator.serviceWorker.getRegistrations().then(registrations => {
                 for (let r of registrations) r.unregister();
-                if ('caches' in window) caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
-                localStorage.setItem('sw_v200_cleared', 'true');
-                location.reload(true);
+                if ('caches' in window) {
+                    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
+                }
+                localStorage.setItem('sw_app_version', CURRENT_VERSION);
+                setTimeout(() => location.reload(true), 150);
             });
         }
     </script>
@@ -64,6 +67,14 @@
                 <button class="nav-item" data-tab="licenses">
                     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><line x1="15" y1="8" x2="19" y2="8"></line><line x1="15" y1="12" x2="17" y2="12"></line><path d="M7 16c0-1 1-2 2-2s2 1 2 2"></path></svg>
                     <span>My Licenses</span>
+                </button>
+                <button class="nav-item" data-tab="flybox">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    <span>Virtual Fly Box</span>
+                </button>
+                <button class="nav-item" data-tab="knots">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><path d="M8 12s1.5-2 4-2 4 2 4 2-1.5 2-4 2-4-2-4-2z"></path></svg>
+                    <span>Knots & Tippet Guide</span>
                 </button>
                 <button class="nav-item" data-tab="settings">
                     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -306,7 +317,10 @@
                         <h1>Catch Logs</h1>
                         <p class="subtitle">Complete catalog of your angling success.</p>
                     </div>
-                    <button class="btn btn-primary" onclick="window.showLogCatchModal()">+ Log New Catch</button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-glass" onclick="window.openTripJournalModal()">📄 Export Trip Journal PDF</button>
+                        <button class="btn btn-primary" onclick="window.showLogCatchModal()">+ Log New Catch</button>
+                    </div>
                 </header>
 
                 <div class="filters-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
@@ -503,6 +517,213 @@
                         <div class="barometer-fishing-impact" id="weather-detailed-pressure-impact">
                             <!-- Populated dynamically -->
                             <p>⏳ Loading pressure trend analyses...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <!-- Virtual Fly Box View -->
+            <section id="tab-flybox" class="tab-content">
+                <header class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
+                    <div>
+                        <h1>🪰 Virtual Fly Box &amp; Hatch Matcher</h1>
+                        <p class="subtitle">Organize your fly box compartments and match active insect hatches for current weather.</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="window.showAddFlyModal()">+ Add New Fly</button>
+                </header>
+
+                <!-- Hatch Matcher Recommendation Banner -->
+                <div class="card glass mb-20" id="hatch-matcher-recommendations" style="border-left: 4px solid var(--accent-teal);">
+                    <!-- Dynamic hatch recommendations render here -->
+                </div>
+
+                <!-- Fly Box Compartments Grid -->
+                <div class="flybox-grid grid-three-col" id="flybox-grid-container">
+                    <!-- Dynamic fly cards render here -->
+                </div>
+            </section>
+
+            <!-- Knots &amp; Tippet Guide View -->
+            <section id="tab-knots" class="tab-content">
+                <header class="section-header">
+                    <h1>🪢 Fly Fishing Knot &amp; Master Tippet Guide</h1>
+                    <p class="subtitle">Step-by-step visual guides for essential fly knots and official Orvis Master Tippet Selection Chart.</p>
+                </header>
+
+                <!-- Orvis Pro Tip Banner -->
+                <div class="card glass mb-20" style="border-left: 4px solid var(--accent-teal); padding: 16px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                        <span style="font-size: 24px;">💡</span>
+                        <h4 style="margin: 0; color: var(--accent-teal);">Orvis "Rule of Three" Tippet Formula:</h4>
+                    </div>
+                    <p style="font-size: 12.5px; color: #cbd5e1; margin: 0; line-height: 1.5;">
+                        To find your starting tippet size, <b>divide your fly hook size by 3</b>. For example, a <b>#12 hook</b> works with <b>4X tippet</b> ($12 \div 3 = 4$). Use <b>Nylon Monofilament</b> for high-buoyancy dry flies and <b>Fluorocarbon</b> for fast-sinking, invisible nymph &amp; streamer presentations.
+                    </p>
+                </div>
+
+                <!-- Tippet Size Calculator Card -->
+                <div class="card glass mb-20" style="border-left: 4px solid var(--accent-blue); padding: 20px;">
+                    <h3>📏 Interactive Tippet X-Size &amp; Hook Calculator</h3>
+                    <p class="text-secondary mb-15">Select your fly hook size and tippet material to calculate exact diameter, X-rating, and breaking test strength.</p>
+                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <div class="form-group" style="margin: 0; min-width: 200px;">
+                            <label for="tippet-hook-select">Fly Hook Size / Tippet Target</label>
+                            <select id="tippet-hook-select" class="form-select" onchange="window.updateTippetCalculatorUI()">
+                                <option value="28">#28 (Micro Midge / Spring Creek)</option>
+                                <option value="26">#26 (Micro Emerger)</option>
+                                <option value="24">#24 (Tiny Midge)</option>
+                                <option value="22">#22 (Ultra Micro Midge)</option>
+                                <option value="20">#20 (Micro Nymph / Spooky Trout)</option>
+                                <option value="18">#18 (Small Nymph / Emerger)</option>
+                                <option value="16">#16 (Standard Caddis / Small Nymph)</option>
+                                <option value="14" selected>#14 (Standard Mayfly Dun / Nymph)</option>
+                                <option value="12">#12 (March Brown / Large Dry)</option>
+                                <option value="10">#10 (Stonefly / Large Dry)</option>
+                                <option value="8">#8 (Hopper / Streamer)</option>
+                                <option value="6">#6 (Large Hopper / Woolly Bugger)</option>
+                                <option value="4">#4 (Heavy Streamer / Clouser)</option>
+                                <option value="2">#2 (Bass Bug / Salmon)</option>
+                                <option value="0">#1/0 - #4 (0X Heavy Streamer / Flats)</option>
+                                <option value=".012">.012" (Saltwater Flats / Bonefish)</option>
+                                <option value=".013">.013" (Heavy Saltwater Poppers / GT)</option>
+                                <option value=".015">.015" (Offshore Billfish / Heavy Shock)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin: 0; min-width: 170px;">
+                            <label for="tippet-material-select">Tippet Material</label>
+                            <select id="tippet-material-select" class="form-select" onchange="window.updateTippetCalculatorUI()">
+                                <option value="nylon" selected>🧵 Nylon Monofilament (Floats / Dry Fly)</option>
+                                <option value="fluoro">💧 Fluorocarbon (Invisible / Nymphs)</option>
+                            </select>
+                        </div>
+                        <div id="tippet-calc-results" style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 18px; display: flex; gap: 20px; align-items: center; flex-grow: 1;">
+                            <div>
+                                <span style="font-size: 11px; color: var(--text-secondary); display: block;">Recommended</span>
+                                <strong id="tippet-res-x" style="font-size: 20px; color: var(--accent-teal);">5X</strong>
+                            </div>
+                            <div>
+                                <span style="font-size: 11px; color: var(--text-secondary); display: block;">Diameter</span>
+                                <span id="tippet-res-diam" style="font-weight: 600; color: var(--text-primary);">.006" (0.15 mm)</span>
+                            </div>
+                            <div>
+                                <span style="font-size: 11px; color: var(--text-secondary); display: block;">Breaking Test</span>
+                                <span id="tippet-res-test" style="font-weight: 600; color: var(--success);">4.75 lbs (2.15 kg)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Knot Category Filter Pills -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
+                    <span style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-right: 5px;">Filter Knots:</span>
+                    <button type="button" class="btn btn-sm knot-filter-btn" onclick="window.filterKnotsCategory('all', this)" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); border: 1px solid var(--accent-teal); border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 600;">
+                        🌐 All Knots (10)
+                    </button>
+                    <button type="button" class="btn btn-sm knot-filter-btn" onclick="window.filterKnotsCategory('hook', this)" style="background: rgba(255,255,255,0.05); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 600;">
+                        🪰 Line to Fly / Hook Knots (6)
+                    </button>
+                    <button type="button" class="btn btn-sm knot-filter-btn" onclick="window.filterKnotsCategory('line', this)" style="background: rgba(255,255,255,0.05); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 600;">
+                        🔗 Line to Line Knots (4)
+                    </button>
+                </div>
+
+                <!-- Knots Grid -->
+                <div id="knots-grid-container">
+                    <!-- Knot 1: Uni-Knot -->
+                    <div class="card glass knot-card" style="border-left: 4px solid var(--accent-teal); padding: 20px; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 32px;">➰</span>
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <h3 style="margin: 0; font-size: 18px; color: var(--text-primary);">Uni-Knot</h3>
+                                        <span class="badge" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); border: 1px solid var(--accent-teal); font-size: 10px; padding: 2px 8px;">Line to Hook</span>
+                                    </div>
+                                    <span style="font-size: 12px; color: var(--text-secondary); font-weight: 500; display: block; margin-top: 2px;">Universal Tippet to Fly Hook Connection</span>
+                                </div>
+                            </div>
+                            <span class="badge" style="background: rgba(46, 213, 115, 0.15); color: var(--success); border: 1px solid var(--success); font-size: 11px; padding: 4px 10px;">Strength: 95%</span>
+                        </div>
+                        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.4;">The standard Uni-Knot is one of the most reliable terminal knots in all of angling. Extremely dependable, easy to tie in low light or cold weather, and holds tight on both monofilament and fluorocarbon lines.</p>
+                        <div style="margin-bottom: 16px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); text-align: center; padding: 8px;">
+                            <img src="images/knot_uni_guide_1785127344360.jpg" alt="Uni-Knot Visual Diagram" style="max-width: 100%; height: auto; max-height: 240px; border-radius: 8px; object-fit: contain;">
+                            <span style="display: block; font-size: 11px; color: var(--accent-teal); margin-top: 6px; font-weight: 500;">📷 Step-by-Step Visual Diagram Aid</span>
+                        </div>
+                        <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
+                            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px;">Step-by-Step Tying Instructions:</div>
+                            <ol style="margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; display: flex; flex-direction: column; gap: 8px;">
+                                <li>1. Run 6 inches of tippet line through the eye of the fly hook.</li>
+                                <li>2. Lay the tag end back alongside the standing line to form a loop over both lines.</li>
+                                <li>3. Wrap the tag end around both lines 4 to 5 times, passing through the loop on each turn.</li>
+                                <li>4. Moisten line with saliva and pull the tag end to draw the wraps into a neat, tight barrel knot.</li>
+                                <li>5. Slide the barrel knot down firmly against the hook eye to lock the knot tightly.</li>
+                                <li>6. Trim tag end clean.</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- Knot 2: Improved Clinch Knot -->
+                    <div class="card glass knot-card" style="border-left: 4px solid var(--accent-teal); padding: 20px; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 32px;">🎣</span>
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <h3 style="margin: 0; font-size: 18px; color: var(--text-primary);">Improved Clinch Knot</h3>
+                                        <span class="badge" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); border: 1px solid var(--accent-teal); font-size: 10px; padding: 2px 8px;">Line to Hook</span>
+                                    </div>
+                                    <span style="font-size: 12px; color: var(--text-secondary); font-weight: 500; display: block; margin-top: 2px;">Tippet to Fly Hook (Universal Classic)</span>
+                                </div>
+                            </div>
+                            <span class="badge" style="background: rgba(46, 213, 115, 0.15); color: var(--success); border: 1px solid var(--success); font-size: 11px; padding: 4px 10px;">Strength: 95%</span>
+                        </div>
+                        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.4;">The most widely used terminal knot in fly fishing. Reliable, easy to tie, and holds tight on standard wire hooks (#8 to #18).</p>
+                        <div style="margin-bottom: 16px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); text-align: center; padding: 8px;">
+                            <img src="images/knot_clinch_guide_1785126982604.jpg" alt="Improved Clinch Knot Visual Diagram" style="max-width: 100%; height: auto; max-height: 240px; border-radius: 8px; object-fit: contain;">
+                            <span style="display: block; font-size: 11px; color: var(--accent-teal); margin-top: 6px; font-weight: 500;">📷 Step-by-Step Visual Diagram Aid</span>
+                        </div>
+                        <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
+                            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px;">Step-by-Step Tying Instructions:</div>
+                            <ol style="margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; display: flex; flex-direction: column; gap: 8px;">
+                                <li>1. Thread 3-4 inches of tippet through the fly hook eye.</li>
+                                <li>2. Wrap the tag end around the standing line 5 to 7 times.</li>
+                                <li>3. Thread the tag end through the small loop next to the hook eye.</li>
+                                <li>4. Pass the tag end back through the large loop you just created.</li>
+                                <li>5. Moisten with saliva and pull standing line steadily to tighten wraps neatly against the hook eye.</li>
+                                <li>6. Trim tag end close.</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- Knot 3: Non-Slip Loop Knot -->
+                    <div class="card glass knot-card" style="border-left: 4px solid var(--accent-teal); padding: 20px; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 32px;">➰</span>
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <h3 style="margin: 0; font-size: 18px; color: var(--text-primary);">Non-Slip Loop Knot</h3>
+                                        <span class="badge" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); border: 1px solid var(--accent-teal); font-size: 10px; padding: 2px 8px;">Line to Hook</span>
+                                    </div>
+                                    <span style="font-size: 12px; color: var(--text-secondary); font-weight: 500; display: block; margin-top: 2px;">Tippet to Fly (Maximum Swimming Action)</span>
+                                </div>
+                            </div>
+                            <span class="badge" style="background: rgba(46, 213, 115, 0.15); color: var(--success); border: 1px solid var(--success); font-size: 11px; padding: 4px 10px;">Strength: 95%</span>
+                        </div>
+                        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.4;">The gold standard knot for tying streamer and nymph flies. Creates an open loop so flies swim with natural movement.</p>
+                        <div style="margin-bottom: 16px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); text-align: center; padding: 8px;">
+                            <img src="images/knot_loop_guide_1785124977547.jpg" alt="Non-Slip Loop Knot Visual Diagram" style="max-width: 100%; height: auto; max-height: 240px; border-radius: 8px; object-fit: contain;">
+                            <span style="display: block; font-size: 11px; color: var(--accent-teal); margin-top: 6px; font-weight: 500;">📷 Step-by-Step Visual Diagram Aid</span>
+                        </div>
+                        <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
+                            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px;">Step-by-Step Tying Instructions:</div>
+                            <ol style="margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; display: flex; flex-direction: column; gap: 8px;">
+                                <li>1. Tie an overhand knot in the tippet line about 2-3 inches from the end. Leave it loose.</li>
+                                <li>2. Pass the tag end through the eye of the fly hook.</li>
+                                <li>3. Pass the tag end back through the loop of the overhand knot.</li>
+                                <li>4. Wrap the tag end 4 to 5 times around the standing line above the overhand knot.</li>
+                                <li>5. Bring the tag end back down and thread it through the overhand knot loop in the same direction it entered.</li>
+                                <li>6. Moisten with saliva, pull the standing line and fly firmly to seat the knot tight, then trim the tag end.</li>
+                            </ol>
                         </div>
                     </div>
                 </div>
@@ -893,10 +1114,13 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="spot-type">Water Type *</label>
+                    <label for="spot-type">Pin Category &amp; Water Type *</label>
                     <select id="spot-type" class="form-select" required>
-                        <option value="freshwater">🌲 Freshwater</option>
-                        <option value="saltwater">🌊 Saltwater</option>
+                        <option value="spot">🌲 Freshwater Secret Spot Pin</option>
+                        <option value="saltwater">🌊 Saltwater Fishing Spot Pin</option>
+                        <option value="parking">🚗 Parking / Trailhead Access Pin</option>
+                        <option value="hazard">⚠️ Wading Hazard Warning Pin</option>
+                        <option value="campsite">🏕️ Campsite / River Shack Pin</option>
                     </select>
                 </div>
 
@@ -1034,15 +1258,31 @@
         </div>
     </div>
 
+    <!-- Printable Trip Journal Modal -->
+    <div class="modal" id="modal-trip-journal" style="left: 260px; width: calc(100vw - 260px);">
+        <div class="modal-content" style="max-width: 600px; margin: 0 auto; background: #0f1c30; border: 1.5px solid var(--accent-teal); border-radius: 16px; padding: 28px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.95); position: relative;">
+            <span class="modal-close" onclick="document.getElementById('modal-trip-journal').classList.remove('active')">&times;</span>
+            <div id="printable-trip-content">
+                <!-- Dynamic trip report rendered here -->
+            </div>
+            <div class="modal-actions" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+                <button type="button" class="btn btn-glass" onclick="document.getElementById('modal-trip-journal').classList.remove('active')">Close</button>
+                <button type="button" class="btn btn-primary" onclick="window.printTripJournalReport()">📄 Print / Save PDF</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
-    <script src="db.js?v=200"></script>
-    <script src="regulations.js?v=200"></script>
-    <script src="weather.js?v=200"></script>
-    <script src="exif.js?v=200"></script>
-    <script src="map.js?v=200"></script>
-    <script src="tackle_db.js?v=200"></script>
-    <script src="fish_db.js?v=200"></script>
-    <script src="auth.js?v=200"></script>
-    <script src="app.js?v=200"></script>
+    <script src="db.js?v=1200"></script>
+    <script src="regulations.js?v=1200"></script>
+    <script src="weather.js?v=1200"></script>
+    <script src="exif.js?v=1200"></script>
+    <script src="map.js?v=1200"></script>
+    <script src="tackle_db.js?v=1200"></script>
+    <script src="fish_db.js?v=1200"></script>
+    <script src="fly_box.js?v=1200"></script>
+    <script src="knots.js?v=1200"></script>
+    <script src="auth.js?v=1200"></script>
+    <script src="app.js?v=1200"></script>
 </body>
 </html>

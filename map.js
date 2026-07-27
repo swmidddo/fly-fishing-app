@@ -544,7 +544,23 @@ const AppMap = {
 
         this.fishingSpotsData.forEach(spot => {
             const pos = this.isGoogleMaps ? new google.maps.LatLng(spot.lat, spot.lng) : [spot.lat, spot.lng];
-            const iconEmoji = spot.type === 'saltwater' ? '🌊' : '🌲';
+            
+            let iconEmoji = '🌲';
+            let pinColor = '#2ed573';
+
+            if (spot.type === 'parking') {
+                iconEmoji = '🚗';
+                pinColor = '#ff9f43';
+            } else if (spot.type === 'hazard') {
+                iconEmoji = '⚠️';
+                pinColor = '#ff5252';
+            } else if (spot.type === 'campsite') {
+                iconEmoji = '🏕️';
+                pinColor = '#a855f7';
+            } else if (spot.type === 'saltwater') {
+                iconEmoji = '🌊';
+                pinColor = '#00e5ff';
+            }
 
             if (this.isGoogleMaps) {
                 const marker = new google.maps.Marker({
@@ -565,13 +581,14 @@ const AppMap = {
                     html: `
                         <div class="spot-pin-marker" style="position:relative; width:30px; height:30px; display:flex; align-items:center; justify-content:center;">
                             <svg viewBox="0 0 24 24" width="30" height="30" style="filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));">
-                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="${spot.type === 'saltwater' ? '#00e5ff' : '#2ed573'}" stroke="white" stroke-width="2"/>
+                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="${pinColor}" stroke="white" stroke-width="2"/>
                             </svg>
-                            <span style="position:absolute; top:4px; font-size:12px;">${spot.type === 'saltwater' ? '🌊' : '🌲'}</span>
+                            <span style="position:absolute; top:4px; font-size:12px;">${iconEmoji}</span>
                         </div>
                     `,
                     iconSize: [30, 30],
-                    iconAnchor: [15, 30]
+                    iconAnchor: [15, 30],
+                    popupAnchor: [0, -30]
                 });
 
                 const marker = L.marker(pos, { icon: spotPinIcon })

@@ -27,6 +27,47 @@ const WEATHER_CODES = {
 const WEATHER = {
     DEFAULT_WILLY_KEY: 'MjlkNjAwNWVjMzA4MTFlOGEwZjMyY2',
 
+    calculateBiteScore(pressure = 1016, windSpeed = 10, moonPhaseName = "New Moon") {
+        let score = 50;
+
+        if (pressure >= 1013 && pressure <= 1025) {
+            score += 30;
+        } else if (pressure > 1025) {
+            score += 20;
+        } else if (pressure >= 1005 && pressure < 1013) {
+            score += 15;
+        } else {
+            score += 5;
+        }
+
+        if (windSpeed <= 15) {
+            score += 15;
+        } else if (windSpeed <= 25) {
+            score += 5;
+        }
+
+        if (moonPhaseName.includes("New") || moonPhaseName.includes("Full")) {
+            score += 10;
+        }
+
+        score = Math.min(98, Math.max(25, score));
+        let text = "Good Feeding Conditions";
+        let color = "var(--accent-teal)";
+
+        if (score >= 80) {
+            text = "🔥 PRIME BITE WINDOW! Fish feeding actively.";
+            color = "#2ed573";
+        } else if (score >= 60) {
+            text = "🌤️ Moderate Activity - Focus on riffles & seam lines.";
+            color = "#00d2ff";
+        } else {
+            text = "⚠️ Slow Bite - Use small nymphs & slow retrieves.";
+            color = "#ff9f43";
+        }
+
+        return { score, text, color };
+    },
+
     async fetchWillyWeather(lat, lon) {
         const apiKey = localStorage.getItem('willyWeatherApiKey') || this.DEFAULT_WILLY_KEY;
         if (!apiKey) return null;

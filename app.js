@@ -160,8 +160,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         AppState.activeTab = tabId;
         localStorage.setItem('lastActiveTab', tabId);
 
+        const allNavItems = document.querySelectorAll('.nav-item');
+        const allTabs = document.querySelectorAll('.tab-content');
+
         // Update nav items
-        elements.navItems.forEach(item => {
+        allNavItems.forEach(item => {
             if (item.getAttribute('data-tab') === tabId) {
                 item.classList.add('active');
             } else {
@@ -170,7 +173,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         // Update tab contents
-        elements.tabs.forEach(tab => {
+        allTabs.forEach(tab => {
             if (tab.id === `tab-${tabId}`) {
                 tab.classList.add('active');
             } else {
@@ -178,11 +181,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        // Specific tab initializations
-        if (tabId === 'map') {
+        if (tabId === 'flybox' && window.FlyBoxApp) {
+            window.FlyBoxApp.renderFlyBoxUI();
+            window.FlyBoxApp.renderHatchMatcherUI();
+        } else if (tabId === 'knots' && window.KnotsApp) {
+            window.KnotsApp.renderKnotsUI();
+        } else if (tabId === 'licenses' && typeof renderLicensesList === 'function') {
+            renderLicensesList();
+        } else if (tabId === 'map') {
             setTimeout(() => {
                 if (window.AppMap && window.AppMap.map) {
-                    // Force resize trigger for Leaflet
                     if (!window.AppMap.isGoogleMaps) {
                         window.AppMap.map.invalidateSize();
                     }
@@ -190,8 +198,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }, 100);
         } else if (tabId === 'weather') {
             drawTideChart();
-        } else if (tabId === 'licenses') {
-            renderLicensesList();
         }
     }
 
@@ -3790,4 +3796,73 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         toast.style.display = 'block';
     }
+
+    // Helper to update Tippet Size Calculator UI
+    window.updateTippetCalculatorUI = function() {
+        const select = document.getElementById('tippet-hook-select');
+        if (!select || !window.KnotsApp) return;
+        const res = window.KnotsApp.calculateTippet(select.value);
+        
+        const elX = document.getElementById('tippet-res-x');
+        const elDiam = document.getElementById('tippet-res-diam');
+        const elTest = document.getElementById('tippet-res-test');
+
+        if (elX) elX.textContent = res.xRating;
+        if (elDiam) elDiam.textContent = res.diam;
+        if (elTest) elTest.textContent = res.test;
+    };
+
+    // Printable Trip Journal Modal & Report Generator
+    window.openTripJournalModal = async function() {
+        const modal = document.getElementById('modal-trip-journal');
+        const container = document.getElementById('printable-trip-content');
+        if (!modal || !container) return;
+
+        try {
+            const catches = await window.DB.getAllCatches();
+            const tackle = await window.DB.getAllTackle();
+            const user = window.AuthApp ? window.AuthApp.getUser() : null;
+
+            const dateStr = new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+            container.innerHTML = `
+                <div style="text-align: center; border-bottom: 2px solid var(--accent-teal); padding-bottom: 12px; margin-bottom: 16px;">
+                    <h2 style="margin: 0; color: var(--text-primary);">🎣 Angler Trip Journal Report</h2>
+                    <p style="margin: 4px 0 0 0; font-size: 12px; color: var(--text-secondary);">${dateStr} • ${user ? user.name : 'Angler Logbook'}</p>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px; margin-bottom: 16px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px;">
+                    <div>📊 Total Catches Logged: <strong style="color: var(--accent-teal);">${catches.length}</strong></div>
+                    <div>🎣 Tackle Equipment Items: <strong style="color: var(--accent-blue);">${tackle.length}</strong></div>
+                </div>
+
+                <h4 style="margin: 12px 0 8px 0; color: var(--accent-teal);">Recent Fish Catches Summary:</h4>
+                <div style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto;">
+                    ${catches.length === 0 ? '<p style="font-size: 12px; color: var(--text-secondary);">No catches recorded in trip log.</p>' : catches.slice(0, 5).map(c => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; border-left: 3px solid var(--accent-teal); font-size: 12px;">
+                            <div>
+                                <strong style="color: var(--text-primary);">${c.species}</strong> (${c.length} cm)
+                                <span style="display: block; font-size: 10.5px; color: var(--text-secondary);">${c.locationName || 'GPS Spot'}</span>
+                            </div>
+                            <span style="font-size: 11px; color: var(--text-secondary);">${new Date(c.date).toLocaleDateString()}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            modal.classList.add('active');
+        } catch (err) {
+            alert("Error loading trip journal: " + err.message);
+        }
+    };
+
+    window.printTripJournalReport = function() {
+        window.print();
+    };
+
+    // Initialize FlyBox & Knots Apps
+    setTimeout(() => {
+        if (window.FlyBoxApp) window.FlyBoxApp.init();
+        if (window.KnotsApp) window.KnotsApp.renderKnotsUI();
+    }, 300);
 });
