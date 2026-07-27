@@ -1,6 +1,6 @@
 // sw.js - Service Worker for Offline fly fishing app companion caching
 
-const CACHE_NAME = 'fly-fishing-v94';
+const CACHE_NAME = 'fly-fishing-v95';
 const STATIC_ASSETS = [
     './',
     'index.html',

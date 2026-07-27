@@ -1839,7 +1839,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (confirm("Are you sure you want to delete this catch log?")) {
             try {
                 await window.DB.deleteCatch(id);
+                localStorage.setItem('demo_catches_cleared', 'true');
                 await loadCatches();
+                saveBackupData();
             } catch (err) {
                 alert("Error deleting catch: " + err.message);
             }
@@ -2730,7 +2732,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const currentCatches = await window.DB.getAllCatches();
             const currentTackle = await window.DB.getAllTackle();
 
-            if (!currentCatches || currentCatches.length === 0) {
+            const catchesCleared = localStorage.getItem('demo_catches_cleared') === 'true';
+
+            if (!catchesCleared && (!currentCatches || currentCatches.length === 0)) {
                 console.log("Empty catches detected. Seeding sample catch logs...");
                 const defaultCatches = [
                     {
