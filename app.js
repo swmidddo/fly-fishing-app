@@ -1643,6 +1643,14 @@ const initMainApp = async () => {
         
         elements.formLogCatch.reset();
         if (document.getElementById('catch-species')) document.getElementById('catch-species').value = '';
+        if (document.getElementById('catch-water')) document.getElementById('catch-water').value = '';
+        if (document.getElementById('catch-clarity')) document.getElementById('catch-clarity').value = '';
+        if (document.getElementById('catch-hatch')) document.getElementById('catch-hatch').value = '';
+        if (document.getElementById('rig-combo-select')) document.getElementById('rig-combo-select').value = '';
+        if (document.getElementById('rig-rod')) document.getElementById('rig-rod').value = '';
+        if (document.getElementById('rig-reel')) document.getElementById('rig-reel').value = '';
+        if (document.getElementById('rig-flyline')) document.getElementById('rig-flyline').value = '';
+        if (document.getElementById('rig-fly')) document.getElementById('rig-fly').value = '';
         if (elements.catchLatInput) elements.catchLatInput.value = '';
         if (elements.catchLngInput) elements.catchLngInput.value = '';
         if (elements.catchPhotoPreviewContainer) elements.catchPhotoPreviewContainer.style.display = 'none';
@@ -3585,51 +3593,22 @@ const initMainApp = async () => {
     function initFishPredictiveText() {
         const speciesInput = document.getElementById('catch-species');
         const speciesDatalist = document.getElementById('fish-species-list');
-        const popularContainer = document.getElementById('popular-species-chips');
         const waterSelect = document.getElementById('catch-water');
 
-        if (!speciesInput || !window.FISH_DATABASE) return;
+        if (!speciesInput) return;
 
-        // 1. Populate native datalist
-        if (speciesDatalist) {
-            speciesDatalist.innerHTML = window.FISH_DATABASE.map(f => `<option value="${f.name}">${f.category || f.waterType || ''}</option>`).join('');
-        }
-
-        // 2. Render Quick-Tap Popular Species Chips for Mobile
-        if (popularContainer) {
-            const popularList = [
-                "Murray Cod", "Rainbow Trout", "Brown Trout", "Australian Bass",
-                "Barramundi", "Giant Trevally", "Flathead", "Yellowtail Kingfish", "Golden Perch", "Snapper"
-            ];
-            popularContainer.innerHTML = '';
-            popularList.forEach(fishName => {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'btn btn-glass btn-sm';
-                btn.style.fontSize = '11px';
-                btn.style.padding = '3px 8px';
-                btn.style.borderRadius = '10px';
-                btn.style.background = 'rgba(255, 255, 255, 0.05)';
-                btn.textContent = `🐟 ${fishName}`;
-                btn.addEventListener('click', () => {
-                    selectSpecies(fishName);
-                });
-                popularContainer.appendChild(btn);
-            });
-        }
-
-        function selectSpecies(fishName) {
-            speciesInput.value = fishName;
-            
-            const match = window.FISH_DATABASE.find(f => f.name.toLowerCase() === fishName.toLowerCase());
-            if (match && waterSelect && match.waterType) {
-                waterSelect.value = match.waterType;
+        function populateDatalist() {
+            if (!speciesDatalist) return;
+            const db = window.FISH_DATABASE || [];
+            if (db.length > 0) {
+                speciesDatalist.innerHTML = db.map(f => `<option value="${f.name}">${f.category || f.waterType || ''}</option>`).join('');
             }
-
-            const lat = elements.catchLatInput && elements.catchLatInput.value ? parseFloat(elements.catchLatInput.value) : null;
-            const lng = elements.catchLngInput && elements.catchLngInput.value ? parseFloat(elements.catchLngInput.value) : null;
-            displayRegulationBox(fishName, lat, lng);
         }
+
+        populateDatalist();
+
+        speciesInput.addEventListener('focus', populateDatalist);
+        speciesInput.addEventListener('click', populateDatalist);
 
         speciesInput.addEventListener('input', (e) => {
             const val = e.target.value;
@@ -3637,7 +3616,8 @@ const initMainApp = async () => {
                 const regBox = document.getElementById('catch-regulation-box');
                 if (regBox) regBox.style.display = 'none';
             } else {
-                const match = window.FISH_DATABASE.find(f => f.name.toLowerCase() === val.trim().toLowerCase());
+                const db = window.FISH_DATABASE || [];
+                const match = db.find(f => f.name.toLowerCase() === val.trim().toLowerCase());
                 if (match) {
                     if (waterSelect && match.waterType) waterSelect.value = match.waterType;
                     const lat = elements.catchLatInput && elements.catchLatInput.value ? parseFloat(elements.catchLatInput.value) : null;

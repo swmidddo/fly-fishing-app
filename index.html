@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style -->
-    <link rel="stylesheet" href="styles.css?v=8000">
+    <link rel="stylesheet" href="styles.css?v=11000">
     <script>
         // Unregister any active Service Workers and clear CacheStorage instantly on parse
         if ('serviceWorker' in navigator) {
@@ -937,13 +937,38 @@
                 <div class="form-row">
                     <div class="form-group flex-2">
                         <label for="catch-species">Fish Species *</label>
-                        <input type="text" id="catch-species" class="form-input" list="fish-species-list" placeholder="Type fish name or tap below..." required>
-                        <datalist id="fish-species-list"></datalist>
-                        <div id="popular-species-chips" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px;"></div>
+                        <input type="text" id="catch-species" class="form-input" list="fish-species-list" placeholder="Type fish species name..." required>
+                        <datalist id="fish-species-list">
+                            <option value="Rainbow Trout">Freshwater</option>
+                            <option value="Brown Trout">Freshwater</option>
+                            <option value="Brook Trout">Freshwater</option>
+                            <option value="Murray Cod">Freshwater</option>
+                            <option value="Australian Bass">Freshwater</option>
+                            <option value="Golden Perch">Freshwater</option>
+                            <option value="Silver Perch">Freshwater</option>
+                            <option value="Dusky Flathead">Saltwater</option>
+                            <option value="Yellowfin Bream">Saltwater</option>
+                            <option value="Black Bream">Saltwater</option>
+                            <option value="Barramundi">Freshwater</option>
+                            <option value="Giant Trevally">Saltwater</option>
+                            <option value="Golden Trevally">Saltwater</option>
+                            <option value="Queenfish">Saltwater</option>
+                            <option value="Coral Trout">Saltwater</option>
+                            <option value="Snapper">Saltwater</option>
+                            <option value="Australian Salmon">Saltwater</option>
+                            <option value="Luderick">Saltwater</option>
+                            <option value="King George Whiting">Saltwater</option>
+                            <option value="Sand Whiting">Saltwater</option>
+                            <option value="Bonefish">Saltwater</option>
+                            <option value="Tarpon">Saltwater</option>
+                            <option value="Permit">Saltwater</option>
+                            <option value="Yellowtail Kingfish">Saltwater</option>
+                        </datalist>
                     </div>
                     <div class="form-group flex-1">
                         <label for="catch-water">Water Type</label>
                         <select id="catch-water" class="form-select">
+                            <option value="">Select Water Type...</option>
                             <option value="freshwater">Freshwater</option>
                             <option value="saltwater">Saltwater</option>
                         </select>
@@ -1362,16 +1387,16 @@
     </div>
 
     <!-- Scripts -->
-    <script src="db.js?v=8000"></script>
-    <script src="regulations.js?v=8000"></script>
-    <script src="weather.js?v=8000"></script>
-    <script src="exif.js?v=8000"></script>
-    <script src="map.js?v=8000"></script>
-    <script src="tackle_db.js?v=8000"></script>
-    <script src="fish_db.js?v=8000"></script>
-    <script src="fly_box.js?v=8000"></script>
-    <script src="knots.js?v=8000"></script>
-    <script src="auth.js?v=8000"></script>
-    <script src="app.js?v=8000"></script>
+    <script src="db.js?v=11000"></script>
+    <script src="regulations.js?v=11000"></script>
+    <script src="weather.js?v=11000"></script>
+    <script src="exif.js?v=11000"></script>
+    <script src="map.js?v=11000"></script>
+    <script src="tackle_db.js?v=11000"></script>
+    <script src="fish_db.js?v=11000"></script>
+    <script src="fly_box.js?v=11000"></script>
+    <script src="knots.js?v=11000"></script>
+    <script src="auth.js?v=11000"></script>
+    <script src="app.js?v=11000"></script>
 </body>
 </html>
