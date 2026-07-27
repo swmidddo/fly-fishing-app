@@ -1259,6 +1259,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderDashboardRecent();
             updateStats();
             if (window.AppMap) window.AppMap.renderAllMarkers();
+            if (window.updateCatchAnalytics) window.updateCatchAnalytics();
             triggerBackgroundEnvironmentalFetch();
             saveBackupData();
         } catch (error) {
@@ -1457,6 +1458,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         renderCatchesGallery(filtered);
+        if (window.updateCatchAnalytics) window.updateCatchAnalytics(filtered);
     }
 
     // View Toggle listeners for Catches
@@ -3827,7 +3829,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             container.innerHTML = `
                 <div style="text-align: center; border-bottom: 2px solid var(--accent-teal); padding-bottom: 12px; margin-bottom: 16px;">
-                    <h2 style="margin: 0; color: var(--text-primary);">🎣 Angler Trip Journal Report</h2>
+                    <img src="images/logo.jpg" style="width: 72px; height: 72px; border-radius: 50%; border: 2px solid var(--accent-teal); box-shadow: 0 0 12px rgba(0, 210, 255, 0.4); margin-bottom: 8px; object-fit: cover;" alt="Middo's Fly Fishing NSW">
+                    <h2 style="margin: 0; color: var(--text-primary); font-size: 20px;">Middo's Fly Fishing <span style="color: var(--accent-teal);">NSW</span></h2>
                     <p style="margin: 4px 0 0 0; font-size: 12px; color: var(--text-secondary);">${dateStr} • ${user ? user.name : 'Angler Logbook'}</p>
                 </div>
                 
@@ -3879,9 +3882,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // --- 2. Catch Analytics Calculation ---
-    window.updateCatchAnalytics = async function() {
+    window.updateCatchAnalytics = async function(customCatches = null) {
         try {
-            const catches = await db.getAllCatches();
             const elTrophy = document.getElementById('analytics-trophy');
             const elTrophySub = document.getElementById('analytics-trophy-sub');
             const elTopFly = document.getElementById('analytics-top-fly');
@@ -3889,47 +3891,115 @@ document.addEventListener('DOMContentLoaded', async () => {
             const elPeak = document.getElementById('analytics-peak-hour');
             const elPeakSub = document.getElementById('analytics-peak-hour-sub');
 
-            if (!elTrophy || !catches) return;
+            if (!elTrophy) return;
 
-            if (catches.length === 0) {
+            // Fetch catches list from argument, AppState, or IndexedDB
+            let catchesList = customCatches;
+            if (!catchesList || !Array.isArray(catchesList)) {
+                catchesList = (AppState.catches && AppState.catches.length > 0) 
+                    ? AppState.catches 
+                    : await window.DB.getAllCatches();
+            }
+
+            if (!catchesList || catchesList.length === 0) {
                 elTrophy.textContent = "--";
-                elTopFly.textContent = "--";
-                elPeak.textContent = "--";
+                if (elTrophySub) elTrophySub.textContent = "Log catches to record trophy size";
+                if (elTopFly) elTopFly.textContent = "--";
+                if (elTopFlySub) elTopFlySub.textContent = "0 catches registered";
+                if (elPeak) elPeak.textContent = "--";
+                if (elPeakSub) elPeakSub.textContent = "Based on catch timestamps";
                 return;
             }
 
+            // Helper to dynamically scan all properties for fish length
+            const parseLen = (c) => {
+                if (!c || typeof c !== 'object') return 0;
+                // 1. Direct explicit length keys
+                for (let k of ['length', 'size', 'fishLength', 'lengthCm', 'length_cm', 'len', 'fish_size']) {
+                    if (c[k] !== undefined && c[k] !== null && c[k] !== '') {
+                        const raw = String(c[k]);
+                        const match = raw.match(/([0-9]+(?:\.[0-9]+)?)/);
+                        if (match) {
+                            const val = parseFloat(match[1]);
+                            if (!isNaN(val) && val > 0) return val;
+                        }
+                    }
+                }
+                // 2. String search across all keys for regex patterns like "74cm", "74 cm", "74-cm"
+                for (let key in c) {
+                    if (typeof c[key] === 'string') {
+                        const match = c[key].match(/\b([0-9]{2,3})\s*(?:cm|centimeters|centimetres|inch|in|")\b/i);
+                        if (match) {
+                            const val = parseFloat(match[1]);
+                            if (!isNaN(val) && val > 0) return val;
+                        }
+                    }
+                }
+                return 0;
+            };
+
             // Trophy Calculation
-            let trophy = catches.reduce((max, c) => (parseFloat(c.length || 0) > parseFloat(max.length || 0) ? c : max), catches[0]);
-            if (trophy && trophy.length) {
-                elTrophy.textContent = `${trophy.length} cm ${trophy.species}`;
-                elTrophySub.textContent = `Caught ${new Date(trophy.date).toLocaleDateString()}`;
+            let trophy = null;
+            let maxLen = 0;
+            catchesList.forEach(c => {
+                const len = parseLen(c);
+                if (len >= maxLen) {
+                    maxLen = len;
+                    trophy = c;
+                }
+            });
+
+            if (trophy && maxLen > 0) {
+                elTrophy.textContent = `${maxLen} cm ${trophy.species || 'Fish'}`;
+                const dateStr = trophy.date ? new Date(trophy.date).toLocaleDateString() : '';
+                if (elTrophySub) elTrophySub.textContent = dateStr ? `Caught ${dateStr}` : 'Personal Record Trophy';
+            } else {
+                elTrophy.textContent = "--";
+                if (elTrophySub) elTrophySub.textContent = "Log length (cm) to record trophy size";
             }
 
             // Top Producing Fly
             const flyCounts = {};
-            catches.forEach(c => {
-                const fly = c.lure || c.fly || 'Standard Pattern';
-                flyCounts[fly] = (flyCounts[fly] || 0) + 1;
+            catchesList.forEach(c => {
+                const flyName = (c.fly || c.lure || c.pattern || '').trim();
+                if (flyName && flyName !== 'N/A' && flyName !== '--') {
+                    flyCounts[flyName] = (flyCounts[flyName] || 0) + 1;
+                }
             });
-            const topFly = Object.keys(flyCounts).reduce((a, b) => (flyCounts[a] > flyCounts[b] ? a : b), Object.keys(flyCounts)[0]);
-            if (topFly) {
-                elTopFly.textContent = topFly;
-                elTopFlySub.textContent = `${flyCounts[topFly]} total catches logged`;
+
+            const flyKeys = Object.keys(flyCounts);
+            if (flyKeys.length > 0) {
+                const topFly = flyKeys.reduce((a, b) => (flyCounts[a] > flyCounts[b] ? a : b), flyKeys[0]);
+                if (elTopFly) elTopFly.textContent = topFly;
+                if (elTopFlySub) elTopFlySub.textContent = `${flyCounts[topFly]} catch${flyCounts[topFly] > 1 ? 'es' : ''} logged`;
+            } else {
+                if (elTopFly) elTopFly.textContent = "--";
+                if (elTopFlySub) elTopFlySub.textContent = `${catchesList.length} total catches logged`;
             }
 
             // Peak Hour
             const hourCounts = {};
-            catches.forEach(c => {
-                const hr = new Date(c.date).getHours();
-                hourCounts[hr] = (hourCounts[hr] || 0) + 1;
+            catchesList.forEach(c => {
+                if (c.date || c.time) {
+                    const dateObj = c.time ? new Date(`${c.date || '2026-01-01'}T${c.time}`) : new Date(c.date);
+                    if (!isNaN(dateObj.getTime())) {
+                        const hr = dateObj.getHours();
+                        hourCounts[hr] = (hourCounts[hr] || 0) + 1;
+                    }
+                }
             });
-            const peakHr = Object.keys(hourCounts).reduce((a, b) => (hourCounts[a] > hourCounts[b] ? a : b), Object.keys(hourCounts)[0]);
-            if (peakHr !== undefined) {
+
+            const hourKeys = Object.keys(hourCounts);
+            if (hourKeys.length > 0) {
+                const peakHr = hourKeys.reduce((a, b) => (hourCounts[a] > hourCounts[b] ? a : b), hourKeys[0]);
                 const hrNum = parseInt(peakHr);
                 const ampm = hrNum >= 12 ? 'PM' : 'AM';
                 const formattedHr = hrNum % 12 || 12;
-                elPeak.textContent = `${formattedHr}:00 ${ampm}`;
-                elPeakSub.textContent = `${hourCounts[peakHr]} catches recorded`;
+                if (elPeak) elPeak.textContent = `${formattedHr}:00 ${ampm}`;
+                if (elPeakSub) elPeakSub.textContent = `${hourCounts[peakHr]} catches recorded`;
+            } else {
+                if (elPeak) elPeak.textContent = "--";
+                if (elPeakSub) elPeakSub.textContent = "Based on catch timestamps";
             }
         } catch (e) {
             console.error("Analytics calc error", e);

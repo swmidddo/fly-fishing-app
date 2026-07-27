@@ -95,11 +95,18 @@ h1, h2, h3, h4, h5, h6 {
     filter: drop-shadow(0 0 5px var(--accent-teal));
 }
 
-.brand-name {
-    font-family: 'Outfit', sans-serif;
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--text-primary);
+.brand-logo-img {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent-teal);
+    box-shadow: 0 0 10px rgba(100, 255, 218, 0.35);
+    transition: transform 0.3s ease;
+}
+
+.brand-logo-img:hover {
+    transform: scale(1.08) rotate(3deg);
 }
 
 .nav-menu {

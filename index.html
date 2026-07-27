@@ -3,16 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Middo's Fly Fishing</title>
+    <title>Middo's Fly Fishing NSW</title>
+    <!-- App Icon Favicons -->
+    <link rel="icon" type="image/jpeg" href="images/logo.jpg">
+    <link rel="apple-touch-icon" href="images/logo.jpg">
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style -->
-    <link rel="stylesheet" href="styles.css?v=1700">
+    <link rel="stylesheet" href="styles.css?v=2100">
     <script>
         // Force instant cache wipe on every version bump
-        const CURRENT_VERSION = 'v1700';
+        const CURRENT_VERSION = 'v2100';
         if ('serviceWorker' in navigator && localStorage.getItem('sw_app_version') !== CURRENT_VERSION) {
             navigator.serviceWorker.getRegistrations().then(registrations => {
                 for (let r of registrations) r.unregister();
@@ -31,12 +34,11 @@
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand">
-                <svg class="brand-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 2C6.5 2 2 6.5 2 12c0 3.5 1.8 6.6 4.5 8.4V22l3-1.5 3 1.5V18.5c.7-.2 1.3-.5 2-.8v2.8l3-1.5 3 1.5v-3.6c2.7-1.8 4.5-4.9 4.5-8.4 0-5.5-4.5-10-10-10z"/>
-                    <path d="M12 6a3 3 0 0 0-3 3"/>
-                    <path d="M7 12h10"/>
-                </svg>
-                <span class="brand-name">Middo's Fly Fishing</span>
+                <img src="images/logo.jpg" class="brand-logo-img" alt="Middo's Fly Fishing NSW">
+                <div>
+                    <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
+                    <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing NSW</span>
+                </div>
             </div>
 
             <nav class="nav-menu">
@@ -94,10 +96,13 @@
             
             <!-- Dashboard View -->
             <section id="tab-dashboard" class="tab-content active">
-                <header class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
-                    <div>
-                        <h1>Fisherman Dashboard</h1>
-                        <p class="subtitle">Tight lines and blue skies. Here is your fishing summary.</p>
+                <header class="section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <img src="images/logo.jpg" style="width: 58px; height: 58px; border-radius: 50%; border: 2px solid var(--accent-teal); box-shadow: 0 0 15px rgba(0, 210, 255, 0.4); object-fit: cover;" alt="Middo's Fly Fishing NSW">
+                        <div>
+                            <h1 style="margin: 0; font-size: 24px;">Middo's Fly Fishing <span style="font-size: 13px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px;">NSW</span></h1>
+                            <p class="subtitle" style="margin-top: 2px;">Tight lines and blue skies. Here is your fishing summary.</p>
+                        </div>
                     </div>
                     <div style="display: flex; gap: 10px; align-items: center;">
                         <button class="btn btn-glass btn-sm" onclick="window.toggleRiverMode()" title="High-contrast sunlight riverbank viewing mode">
@@ -1347,16 +1352,16 @@
     </div>
 
     <!-- Scripts -->
-    <script src="db.js?v=1700"></script>
-    <script src="regulations.js?v=1700"></script>
-    <script src="weather.js?v=1700"></script>
-    <script src="exif.js?v=1700"></script>
-    <script src="map.js?v=1700"></script>
-    <script src="tackle_db.js?v=1700"></script>
-    <script src="fish_db.js?v=1700"></script>
-    <script src="fly_box.js?v=1700"></script>
-    <script src="knots.js?v=1700"></script>
-    <script src="auth.js?v=1700"></script>
-    <script src="app.js?v=1700"></script>
+    <script src="db.js?v=2100"></script>
+    <script src="regulations.js?v=2100"></script>
+    <script src="weather.js?v=2100"></script>
+    <script src="exif.js?v=2100"></script>
+    <script src="map.js?v=2100"></script>
+    <script src="tackle_db.js?v=2100"></script>
+    <script src="fish_db.js?v=2100"></script>
+    <script src="fly_box.js?v=2100"></script>
+    <script src="knots.js?v=2100"></script>
+    <script src="auth.js?v=2100"></script>
+    <script src="app.js?v=2100"></script>
 </body>
 </html>
