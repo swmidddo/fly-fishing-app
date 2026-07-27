@@ -1,6 +1,6 @@
 // sw.js - Service Worker for Offline fly fishing app companion caching
 
-const CACHE_NAME = 'fly-fishing-v92';
+const CACHE_NAME = 'fly-fishing-v93';
 const STATIC_ASSETS = [
     './',
     'index.html',
@@ -82,4 +82,11 @@ self.addEventListener('fetch', (event) => {
             });
         })
     );
+});
+
+// Listen for skip waiting message from client to instantly activate new version
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
 });

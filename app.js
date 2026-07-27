@@ -3672,4 +3672,70 @@ document.addEventListener('DOMContentLoaded', async () => {
     try { await initMapEngine(); } catch (e) { console.error("Map init failed", e); }
     try { initRegulations(); } catch (e) { console.error("Regulations init failed", e); }
     try { loadWeatherAndTides(defaultLat, defaultLon); } catch (e) { console.error("Weather init failed", e); }
+
+    // PWA Service Worker Registration & Automatic 1-Tap Update Banner
+    if ('serviceWorker' in navigator) {
+        let refreshing = false;
+
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!refreshing) {
+                refreshing = true;
+                window.location.reload();
+            }
+        });
+
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js').then((registration) => {
+                console.log("[Service Worker] Registered scope:", registration.scope);
+
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    if (!newWorker) return;
+
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            showUpdateNotificationToast(newWorker);
+                        }
+                    });
+                });
+
+                if (registration.waiting && navigator.serviceWorker.controller) {
+                    showUpdateNotificationToast(registration.waiting);
+                }
+            }).catch((err) => {
+                console.warn("[Service Worker] Registration failed:", err);
+            });
+        });
+    }
+
+    function showUpdateNotificationToast(waitingWorker) {
+        let toast = document.getElementById('pwa-update-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'pwa-update-toast';
+            toast.className = 'update-toast-banner';
+            toast.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; background: rgba(10, 25, 47, 0.95); border: 1px solid var(--accent-teal); border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 210, 255, 0.35); backdrop-filter: blur(12px);">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 22px;">⚡</span>
+                        <div style="display: flex; flex-direction: column;">
+                            <strong style="color: var(--text-primary); font-size: 13px;">New App Update Available!</strong>
+                            <span style="color: var(--text-secondary); font-size: 11px;">Tap to load latest regulations & features</span>
+                        </div>
+                    </div>
+                    <button id="btn-pwa-update-now" class="btn btn-primary btn-sm" style="white-space: nowrap; font-size: 12px; padding: 6px 14px;">
+                        🔄 Update Now
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(toast);
+
+            document.getElementById('btn-pwa-update-now').addEventListener('click', () => {
+                if (waitingWorker) {
+                    waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+                }
+            });
+        }
+        toast.style.display = 'block';
+    }
 });
