@@ -2161,6 +2161,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const canvas = elements.tideCanvas;
         if (!canvas || !AppState.tideData) return;
 
+        if (canvas.clientWidth && canvas.clientWidth > 0) {
+            canvas.width = canvas.clientWidth;
+        }
+        if (canvas.clientHeight && canvas.clientHeight > 0) {
+            canvas.height = canvas.clientHeight;
+        }
+
         const ctx = canvas.getContext('2d');
         const width = canvas.width;
         const height = canvas.height;
