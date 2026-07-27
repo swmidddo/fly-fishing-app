@@ -2380,6 +2380,36 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
+        // Force Check for Updates Listener
+        const btnCheckUpdates = document.getElementById('btn-force-check-updates');
+        if (btnCheckUpdates) {
+            btnCheckUpdates.addEventListener('click', async () => {
+                if (!('serviceWorker' in navigator)) {
+                    alert("Service Worker is not supported on this browser.");
+                    return;
+                }
+                btnCheckUpdates.textContent = "⌛ Checking...";
+                try {
+                    const reg = await navigator.serviceWorker.getRegistration();
+                    if (reg) {
+                        await reg.update();
+                        if (reg.waiting) {
+                            showUpdateNotificationToast(reg.waiting);
+                        } else {
+                            alert("You are running the latest app version (v93)!");
+                        }
+                    } else {
+                        window.location.reload();
+                    }
+                } catch (err) {
+                    console.error("Update check failed:", err);
+                    window.location.reload();
+                } finally {
+                    btnCheckUpdates.textContent = "🔄 Check for Updates Now";
+                }
+            });
+        }
+
         // Import Backup File Listener
         const btnImportTrigger = document.getElementById('btn-import-backup-file-trigger');
         const inputImport = document.getElementById('input-import-backup-file');
