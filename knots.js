@@ -9,23 +9,15 @@ const KNOT_GUIDE = [
         purpose: "Universal Tippet to Fly Hook Connection",
         strength: "95%",
         icon: "➰",
-        image: "images/knot_uni.jpg",
-        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
-            <path d="M 40 80 L 110 80" stroke="#f59e0b" stroke-width="6" stroke-linecap="round"/>
-            <circle cx="110" cy="80" r="14" fill="none" stroke="#f59e0b" stroke-width="5"/>
-            <path d="M 124 80 L 220 80" stroke="#00d2ff" stroke-width="4"/>
-            <path d="M 220 80 C 260 40, 320 40, 320 80 C 320 120, 260 120, 220 80" fill="none" stroke="#00d2ff" stroke-width="4"/>
-            <path d="M 230 70 L 240 90 M 250 70 L 260 90 M 270 70 L 280 90 M 290 70 L 300 90" stroke="#38bdf8" stroke-width="4"/>
-            <text x="200" y="142" fill="#00d2ff" font-size="12" text-anchor="middle" font-family="sans-serif">1. Loop tag end &amp; wrap 5 turns around standing line</text>
-        </svg>`,
+        image: "./images/knot_uni.jpg",
         description: "The standard Uni-Knot is one of the most reliable terminal knots in all of angling. Extremely dependable, easy to tie in low light or cold weather, and holds tight on both monofilament and fluorocarbon lines.",
         steps: [
-            "1. Run 6 inches of tippet line through the eye of the fly hook.",
-            "2. Lay the tag end back alongside the standing line to form a loop over both lines.",
-            "3. Wrap the tag end around both lines 4 to 5 times, passing through the loop on each turn.",
-            "4. Moisten line with saliva and pull the tag end to draw the wraps into a neat, tight barrel knot.",
-            "5. Slide the barrel knot down firmly against the hook eye to lock the knot tightly.",
-            "6. Trim tag end clean."
+            "Run 6 inches of tippet line through the eye of the fly hook.",
+            "Lay the tag end back alongside the standing line to form a loop over both lines.",
+            "Wrap the tag end around both lines 4 to 5 times, passing through the loop on each turn.",
+            "Moisten line with saliva and pull the tag end to draw the wraps into a neat, tight barrel knot.",
+            "Slide the barrel knot down firmly against the hook eye to lock the knot tightly.",
+            "Trim tag end clean."
         ]
     },
     {
@@ -36,23 +28,15 @@ const KNOT_GUIDE = [
         purpose: "Tippet to Fly Hook (Universal Classic)",
         strength: "95%",
         icon: "🎣",
-        image: "images/knot_clinch.jpg",
-        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
-            <path d="M 40 80 L 110 80" stroke="#f59e0b" stroke-width="6" stroke-linecap="round"/>
-            <circle cx="110" cy="80" r="14" fill="none" stroke="#f59e0b" stroke-width="5"/>
-            <path d="M 124 80 L 280 80" stroke="#00d2ff" stroke-width="4"/>
-            <path d="M 150 70 L 160 90 M 180 70 L 190 90 M 210 70 L 220 90 M 240 70 L 250 90 M 270 70 L 280 90" stroke="#00d2ff" stroke-width="4"/>
-            <path d="M 280 80 C 310 40, 130 30, 120 75" fill="none" stroke="#38bdf8" stroke-width="3" stroke-dasharray="4"/>
-            <text x="200" y="142" fill="#00d2ff" font-size="12" text-anchor="middle" font-family="sans-serif">2. Wrap 5-7 times, tuck through eye loop &amp; outer loop</text>
-        </svg>`,
+        image: "./images/knot_clinch.jpg",
         description: "The most widely used terminal knot in fly fishing. Reliable, easy to tie, and holds tight on standard wire hooks (#8 to #18).",
         steps: [
-            "1. Thread 3-4 inches of tippet through the fly hook eye.",
-            "2. Wrap the tag end around the standing line 5 to 7 times.",
-            "3. Thread the tag end through the small loop next to the hook eye.",
-            "4. Pass the tag end back through the large loop you just created.",
-            "5. Moisten with saliva and pull standing line steadily to tighten wraps neatly against the hook eye.",
-            "6. Trim tag end close."
+            "Thread 3-4 inches of tippet through the fly hook eye.",
+            "Wrap the tag end around the standing line 5 to 7 times.",
+            "Thread the tag end through the small loop next to the hook eye.",
+            "Pass the tag end back through the large loop you just created.",
+            "Moisten with saliva and pull standing line steadily to tighten wraps neatly against the hook eye.",
+            "Trim tag end close."
         ]
     },
     {
@@ -63,23 +47,15 @@ const KNOT_GUIDE = [
         purpose: "Tippet to Fly (Maximum Swimming Action)",
         strength: "95%",
         icon: "➰",
-        image: "images/knot_loop.jpg",
-        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
-            <circle cx="150" cy="80" r="16" fill="none" stroke="#00d2ff" stroke-width="4"/>
-            <path d="M 40 80 L 110 80" stroke="#f59e0b" stroke-width="6"/>
-            <circle cx="110" cy="80" r="14" fill="none" stroke="#f59e0b" stroke-width="5"/>
-            <path d="M 124 80 L 134 80" stroke="#00d2ff" stroke-width="4"/>
-            <path d="M 166 80 L 320 80" stroke="#00d2ff" stroke-width="4"/>
-            <text x="200" y="142" fill="#00d2ff" font-size="12" text-anchor="middle" font-family="sans-serif">3. Overhand loop + eye pass + 5 wraps back through loop</text>
-        </svg>`,
+        image: "./images/knot_loop.jpg",
         description: "The gold standard knot for tying streamer and nymph flies. Creates an open loop so flies swim with natural movement.",
         steps: [
-            "1. Tie an overhand knot in the tippet line about 2-3 inches from the end. Leave it loose.",
-            "2. Pass the tag end through the eye of the fly hook.",
-            "3. Pass the tag end back through the loop of the overhand knot.",
-            "4. Wrap the tag end 4 to 5 times around the standing line above the overhand knot.",
-            "5. Bring the tag end back down and thread it through the overhand knot loop in the same direction it entered.",
-            "6. Moisten with saliva, pull the standing line and fly firmly to seat the knot tight, then trim the tag end."
+            "Tie an overhand knot in the tippet line about 2-3 inches from the end. Leave it loose.",
+            "Pass the tag end through the eye of the fly hook.",
+            "Pass the tag end back through the loop of the overhand knot.",
+            "Wrap the tag end 4 to 5 times around the standing line above the overhand knot.",
+            "Bring the tag end back down and thread it through the overhand knot loop in the same direction it entered.",
+            "Moisten with saliva, pull the standing line and fly firmly to seat the knot tight, then trim the tag end."
         ]
     },
     {
@@ -90,20 +66,14 @@ const KNOT_GUIDE = [
         purpose: "Ultra-Fast Tippet to Small Fly (#18-#28)",
         strength: "90% - 98%",
         icon: "🪰",
-        image: "images/knot_davy.jpg",
-        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
-            <path d="M 40 80 L 150 80" stroke="#f59e0b" stroke-width="6"/>
-            <circle cx="150" cy="80" r="12" fill="none" stroke="#f59e0b" stroke-width="5"/>
-            <path d="M 162 80 C 190 50, 230 50, 230 80 C 230 110, 190 110, 162 80" fill="none" stroke="#00d2ff" stroke-width="4"/>
-            <text x="200" y="142" fill="#00d2ff" font-size="12" text-anchor="middle" font-family="sans-serif">4. Simple crossover figure-8 loop cinched tight to eye</text>
-        </svg>`,
+        image: "./images/knot_davy.jpg",
         description: "The fastest, smallest knot in fly fishing. Uses minimal tippet length, ideal for tiny midges and small flies (#18-#28).",
         steps: [
-            "1. Thread tippet through the fly eye, leaving 2 inches of tag end.",
-            "2. Form a loose overhand knot around the standing line.",
-            "3. Bring the tag end back over the top of the loop and through the loop opening.",
-            "4. For Double Davy: Pass the tag end through the loop a second time for 98% knot strength.",
-            "5. Draw standing line tight to lock the knot tightly against the hook eye, then trim."
+            "Thread tippet through the fly eye, leaving 2 inches of tag end.",
+            "Form a loose overhand knot around the standing line.",
+            "Bring the tag end back over the top of the loop and through the loop opening.",
+            "For Double Davy: Pass the tag end through the loop a second time for 98% knot strength.",
+            "Draw standing line tight to lock the knot tightly against the hook eye, then trim."
         ]
     },
     {
@@ -114,21 +84,14 @@ const KNOT_GUIDE = [
         purpose: "Indestructible Tippet to Heavy Streamer / Saltwater Hook",
         strength: "100%",
         icon: "⚓",
-        image: "images/knot_palomar.jpg",
-        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
-            <path d="M 40 80 L 140 80" stroke="#f59e0b" stroke-width="6"/>
-            <circle cx="140" cy="80" r="14" fill="none" stroke="#f59e0b" stroke-width="5"/>
-            <path d="M 40 76 L 126 76" stroke="#00d2ff" stroke-width="3"/>
-            <path d="M 40 84 L 126 84" stroke="#00d2ff" stroke-width="3"/>
-            <text x="200" y="142" fill="#00d2ff" font-size="12" text-anchor="middle" font-family="sans-serif">5. Doubled line loop overhand knot &amp; pass loop over fly</text>
-        </svg>`,
+        image: "./images/knot_palomar.jpg",
         description: "Virtually impossible to slip or break. Ideal for tying heavy tippet/fluorocarbon to large streamers, bass bugs, and saltwater flies.",
         steps: [
-            "1. Double about 5 inches of tippet line and pass the loop through the fly hook eye.",
-            "2. Tie an overhand knot with the doubled line, leaving the fly hanging loose.",
-            "3. Pass the loop completely over the entire fly body.",
-            "4. Moisten line and pull both standing line and tag end to seat knot tight on hook eye.",
-            "5. Trim tag end clean."
+            "Double about 5 inches of tippet line and pass the loop through the fly hook eye.",
+            "Tie an overhand knot with the doubled line, leaving the fly hanging loose.",
+            "Pass the loop completely over the entire fly body.",
+            "Moisten line and pull both standing line and tag end to seat knot tight on hook eye.",
+            "Trim tag end clean."
         ]
     },
     {
@@ -139,19 +102,14 @@ const KNOT_GUIDE = [
         purpose: "Up/Down Eye Hook Inline Presentation",
         strength: "92%",
         icon: "🦟",
-        image: "images/knot_turle.jpg",
-        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
-            <path d="M 40 80 L 140 80 M 140 80 L 140 120" stroke="#f59e0b" stroke-width="6" fill="none"/>
-            <circle cx="140" cy="80" r="12" fill="none" stroke="#f59e0b" stroke-width="5"/>
-            <text x="200" y="142" fill="#00d2ff" font-size="12" text-anchor="middle" font-family="sans-serif">6. Cinch slip knot loop around hook shank behind eye</text>
-        </svg>`,
+        image: "./images/knot_turle.jpg",
         description: "Traditional dry fly and salmon knot that cinches around the hook shank, keeping tippet perfectly aligned with the hook body.",
         steps: [
-            "1. Thread tippet through the turned eye toward the bend of the hook.",
-            "2. Tie a slip knot loop in the tag end beyond the hook bend.",
-            "3. Pass the large slip loop over the entire fly body.",
-            "4. Pull standing line to cinch the slip loop snugly around the hook shank behind the eye.",
-            "5. Trim short tag end."
+            "Thread tippet through the turned eye toward the bend of the hook.",
+            "Tie a slip knot loop in the tag end beyond the hook bend.",
+            "Pass the large slip loop over the entire fly body.",
+            "Pull standing line to cinch the slip loop snugly around the hook shank behind the eye.",
+            "Trim short tag end."
         ]
     },
     {
@@ -162,21 +120,15 @@ const KNOT_GUIDE = [
         purpose: "Leader to Tippet / Joining Lines",
         strength: "98%",
         icon: "🪢",
-        image: "images/knot_surgeons.jpg",
-        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
-            <path d="M 40 60 L 360 60" stroke="#f59e0b" stroke-width="4"/>
-            <path d="M 40 100 L 360 100" stroke="#00d2ff" stroke-width="4"/>
-            <circle cx="200" cy="80" r="28" fill="none" stroke="#a3e635" stroke-width="5"/>
-            <text x="200" y="142" fill="#a3e635" font-size="12" text-anchor="middle" font-family="sans-serif">7. Overlap lines &amp; pass double loop 2-3 times</text>
-        </svg>`,
+        image: "./images/knot_surgeons.jpg",
         description: "The simplest, fastest, and strongest knot for joining tippet to leader or adding a tippet extension on the water.",
         steps: [
-            "1. Overlap the leader end and new tippet section by 6-8 inches.",
-            "2. Form a simple loop with both lines together.",
-            "3. Pass the fly end of the tippet and tag end of the leader through the loop twice (Double Surgeon) or 3 times (Triple).",
-            "4. Moisten the knot with saliva.",
-            "5. Hold both standing lines and both tag ends, and pull firmly to seat the knot snugly.",
-            "6. Trim both tag ends close to the knot."
+            "Overlap the leader end and new tippet section by 6-8 inches.",
+            "Form a simple loop with both lines together.",
+            "Pass the fly end of the tippet and tag end of the leader through the loop twice (Double Surgeon) or 3 times (Triple).",
+            "Moisten the knot with saliva.",
+            "Hold both standing lines and both tag ends, and pull firmly to seat the knot snugly.",
+            "Trim both tag ends close to the knot."
         ]
     },
     {
@@ -187,21 +139,15 @@ const KNOT_GUIDE = [
         purpose: "Joining Monofilament / Fluorocarbon Lines",
         strength: "90%",
         icon: "➰",
-        image: "images/knot_blood.jpg",
-        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
-            <path d="M 40 80 L 170 80 M 230 80 L 360 80" stroke="#00d2ff" stroke-width="4"/>
-            <rect x="170" y="60" width="60" height="40" rx="8" fill="rgba(0,210,255,0.2)" stroke="#00d2ff" stroke-width="2"/>
-            <text x="200" y="85" fill="#00d2ff" font-size="12" text-anchor="middle" font-weight="bold">BARREL</text>
-            <text x="200" y="142" fill="#a3e635" font-size="12" text-anchor="middle" font-family="sans-serif">8. Interlocking 5-wrap barrel cinched smooth &amp; slim</text>
-        </svg>`,
+        image: "./images/knot_blood.jpg",
         description: "Clean, ultra-slim barrel knot for building custom tapered leaders. Passes smoothly through fly rod guides.",
         steps: [
-            "1. Overlap ends of the two lines by about 6 inches.",
-            "2. Wrap one end around the other line 5 times.",
-            "3. Bring the tag end back and insert it between the two lines at the start of the wraps.",
-            "4. Wrap the second line end 5 times in the opposite direction, and bring its tag end back through the middle gap in the opposite direction.",
-            "5. Moisten and slowly pull standing lines to draw wraps tight together into a neat barrel knot.",
-            "6. Trim both tag ends tight to the knot."
+            "Overlap ends of the two lines by about 6 inches.",
+            "Wrap one end around the other line 5 times.",
+            "Bring the tag end back and insert it between the two lines at the start of the wraps.",
+            "Wrap the second line end 5 times in the opposite direction, and bring its tag end back through the middle gap in the opposite direction.",
+            "Moisten and slowly pull standing lines to draw wraps tight together into a neat barrel knot.",
+            "Trim both tag ends tight to the knot."
         ]
     },
     {
@@ -212,20 +158,15 @@ const KNOT_GUIDE = [
         purpose: "Fly Line to Leader Butt Section",
         strength: "92%",
         icon: "🪢",
-        image: "images/knot_nail.jpg",
-        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
-            <path d="M 40 80 L 360 80" stroke="#f59e0b" stroke-width="10"/>
-            <path d="M 160 80 L 260 80" stroke="#00d2ff" stroke-width="5" stroke-dasharray="3,3"/>
-            <text x="200" y="142" fill="#a3e635" font-size="12" text-anchor="middle" font-family="sans-serif">9. Seamless 5-6 turn barrel around fly line tip</text>
-        </svg>`,
+        image: "./images/knot_nail.jpg",
         description: "Attaches heavy leader butt section to the tip of fly line without bulk.",
         steps: [
-            "1. Lay a hollow tube or nail along the tip of the fly line.",
-            "2. Lay the leader butt along the fly line and tube, leaving a 10-inch tag end.",
-            "3. Wrap the leader tag end backwards around the fly line, tube, and leader 5-6 times.",
-            "4. Thread the tag end back through the tube.",
-            "5. Slide out the tube while keeping wraps neat.",
-            "6. Pull both ends firmly to seat into the fly line coating, then trim."
+            "Lay a hollow tube or nail along the tip of the fly line.",
+            "Lay the leader butt along the fly line and tube, leaving a 10-inch tag end.",
+            "Wrap the leader tag end backwards around the fly line, tube, and leader 5-6 times.",
+            "Thread the tag end back through the tube.",
+            "Slide out the tube while keeping wraps neat.",
+            "Pull both ends firmly to seat into the fly line coating, then trim."
         ]
     },
     {
@@ -236,20 +177,15 @@ const KNOT_GUIDE = [
         purpose: "Backing Line to Fly Line",
         strength: "95%",
         icon: "➰",
-        image: "images/knot_albright.jpg",
-        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
-            <path d="M 40 80 L 160 80 C 200 50, 200 110, 160 80" fill="none" stroke="#f59e0b" stroke-width="10"/>
-            <path d="M 360 80 L 180 80" stroke="#38bdf8" stroke-width="4"/>
-            <text x="200" y="142" fill="#a3e635" font-size="12" text-anchor="middle" font-family="sans-serif">10. 10 tight wraps over folded fly line loop</text>
-        </svg>`,
+        image: "./images/knot_albright.jpg",
         description: "Joins lines of significantly different diameters, such as Dacron backing line to fly line.",
         steps: [
-            "1. Fold a 2-inch loop in the end of the thick fly line.",
-            "2. Pass 10 inches of backing line through the loop.",
-            "3. Wrap the backing around itself and the fly line loop 10 times, wrapping back toward the loop bend.",
-            "4. Pass the backing tag end back through the loop bend in the same direction it entered.",
-            "5. Moisten and pull backing standing line while sliding wraps tight down to the end of the loop.",
-            "6. Trim tag ends clean."
+            "Fold a 2-inch loop in the end of the thick fly line.",
+            "Pass 10 inches of backing line through the loop.",
+            "Wrap the backing around itself and the fly line loop 10 times, wrapping back toward the loop bend.",
+            "Pass the backing tag end back through the loop bend in the same direction it entered.",
+            "Moisten and pull backing standing line while sliding wraps tight down to the end of the loop.",
+            "Trim tag ends clean."
         ]
     }
 ];
@@ -284,14 +220,10 @@ const KnotsApp = {
 
                 <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.4;">${k.description}</p>
                 
-                <!-- Visual Diagram Aid with Automatic Inline SVG Fallback -->
+                <!-- Visual Diagram Aid -->
                 <div style="margin-bottom: 16px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); text-align: center; padding: 8px;">
-                    <img src="${k.image}" alt="${k.name} Visual Diagram" loading="lazy" 
-                        style="width: 100%; height: auto; max-height: 260px; border-radius: 8px; object-fit: contain; display: block; margin: 0 auto;"
-                        onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                    <div style="display: none; width: 100%; height: 160px; max-height: 180px; margin: 0 auto;">
-                        ${k.svg}
-                    </div>
+                    <img src="${k.image}" alt="${k.name} Visual Diagram" loading="eager" 
+                        style="width: 100%; height: auto; max-height: 280px; border-radius: 8px; object-fit: contain; display: block; margin: 0 auto;">
                     <span style="display: block; font-size: 11px; color: var(--accent-teal); margin-top: 6px; font-weight: 500;">📷 Step-by-Step Visual Diagram Aid</span>
                 </div>
 
@@ -325,7 +257,7 @@ const KnotsApp = {
             "22": { xRating: "7X / 8X", diam: ".004\" (0.10 mm)", nylon: "2.5 lbs (1.1 kg)", fluoro: "3.0 lbs (1.35 kg)", hooks: "#18, #20, #22, #24", ideal: "Micro Midges & Spring Creek Trout" },
             "24": { xRating: "8X", diam: ".003\" (0.08 mm)", nylon: "1.75 lbs (0.8 kg)", fluoro: "2.2 lbs (1.0 kg)", hooks: "#22, #24, #26, #28", ideal: "Micro Emergers & Ultra-Delicate Trout" },
             "26": { xRating: "8X", diam: ".003\" (0.08 mm)", nylon: "1.75 lbs (0.8 kg)", fluoro: "2.2 lbs (1.0 kg)", hooks: "#22, #24, #26, #28", ideal: "Micro Midges & Spring Creek Trout" },
-            "28": { xRating: "8X", diam: ".003\" (0.08 mm)", nylon: "1.75 lbs (0.8 kg)", fluoro: "2.2 lbs (1.0 kg)", hooks: "#22, #24, #26, #28", ideal: "Micro Emergers & Ultra-Delicate Trout" }
+            "28": { xRating: "8X", diam: ".003\" (0.08 mm)", nylon: "1.75 lbs (0.8 kg)", fluoro: "2.2 lbs (1.0 kg)", hooks: "#22, #24, #26, #28", ideal: "Micro Midges & Spring Creek Trout" }
         };
 
         const spec = exactMap[hookVal] || exactMap["14"];
