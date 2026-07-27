@@ -1,6 +1,6 @@
 // sw.js - Service Worker for Offline fly fishing app companion caching
 
-const CACHE_NAME = 'fly-fishing-v96';
+const CACHE_NAME = 'fly-fishing-v200';
 const STATIC_ASSETS = [
     './',
     'index.html',
@@ -45,9 +45,9 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Fetch Event - Cache First, fallback to Network
+// Fetch Event - Network First with Cache Fallback for offline use
 self.addEventListener('fetch', (event) => {
-    // Ignore non-GET requests, weather API, Google Maps, Gemini AI, and our backup API/file from caching
+    // Ignore non-GET requests and APIs
     if (event.request.method !== 'GET' || 
         event.request.url.includes('open-meteo.com/') || 
         event.request.url.includes('maps.googleapis.com') ||
@@ -58,24 +58,18 @@ self.addEventListener('fetch', (event) => {
     }
 
     event.respondWith(
-        caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) {
-                return cachedResponse;
+        fetch(event.request).then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                const responseClone = networkResponse.clone();
+                caches.open(CACHE_NAME).then((cache) => {
+                    cache.put(event.request, responseClone);
+                });
             }
-            
-            // Try to fetch over network
-            return fetch(event.request).then((networkResponse) => {
-                // Cache valid responses dynamically
-                if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-                    const responseClone = networkResponse.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, responseClone);
-                    });
-                }
-                return networkResponse;
-            }).catch((err) => {
-                console.log("[Service Worker] Fetch failed, resource offline:", event.request.url);
-                // Return fallback if needed (e.g. index.html)
+            return networkResponse;
+        }).catch(() => {
+            // Network failed or offline - Fall back to cache
+            return caches.match(event.request).then((cachedResponse) => {
+                if (cachedResponse) return cachedResponse;
                 if (event.request.mode === 'navigate') {
                     return caches.match('index.html');
                 }

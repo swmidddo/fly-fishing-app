@@ -177,21 +177,33 @@ window.AuthApp = (function() {
     function updateUserUI() {
         const headerProfileEl = document.getElementById('nav-user-profile');
         const settingsUserCard = document.getElementById('settings-user-card');
+        const navAccountLabel = document.getElementById('nav-account-label');
+
+        if (navAccountLabel) {
+            if (currentUser) {
+                navAccountLabel.textContent = `${currentUser.name} (${currentUser.tier.toUpperCase()})`;
+            } else {
+                navAccountLabel.textContent = "Sign In / Register";
+            }
+        }
 
         if (headerProfileEl) {
             if (currentUser) {
                 headerProfileEl.innerHTML = `
-                    <div class="user-avatar-badge" style="display: flex; align-items: center; gap: 8px; cursor: pointer;" onclick="window.AuthApp.openAuthModal()">
-                        <img src="${currentUser.avatar}" alt="${currentUser.name}" style="width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--accent-teal);">
-                        <div style="font-size: 12px; display: flex; flex-direction: column; text-align: left; line-height: 1.2;">
-                            <strong style="color: var(--text-primary); font-weight: 600;">${currentUser.name}</strong>
-                            <span style="font-size: 9.5px; color: var(--accent-teal);">${currentUser.tier.toUpperCase()} ANGLER</span>
+                    <div class="user-avatar-badge" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(0, 210, 255, 0.08); border: 1px solid var(--accent-teal); border-radius: 10px; cursor: pointer;" onclick="window.AuthApp.openAuthModal()">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <img src="${currentUser.avatar}" alt="${currentUser.name}" style="width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--accent-teal);">
+                            <div style="font-size: 12px; display: flex; flex-direction: column; text-align: left; line-height: 1.2;">
+                                <strong style="color: var(--text-primary); font-weight: 600;">${currentUser.name}</strong>
+                                <span style="font-size: 9.5px; color: var(--accent-teal); margin-top: 2px;">${currentUser.tier.toUpperCase()} ANGLER</span>
+                            </div>
                         </div>
+                        <span style="font-size: 11px; opacity: 0.7;">⚙️</span>
                     </div>
                 `;
             } else {
                 headerProfileEl.innerHTML = `
-                    <button class="btn btn-primary btn-sm" onclick="window.AuthApp.openAuthModal()">
+                    <button class="btn btn-primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; font-size: 13px; font-weight: 600; border-radius: 10px;" onclick="window.AuthApp.openAuthModal()">
                         <span>👤 Sign In / Register</span>
                     </button>
                 `;
@@ -226,6 +238,43 @@ window.AuthApp = (function() {
                         </p>
                         <button class="btn btn-primary" onclick="window.AuthApp.openAuthModal()">👤 Sign In or Create Account</button>
                     </div>
+                `;
+            }
+        }
+
+        const dashCloudCard = document.getElementById('dash-cloud-card');
+        if (dashCloudCard) {
+            if (currentUser) {
+                dashCloudCard.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                            <span>☁️ Angler Cloud Vault</span>
+                        </h3>
+                        <span class="badge-active" style="background: rgba(46, 213, 115, 0.15); color: var(--success); border: 1px solid var(--success);">🟢 Synced</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <img src="${currentUser.avatar}" alt="Avatar" style="width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--accent-teal);">
+                        <div>
+                            <strong style="color: var(--text-primary); font-size: 13px;">${currentUser.name}</strong>
+                            <div style="font-size: 10px; color: var(--accent-teal);">${currentUser.tier.toUpperCase()} ANGLER</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-glass btn-sm" onclick="window.AuthApp.syncNow()" style="width: 100%;">🔄 Sync Vault Now</button>
+                `;
+            } else {
+                dashCloudCard.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                            <span>☁️ Angler Cloud Vault</span>
+                        </h3>
+                        <span class="badge-active" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-blue); border: 1px solid var(--accent-blue);">Guest Mode</span>
+                    </div>
+                    <p style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.4;">
+                        Sync your catches, tackle library, and secret spots across all your devices.
+                    </p>
+                    <button class="btn btn-primary btn-sm" onclick="window.AuthApp.openAuthModal()" style="display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;">
+                        <span>👤 Sign In / Create Account</span>
+                    </button>
                 `;
             }
         }

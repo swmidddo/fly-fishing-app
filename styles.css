@@ -772,15 +772,15 @@ textarea.form-input {
     display: none;
     position: fixed;
     top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.7);
-    z-index: 200;
+    left: 260px;
+    width: calc(100vw - 260px);
+    height: 100vh;
+    background: rgba(5, 12, 25, 0.85);
+    z-index: 99999;
     align-items: center;
     justify-content: center;
     padding: 20px;
-    backdrop-filter: blur(5px);
+    backdrop-filter: blur(8px);
 }
 
 .modal.active {
@@ -790,7 +790,7 @@ textarea.form-input {
 .modal-content {
     background: #0f1c30;
     border: 1px solid var(--border-color);
-    max-width: 600px;
+    max-width: 480px;
     width: 100%;
     border-radius: 16px;
     padding: 28px;
@@ -798,6 +798,7 @@ textarea.form-input {
     max-height: 90vh;
     overflow-y: auto;
     box-shadow: var(--glow-shadow);
+    margin: 0 auto;
 }
 
 .modal-close {
@@ -1065,6 +1066,11 @@ textarea.form-input {
 }
 
 @media (max-width: 768px) {
+    .modal {
+        left: 0;
+        width: 100%;
+        padding-left: 16px;
+    }
     .sidebar {
         width: 100%;
         height: auto;
