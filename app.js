@@ -967,6 +967,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Predictive Text Autocomplete Engine for Tackle Form
+    // Mobile-Friendly Predictive Text Autocomplete Engine for Tackle & Gear
     function initTacklePredictiveText() {
         const typeSelect = document.getElementById('tackle-type');
         const nameInput = document.getElementById('tackle-name');
@@ -974,79 +975,192 @@ document.addEventListener('DOMContentLoaded', async () => {
         const specInput = document.getElementById('tackle-spec');
         const notesInput = document.getElementById('tackle-notes');
 
-        const nameDatalist = document.getElementById('tackle-name-list');
-        const brandDatalist = document.getElementById('tackle-brand-list');
-        const specDatalist = document.getElementById('tackle-spec-list');
+        const nameMenu = document.getElementById('tackle-name-autocomplete-menu');
+        const brandMenu = document.getElementById('tackle-brand-autocomplete-menu');
+        const specMenu = document.getElementById('tackle-spec-autocomplete-menu');
+        const chipsContainer = document.getElementById('tackle-popular-chips');
 
         if (!typeSelect || !nameInput || !window.TACKLE_DATABASE) return;
 
         window.updateTackleSuggestions = () => {
-            const selectedType = typeSelect.value || 'rod';
-            const catData = window.TACKLE_DATABASE[selectedType] || { brands: [], models: [], specs: [] };
-            const selectedBrand = brandInput ? brandInput.value.trim().toLowerCase() : '';
-
-            // 1. Brands Datalist
-            if (brandDatalist) {
-                brandDatalist.innerHTML = '';
-                catData.brands.forEach(b => {
-                    const opt = document.createElement('option');
-                    opt.value = b;
-                    brandDatalist.appendChild(opt);
-                });
-            }
-
-            // 2. Models / Names Datalist (filtered by brand if brand is entered)
-            if (nameDatalist) {
-                nameDatalist.innerHTML = '';
-                const filteredModels = selectedBrand 
-                    ? catData.models.filter(m => m.brand.toLowerCase().includes(selectedBrand))
-                    : catData.models;
-
-                filteredModels.forEach(m => {
-                    const opt = document.createElement('option');
-                    opt.value = m.name;
-                    opt.label = `${m.brand} | ${m.spec}`;
-                    nameDatalist.appendChild(opt);
-                });
-            }
-
-            // 3. Specs Datalist
-            if (specDatalist) {
-                specDatalist.innerHTML = '';
-                catData.specs.forEach(s => {
-                    const opt = document.createElement('option');
-                    opt.value = s;
-                    specDatalist.appendChild(opt);
-                });
-            }
+            renderPopularChips();
         };
 
-        // Auto-fill brand, spec, and notes when typing or choosing a known model
-        nameInput.addEventListener('input', () => {
+        function renderPopularChips() {
+            if (!chipsContainer) return;
             const selectedType = typeSelect.value || 'rod';
-            const catData = window.TACKLE_DATABASE[selectedType];
-            if (!catData || !catData.models) return;
+            const catData = window.TACKLE_DATABASE[selectedType] || { models: [] };
 
-            const val = nameInput.value.trim().toLowerCase();
-            const match = catData.models.find(m => m.name.toLowerCase() === val || m.name.toLowerCase().includes(val));
-
-            if (match && match.name.toLowerCase() === val) {
-                if (brandInput && (!brandInput.value || brandInput.value.trim() === '')) brandInput.value = match.brand;
-                if (specInput && (!specInput.value || specInput.value.trim() === '')) specInput.value = match.spec;
-                if (notesInput && (!notesInput.value || notesInput.value.trim() === '')) notesInput.value = match.notes;
-            }
-        });
-
-        // Cross-filter models when Brand input changes
-        if (brandInput) {
-            brandInput.addEventListener('input', window.updateTackleSuggestions);
+            chipsContainer.innerHTML = '';
+            catData.models.slice(0, 6).forEach(m => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-glass btn-sm';
+                btn.style.fontSize = '11px';
+                btn.style.padding = '3px 8px';
+                btn.style.borderRadius = '10px';
+                btn.style.background = 'rgba(255, 255, 255, 0.05)';
+                btn.textContent = `⚙️ ${m.name}`;
+                btn.addEventListener('click', () => {
+                    selectTackleModel(m);
+                });
+                chipsContainer.appendChild(btn);
+            });
         }
 
-        // Update when equipment category changes
-        typeSelect.addEventListener('change', window.updateTackleSuggestions);
+        function selectTackleModel(m) {
+            if (nameInput) nameInput.value = m.name;
+            if (brandInput && m.brand) brandInput.value = m.brand;
+            if (specInput && m.spec) specInput.value = m.spec;
+            if (notesInput && m.notes) notesInput.value = m.notes;
 
-        // Initial setup
-        window.updateTackleSuggestions();
+            if (nameMenu) nameMenu.style.display = 'none';
+            if (brandMenu) brandMenu.style.display = 'none';
+            if (specMenu) specMenu.style.display = 'none';
+        }
+
+        function renderNameMenu(query) {
+            if (!nameMenu) return;
+            const selectedType = typeSelect.value || 'rod';
+            const catData = window.TACKLE_DATABASE[selectedType] || { models: [] };
+            const q = query.trim().toLowerCase();
+
+            let matches = catData.models;
+            if (q) {
+                matches = catData.models.filter(m => m.name.toLowerCase().includes(q) || m.brand.toLowerCase().includes(q) || m.spec.toLowerCase().includes(q));
+            }
+
+            if (!matches || matches.length === 0) {
+                nameMenu.style.display = 'none';
+                return;
+            }
+
+            nameMenu.innerHTML = '';
+            matches.slice(0, 10).forEach(m => {
+                const item = document.createElement('div');
+                item.style.padding = '8px 12px';
+                item.style.borderRadius = '6px';
+                item.style.cursor = 'pointer';
+                item.style.fontSize = '12.5px';
+                item.style.display = 'flex';
+                item.style.justify-content = 'space-between';
+                item.style.alignItems = 'center';
+                item.style.borderBottom = '1px solid rgba(255, 255, 255, 0.05)';
+
+                item.innerHTML = `
+                    <span>⚙️ <strong>${m.name}</strong></span>
+                    <small style="color: var(--accent-teal); font-size: 11px;">${m.brand} (${m.spec})</small>
+                `;
+
+                item.addEventListener('mouseenter', () => { item.style.background = 'rgba(0, 210, 255, 0.15)'; });
+                item.addEventListener('mouseleave', () => { item.style.background = 'transparent'; });
+                
+                item.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    selectTackleModel(m);
+                });
+
+                nameMenu.appendChild(item);
+            });
+
+            nameMenu.style.display = 'block';
+        }
+
+        function renderBrandMenu(query) {
+            if (!brandMenu) return;
+            const selectedType = typeSelect.value || 'rod';
+            const catData = window.TACKLE_DATABASE[selectedType] || { brands: [] };
+            const q = query.trim().toLowerCase();
+
+            let matches = catData.brands;
+            if (q) matches = catData.brands.filter(b => b.toLowerCase().includes(q));
+
+            if (!matches || matches.length === 0) {
+                brandMenu.style.display = 'none';
+                return;
+            }
+
+            brandMenu.innerHTML = '';
+            matches.forEach(b => {
+                const item = document.createElement('div');
+                item.style.padding = '6px 12px';
+                item.style.cursor = 'pointer';
+                item.style.fontSize = '12.5px';
+                item.style.borderBottom = '1px solid rgba(255, 255, 255, 0.05)';
+                item.textContent = b;
+
+                item.addEventListener('mouseenter', () => { item.style.background = 'rgba(0, 210, 255, 0.15)'; });
+                item.addEventListener('mouseleave', () => { item.style.background = 'transparent'; });
+                item.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    if (brandInput) brandInput.value = b;
+                    brandMenu.style.display = 'none';
+                });
+
+                brandMenu.appendChild(item);
+            });
+
+            brandMenu.style.display = 'block';
+        }
+
+        function renderSpecMenu(query) {
+            if (!specMenu) return;
+            const selectedType = typeSelect.value || 'rod';
+            const catData = window.TACKLE_DATABASE[selectedType] || { specs: [] };
+            const q = query.trim().toLowerCase();
+
+            let matches = catData.specs;
+            if (q) matches = catData.specs.filter(s => s.toLowerCase().includes(q));
+
+            if (!matches || matches.length === 0) {
+                specMenu.style.display = 'none';
+                return;
+            }
+
+            specMenu.innerHTML = '';
+            matches.forEach(s => {
+                const item = document.createElement('div');
+                item.style.padding = '6px 12px';
+                item.style.cursor = 'pointer';
+                item.style.fontSize = '12.5px';
+                item.style.borderBottom = '1px solid rgba(255, 255, 255, 0.05)';
+                item.textContent = s;
+
+                item.addEventListener('mouseenter', () => { item.style.background = 'rgba(0, 210, 255, 0.15)'; });
+                item.addEventListener('mouseleave', () => { item.style.background = 'transparent'; });
+                item.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    if (specInput) specInput.value = s;
+                    specMenu.style.display = 'none';
+                });
+
+                specMenu.appendChild(item);
+            });
+
+            specMenu.style.display = 'block';
+        }
+
+        nameInput.addEventListener('focus', () => { renderNameMenu(nameInput.value); });
+        nameInput.addEventListener('input', (e) => { renderNameMenu(e.target.value); });
+        nameInput.addEventListener('blur', () => { setTimeout(() => { if (nameMenu) nameMenu.style.display = 'none'; }, 200); });
+
+        if (brandInput) {
+            brandInput.addEventListener('focus', () => { renderBrandMenu(brandInput.value); });
+            brandInput.addEventListener('input', (e) => { renderBrandMenu(e.target.value); });
+            brandInput.addEventListener('blur', () => { setTimeout(() => { if (brandMenu) brandMenu.style.display = 'none'; }, 200); });
+        }
+
+        if (specInput) {
+            specInput.addEventListener('focus', () => { renderSpecMenu(specInput.value); });
+            specInput.addEventListener('input', (e) => { renderSpecMenu(e.target.value); });
+            specInput.addEventListener('blur', () => { setTimeout(() => { if (specMenu) specMenu.style.display = 'none'; }, 200); });
+        }
+
+        typeSelect.addEventListener('change', () => {
+            renderPopularChips();
+        });
+
+        renderPopularChips();
     }
 
     // Tackle Modals
@@ -3494,46 +3608,122 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 400);
     }
 
-    // Predictive Text Autocomplete Engine for Fish Species
+    // Mobile-Friendly Predictive Text Autocomplete Engine for Fish Species
     function initFishPredictiveText() {
         const speciesInput = document.getElementById('catch-species');
-        const speciesDatalist = document.getElementById('fish-species-list');
+        const menu = document.getElementById('species-autocomplete-menu');
+        const popularContainer = document.getElementById('popular-species-chips');
         const waterSelect = document.getElementById('catch-water');
 
-        if (!speciesInput || !speciesDatalist || !window.FISH_DATABASE) return;
+        if (!speciesInput || !window.FISH_DATABASE) return;
 
-        // Populate datalist options initially
-        speciesDatalist.innerHTML = '';
-        window.FISH_DATABASE.forEach(fish => {
-            const opt = document.createElement('option');
-            opt.value = fish.name;
-            opt.label = `${fish.category} (${fish.waterType})`;
-            speciesDatalist.appendChild(opt);
-        });
+        // Render Quick-Tap Popular Species Chips for Mobile
+        if (popularContainer) {
+            const popularList = [
+                "Murray Cod", "Rainbow Trout", "Brown Trout", "Australian Bass",
+                "Barramundi", "Giant Trevally", "Flathead", "Yellowtail Kingfish", "Golden Perch", "Snapper"
+            ];
+            popularContainer.innerHTML = '';
+            popularList.forEach(fishName => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-glass btn-sm';
+                btn.style.fontSize = '11px';
+                btn.style.padding = '3px 8px';
+                btn.style.borderRadius = '10px';
+                btn.style.background = 'rgba(255, 255, 255, 0.05)';
+                btn.textContent = `🐟 ${fishName}`;
+                btn.addEventListener('click', () => {
+                    selectSpecies(fishName);
+                });
+                popularContainer.appendChild(btn);
+            });
+        }
 
-        // Real-time predictive text & auto-water selection
-        speciesInput.addEventListener('input', (e) => {
-            const val = e.target.value.trim();
-            if (!val) {
-                const regBox = document.getElementById('catch-regulation-box');
-                if (regBox) regBox.style.display = 'none';
+        function selectSpecies(fishName) {
+            speciesInput.value = fishName;
+            if (menu) menu.style.display = 'none';
+            
+            const match = window.FISH_DATABASE.find(f => f.name.toLowerCase() === fishName.toLowerCase());
+            if (match && waterSelect && match.waterType) {
+                waterSelect.value = match.waterType;
+            }
+
+            const lat = elements.catchLatInput && elements.catchLatInput.value ? parseFloat(elements.catchLatInput.value) : null;
+            const lng = elements.catchLngInput && elements.catchLngInput.value ? parseFloat(elements.catchLngInput.value) : null;
+            displayRegulationBox(fishName, lat, lng);
+        }
+
+        function renderAutocompleteMenu(query) {
+            if (!menu) return;
+            const q = query.trim().toLowerCase();
+            let matches = window.FISH_DATABASE;
+            if (q) {
+                matches = window.FISH_DATABASE.filter(f => f.name.toLowerCase().includes(q) || (f.category && f.category.toLowerCase().includes(q)));
+            }
+
+            if (!matches || matches.length === 0) {
+                menu.style.display = 'none';
                 return;
             }
 
-            const valLower = val.toLowerCase();
+            menu.innerHTML = '';
+            matches.slice(0, 10).forEach(fish => {
+                const item = document.createElement('div');
+                item.style.padding = '8px 12px';
+                item.style.borderRadius = '6px';
+                item.style.cursor = 'pointer';
+                item.style.fontSize = '13px';
+                item.style.display = 'flex';
+                item.style.justify-content = 'space-between';
+                item.style.alignItems = 'center';
+                item.style.borderBottom = '1px solid rgba(255, 255, 255, 0.05)';
 
-            // Match known fish in database to auto-assign water type
-            const match = window.FISH_DATABASE.find(f => f.name.toLowerCase() === valLower);
-            if (match) {
-                if (waterSelect && match.waterType) {
-                    waterSelect.value = match.waterType;
+                item.innerHTML = `
+                    <span>🐟 <strong>${fish.name}</strong></span>
+                    <small style="color: var(--accent-teal); font-size: 11px;">${fish.waterType || 'Freshwater'}</small>
+                `;
+
+                item.addEventListener('mouseenter', () => { item.style.background = 'rgba(0, 210, 255, 0.15)'; });
+                item.addEventListener('mouseleave', () => { item.style.background = 'transparent'; });
+                
+                item.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    selectSpecies(fish.name);
+                });
+
+                menu.appendChild(item);
+            });
+
+            menu.style.display = 'block';
+        }
+
+        speciesInput.addEventListener('focus', () => {
+            renderAutocompleteMenu(speciesInput.value);
+        });
+
+        speciesInput.addEventListener('input', (e) => {
+            const val = e.target.value;
+            renderAutocompleteMenu(val);
+
+            if (!val.trim()) {
+                const regBox = document.getElementById('catch-regulation-box');
+                if (regBox) regBox.style.display = 'none';
+            } else {
+                const match = window.FISH_DATABASE.find(f => f.name.toLowerCase() === val.trim().toLowerCase());
+                if (match) {
+                    if (waterSelect && match.waterType) waterSelect.value = match.waterType;
+                    const lat = elements.catchLatInput && elements.catchLatInput.value ? parseFloat(elements.catchLatInput.value) : null;
+                    const lng = elements.catchLngInput && elements.catchLngInput.value ? parseFloat(elements.catchLngInput.value) : null;
+                    displayRegulationBox(match.name, lat, lng);
                 }
             }
+        });
 
-            // Real-time regulations & sportfish advice calculation
-            const lat = elements.catchLatInput && elements.catchLatInput.value ? parseFloat(elements.catchLatInput.value) : null;
-            const lng = elements.catchLngInput && elements.catchLngInput.value ? parseFloat(elements.catchLngInput.value) : null;
-            displayRegulationBox(val, lat, lng);
+        speciesInput.addEventListener('blur', () => {
+            setTimeout(() => {
+                if (menu) menu.style.display = 'none';
+            }, 200);
         });
     }
 

@@ -12,10 +12,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style -->
-    <link rel="stylesheet" href="styles.css?v=2600">
+    <link rel="stylesheet" href="styles.css?v=2800">
     <script>
         // Force instant cache wipe on every version bump
-        const CURRENT_VERSION = 'v2600';
+        const CURRENT_VERSION = 'v2800';
         if ('serviceWorker' in navigator && localStorage.getItem('sw_app_version') !== CURRENT_VERSION) {
             navigator.serviceWorker.getRegistrations().then(registrations => {
                 for (let r of registrations) r.unregister();
@@ -936,11 +936,12 @@
             <h2 id="modal-log-catch-title">Log Fish Catch</h2>
             <form id="form-log-catch" class="modal-form">
                 <div class="form-row">
-                    <div class="form-group flex-2">
+                    <div class="form-group flex-2" style="position: relative;">
                         <label for="catch-species">Fish Species *</label>
-                        <input type="text" id="catch-species" class="form-input" list="fish-species-list" placeholder="e.g. Rainbow Trout, Giant Trevally, Barramundi" autocomplete="off" required>
-                        <datalist id="fish-species-list"></datalist>
+                        <input type="text" id="catch-species" class="form-input" placeholder="Type fish name or select below..." autocomplete="off" required>
+                        <div id="species-autocomplete-menu" class="card glass" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 100000; max-height: 220px; overflow-y: auto; padding: 6px; margin-top: 4px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid var(--accent-teal);"></div>
                         <div id="catch-species-chips" style="display: none; flex-wrap: wrap; gap: 6px; margin-top: 6px;"></div>
+                        <div id="popular-species-chips" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px;"></div>
                     </div>
                     <div class="form-group flex-1">
                         <label for="catch-water">Water Type</label>
@@ -1093,22 +1094,23 @@
                     </select>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" style="position: relative;">
                     <label for="tackle-name">Equipment Name *</label>
-                    <input type="text" id="tackle-name" class="form-input" list="tackle-name-list" placeholder="e.g. Sage R8 Core, Woolly Bugger, Clouser Minnow" autocomplete="off" required>
-                    <datalist id="tackle-name-list"></datalist>
+                    <input type="text" id="tackle-name" class="form-input" placeholder="Type equipment name or tap below..." autocomplete="off" required>
+                    <div id="tackle-name-autocomplete-menu" class="card glass" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 100000; max-height: 200px; overflow-y: auto; padding: 6px; margin-top: 4px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid var(--accent-teal);"></div>
+                    <div id="tackle-popular-chips" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px;"></div>
                 </div>
 
                 <div class="form-row">
-                    <div class="form-group">
+                    <div class="form-group" style="position: relative;">
                         <label for="tackle-brand">Brand / Manufacturer</label>
-                        <input type="text" id="tackle-brand" class="form-input" list="tackle-brand-list" placeholder="e.g. Orvis, Sage, Hatch, Rio, Loop" autocomplete="off">
-                        <datalist id="tackle-brand-list"></datalist>
+                        <input type="text" id="tackle-brand" class="form-input" placeholder="e.g. Orvis, Sage, Hatch, Rio, Loop" autocomplete="off">
+                        <div id="tackle-brand-autocomplete-menu" class="card glass" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 100000; max-height: 180px; overflow-y: auto; padding: 6px; margin-top: 4px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid var(--accent-teal);"></div>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="position: relative;">
                         <label for="tackle-spec">Specification / Line Wt / Hook Size</label>
-                        <input type="text" id="tackle-spec" class="form-input" list="tackle-spec-list" placeholder="e.g. 9ft 5wt, WF5F, #14 Olive, 4X 6lb" autocomplete="off">
-                        <datalist id="tackle-spec-list"></datalist>
+                        <input type="text" id="tackle-spec" class="form-input" placeholder="e.g. 9ft 5wt, WF5F, #14 Olive, 4X 6lb" autocomplete="off">
+                        <div id="tackle-spec-autocomplete-menu" class="card glass" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 100000; max-height: 180px; overflow-y: auto; padding: 6px; margin-top: 4px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid var(--accent-teal);"></div>
                     </div>
                 </div>
 
@@ -1362,16 +1364,16 @@
     </div>
 
     <!-- Scripts -->
-    <script src="db.js?v=2600"></script>
-    <script src="regulations.js?v=2600"></script>
-    <script src="weather.js?v=2600"></script>
-    <script src="exif.js?v=2600"></script>
-    <script src="map.js?v=2600"></script>
-    <script src="tackle_db.js?v=2600"></script>
-    <script src="fish_db.js?v=2600"></script>
-    <script src="fly_box.js?v=2600"></script>
-    <script src="knots.js?v=2600"></script>
-    <script src="auth.js?v=2600"></script>
-    <script src="app.js?v=2600"></script>
+    <script src="db.js?v=2800"></script>
+    <script src="regulations.js?v=2800"></script>
+    <script src="weather.js?v=2800"></script>
+    <script src="exif.js?v=2800"></script>
+    <script src="map.js?v=2800"></script>
+    <script src="tackle_db.js?v=2800"></script>
+    <script src="fish_db.js?v=2800"></script>
+    <script src="fly_box.js?v=2800"></script>
+    <script src="knots.js?v=2800"></script>
+    <script src="auth.js?v=2800"></script>
+    <script src="app.js?v=2800"></script>
 </body>
 </html>
