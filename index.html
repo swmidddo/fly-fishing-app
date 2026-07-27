@@ -12,18 +12,17 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style -->
-    <link rel="stylesheet" href="styles.css?v=2800">
+    <link rel="stylesheet" href="styles.css?v=7000">
     <script>
-        // Force instant cache wipe on every version bump
-        const CURRENT_VERSION = 'v2800';
-        if ('serviceWorker' in navigator && localStorage.getItem('sw_app_version') !== CURRENT_VERSION) {
-            navigator.serviceWorker.getRegistrations().then(registrations => {
+        // Unregister any active Service Workers and clear CacheStorage instantly on parse
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
                 for (let r of registrations) r.unregister();
-                if ('caches' in window) {
-                    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
-                }
-                localStorage.setItem('sw_app_version', CURRENT_VERSION);
-                setTimeout(() => location.reload(true), 150);
+            });
+        }
+        if ('caches' in window) {
+            caches.keys().then(function(keys) {
+                for (let k of keys) caches.delete(k);
             });
         }
     </script>
@@ -42,43 +41,43 @@
             </div>
 
             <nav class="nav-menu">
-                <button class="nav-item active" data-tab="dashboard">
+                <button class="nav-item active" data-tab="dashboard" onclick="window.switchTab('dashboard')">
                     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                     <span>Dashboard</span>
                 </button>
-                <button class="nav-item" data-tab="map">
+                <button class="nav-item" data-tab="map" onclick="window.switchTab('map')">
                     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
                     <span>Interactive Map</span>
                 </button>
-                <button class="nav-item" data-tab="catches">
+                <button class="nav-item" data-tab="catches" onclick="window.switchTab('catches')">
                     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
                     <span>Catch Logs</span>
                 </button>
-                <button class="nav-item" data-tab="tackle">
+                <button class="nav-item" data-tab="tackle" onclick="window.switchTab('tackle')">
                     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
                     <span>Tackle Library</span>
                 </button>
-                <button class="nav-item" data-tab="regulations">
+                <button class="nav-item" data-tab="regulations" onclick="window.switchTab('regulations')">
                     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                     <span>Fish Size Guide</span>
                 </button>
-                <button class="nav-item" data-tab="weather">
+                <button class="nav-item" data-tab="weather" onclick="window.switchTab('weather')">
                     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path><circle cx="12" cy="12" r="5"></circle></svg>
                     <span>Weather & Tides</span>
                 </button>
-                <button class="nav-item" data-tab="licenses">
+                <button class="nav-item" data-tab="licenses" onclick="window.switchTab('licenses')">
                     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><line x1="15" y1="8" x2="19" y2="8"></line><line x1="15" y1="12" x2="17" y2="12"></line><path d="M7 16c0-1 1-2 2-2s2 1 2 2"></path></svg>
                     <span>My Licenses</span>
                 </button>
-                <button class="nav-item" data-tab="flybox">
+                <button class="nav-item" data-tab="flybox" onclick="window.switchTab('flybox')">
                     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
                     <span>Virtual Fly Box</span>
                 </button>
-                <button class="nav-item" data-tab="knots">
+                <button class="nav-item" data-tab="knots" onclick="window.switchTab('knots')">
                     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><path d="M8 12s1.5-2 4-2 4 2 4 2-1.5 2-4 2-4-2-4-2z"></path></svg>
                     <span>Knots & Tippet Guide</span>
                 </button>
-                <button class="nav-item" data-tab="settings">
+                <button class="nav-item" data-tab="settings" onclick="window.switchTab('settings')">
                     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                     <span>Settings</span>
                 </button>
@@ -936,11 +935,10 @@
             <h2 id="modal-log-catch-title">Log Fish Catch</h2>
             <form id="form-log-catch" class="modal-form">
                 <div class="form-row">
-                    <div class="form-group flex-2" style="position: relative;">
+                    <div class="form-group flex-2">
                         <label for="catch-species">Fish Species *</label>
-                        <input type="text" id="catch-species" class="form-input" placeholder="Type fish name or select below..." autocomplete="off" required>
-                        <div id="species-autocomplete-menu" class="card glass" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 100000; max-height: 220px; overflow-y: auto; padding: 6px; margin-top: 4px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid var(--accent-teal);"></div>
-                        <div id="catch-species-chips" style="display: none; flex-wrap: wrap; gap: 6px; margin-top: 6px;"></div>
+                        <input type="text" id="catch-species" class="form-input" list="fish-species-list" placeholder="Type fish name or tap below..." required>
+                        <datalist id="fish-species-list"></datalist>
                         <div id="popular-species-chips" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px;"></div>
                     </div>
                     <div class="form-group flex-1">
@@ -1094,23 +1092,23 @@
                     </select>
                 </div>
 
-                <div class="form-group" style="position: relative;">
+                <div class="form-group">
                     <label for="tackle-name">Equipment Name *</label>
-                    <input type="text" id="tackle-name" class="form-input" placeholder="Type equipment name or tap below..." autocomplete="off" required>
-                    <div id="tackle-name-autocomplete-menu" class="card glass" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 100000; max-height: 200px; overflow-y: auto; padding: 6px; margin-top: 4px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid var(--accent-teal);"></div>
+                    <input type="text" id="tackle-name" class="form-input" list="tackle-name-list" placeholder="Type equipment name or tap below..." required>
+                    <datalist id="tackle-name-list"></datalist>
                     <div id="tackle-popular-chips" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px;"></div>
                 </div>
 
                 <div class="form-row">
-                    <div class="form-group" style="position: relative;">
+                    <div class="form-group">
                         <label for="tackle-brand">Brand / Manufacturer</label>
-                        <input type="text" id="tackle-brand" class="form-input" placeholder="e.g. Orvis, Sage, Hatch, Rio, Loop" autocomplete="off">
-                        <div id="tackle-brand-autocomplete-menu" class="card glass" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 100000; max-height: 180px; overflow-y: auto; padding: 6px; margin-top: 4px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid var(--accent-teal);"></div>
+                        <input type="text" id="tackle-brand" class="form-input" list="tackle-brand-list" placeholder="e.g. Orvis, Sage, Hatch, Rio, Loop">
+                        <datalist id="tackle-brand-list"></datalist>
                     </div>
-                    <div class="form-group" style="position: relative;">
+                    <div class="form-group">
                         <label for="tackle-spec">Specification / Line Wt / Hook Size</label>
-                        <input type="text" id="tackle-spec" class="form-input" placeholder="e.g. 9ft 5wt, WF5F, #14 Olive, 4X 6lb" autocomplete="off">
-                        <div id="tackle-spec-autocomplete-menu" class="card glass" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 100000; max-height: 180px; overflow-y: auto; padding: 6px; margin-top: 4px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid var(--accent-teal);"></div>
+                        <input type="text" id="tackle-spec" class="form-input" list="tackle-spec-list" placeholder="e.g. 9ft 5wt, WF5F, #14 Olive, 4X 6lb">
+                        <datalist id="tackle-spec-list"></datalist>
                     </div>
                 </div>
 
@@ -1364,16 +1362,16 @@
     </div>
 
     <!-- Scripts -->
-    <script src="db.js?v=2800"></script>
-    <script src="regulations.js?v=2800"></script>
-    <script src="weather.js?v=2800"></script>
-    <script src="exif.js?v=2800"></script>
-    <script src="map.js?v=2800"></script>
-    <script src="tackle_db.js?v=2800"></script>
-    <script src="fish_db.js?v=2800"></script>
-    <script src="fly_box.js?v=2800"></script>
-    <script src="knots.js?v=2800"></script>
-    <script src="auth.js?v=2800"></script>
-    <script src="app.js?v=2800"></script>
+    <script src="db.js?v=7000"></script>
+    <script src="regulations.js?v=7000"></script>
+    <script src="weather.js?v=7000"></script>
+    <script src="exif.js?v=7000"></script>
+    <script src="map.js?v=7000"></script>
+    <script src="tackle_db.js?v=7000"></script>
+    <script src="fish_db.js?v=7000"></script>
+    <script src="fly_box.js?v=7000"></script>
+    <script src="knots.js?v=7000"></script>
+    <script src="auth.js?v=7000"></script>
+    <script src="app.js?v=7000"></script>
 </body>
 </html>

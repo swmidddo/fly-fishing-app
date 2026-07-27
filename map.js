@@ -142,6 +142,11 @@ const AppMap = {
                 resolve();
                 return;
             }
+            const timer = setTimeout(() => {
+                console.warn("Leaflet assets load timed out. Continuing...");
+                resolve();
+            }, 3000);
+
             // Link CSS
             const link = document.createElement('link');
             link.rel = 'stylesheet';
@@ -151,7 +156,14 @@ const AppMap = {
             // Link JS
             const script = document.createElement('script');
             script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-            script.onload = () => resolve();
+            script.onload = () => {
+                clearTimeout(timer);
+                resolve();
+            };
+            script.onerror = () => {
+                clearTimeout(timer);
+                resolve();
+            };
             document.head.appendChild(script);
         });
     },
