@@ -9,7 +9,7 @@ const KNOT_GUIDE = [
         purpose: "Universal Tippet to Fly Hook Connection",
         strength: "95%",
         icon: "➰",
-        image: "images/knot_uni_guide_1785127344360.jpg",
+        image: "images/knot_uni.jpg",
         description: "The standard Uni-Knot is one of the most reliable terminal knots in all of angling. Extremely dependable, easy to tie in low light or cold weather, and holds tight on both monofilament and fluorocarbon lines.",
         steps: [
             "1. Run 6 inches of tippet line through the eye of the fly hook.",
@@ -28,7 +28,7 @@ const KNOT_GUIDE = [
         purpose: "Tippet to Fly Hook (Universal Classic)",
         strength: "95%",
         icon: "🎣",
-        image: "images/knot_clinch_guide_1785126982604.jpg",
+        image: "images/knot_clinch.jpg",
         description: "The most widely used terminal knot in fly fishing. Reliable, easy to tie, and holds tight on standard wire hooks (#8 to #18).",
         steps: [
             "1. Thread 3-4 inches of tippet through the fly hook eye.",
@@ -47,7 +47,7 @@ const KNOT_GUIDE = [
         purpose: "Tippet to Fly (Maximum Swimming Action)",
         strength: "95%",
         icon: "➰",
-        image: "images/knot_loop_guide_1785124977547.jpg",
+        image: "images/knot_loop.jpg",
         description: "The gold standard knot for tying streamer and nymph flies. Creates an open loop so flies swim with natural movement.",
         steps: [
             "1. Tie an overhand knot in the tippet line about 2-3 inches from the end. Leave it loose.",
@@ -66,7 +66,7 @@ const KNOT_GUIDE = [
         purpose: "Ultra-Fast Tippet to Small Fly (#18-#28)",
         strength: "90% - 98%",
         icon: "🪰",
-        image: "images/knot_davy_guide_1785126078497.jpg",
+        image: "images/knot_davy.jpg",
         description: "The fastest, smallest knot in fly fishing. Uses minimal tippet length, ideal for tiny midges and small flies (#18-#28).",
         steps: [
             "1. Thread tippet through the fly eye, leaving 2 inches of tag end.",
@@ -84,7 +84,7 @@ const KNOT_GUIDE = [
         purpose: "Indestructible Tippet to Heavy Streamer / Saltwater Hook",
         strength: "100%",
         icon: "⚓",
-        image: "images/knot_palomar_guide_1785126997201.jpg",
+        image: "images/knot_palomar.jpg",
         description: "Virtually impossible to slip or break. Ideal for tying heavy tippet/fluorocarbon to large streamers, bass bugs, and saltwater flies.",
         steps: [
             "1. Double about 5 inches of tippet line and pass the loop through the fly hook eye.",
@@ -102,7 +102,7 @@ const KNOT_GUIDE = [
         purpose: "Up/Down Eye Hook Inline Presentation",
         strength: "92%",
         icon: "🦟",
-        image: "images/knot_turle_guide_1785127010879.jpg",
+        image: "images/knot_turle.jpg",
         description: "Traditional dry fly and salmon knot that cinches around the hook shank, keeping tippet perfectly aligned with the hook body.",
         steps: [
             "1. Thread tippet through the turned eye toward the bend of the hook.",
@@ -120,7 +120,7 @@ const KNOT_GUIDE = [
         purpose: "Leader to Tippet / Joining Lines",
         strength: "98%",
         icon: "🪢",
-        image: "images/knot_surgeons_guide_1785124992229.jpg",
+        image: "images/knot_surgeons.jpg",
         description: "The simplest, fastest, and strongest knot for joining tippet to leader or adding a tippet extension on the water.",
         steps: [
             "1. Overlap the leader end and new tippet section by 6-8 inches.",
@@ -139,7 +139,7 @@ const KNOT_GUIDE = [
         purpose: "Joining Monofilament / Fluorocarbon Lines",
         strength: "90%",
         icon: "➰",
-        image: "images/knot_blood_guide_1785125004744.jpg",
+        image: "images/knot_blood.jpg",
         description: "Clean, ultra-slim barrel knot for building custom tapered leaders. Passes smoothly through fly rod guides.",
         steps: [
             "1. Overlap ends of the two lines by about 6 inches.",
@@ -158,7 +158,7 @@ const KNOT_GUIDE = [
         purpose: "Fly Line to Leader Butt Section",
         strength: "92%",
         icon: "🪢",
-        image: "images/knot_nail_guide_1785126051344.jpg",
+        image: "images/knot_nail.jpg",
         description: "Attaches heavy leader butt section to the tip of fly line without bulk.",
         steps: [
             "1. Lay a hollow tube or nail along the tip of the fly line.",
@@ -177,7 +177,7 @@ const KNOT_GUIDE = [
         purpose: "Backing Line to Fly Line",
         strength: "95%",
         icon: "➰",
-        image: "images/knot_albright_guide_1785126066378.jpg",
+        image: "images/knot_albright.jpg",
         description: "Joins lines of significantly different diameters, such as Dacron backing line to fly line.",
         steps: [
             "1. Fold a 2-inch loop in the end of the thick fly line.",
@@ -220,10 +220,10 @@ const KnotsApp = {
 
                 <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.4;">${k.description}</p>
                 
-                <!-- Visual Diagram Aid -->
+                <!-- Visual Diagram Aid with Mobile Fallback -->
                 ${k.image ? `
                     <div style="margin-bottom: 16px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); text-align: center; padding: 8px;">
-                        <img src="${k.image}" alt="${k.name} Visual Diagram" style="max-width: 100%; height: auto; max-height: 240px; border-radius: 8px; object-fit: contain;">
+                        <img src="${k.image}" alt="${k.name} Visual Diagram" loading="lazy" style="width: 100%; height: auto; max-height: 260px; border-radius: 8px; object-fit: contain; display: block; margin: 0 auto;">
                         <span style="display: block; font-size: 11px; color: var(--accent-teal); margin-top: 6px; font-weight: 500;">📷 Step-by-Step Visual Diagram Aid</span>
                     </div>
                 ` : ''}

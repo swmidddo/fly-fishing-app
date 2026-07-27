@@ -1,6 +1,6 @@
 // sw.js - Service Worker for Offline fly fishing app companion caching
 
-const CACHE_NAME = 'fly-fishing-v1200';
+const CACHE_NAME = 'fly-fishing-v1300';
 const STATIC_ASSETS = [
     './',
     'index.html',
@@ -16,6 +16,16 @@ const STATIC_ASSETS = [
     'knots.js',
     'auth.js',
     'app.js',
+    'images/knot_uni.jpg',
+    'images/knot_clinch.jpg',
+    'images/knot_loop.jpg',
+    'images/knot_davy.jpg',
+    'images/knot_palomar.jpg',
+    'images/knot_turle.jpg',
+    'images/knot_surgeons.jpg',
+    'images/knot_blood.jpg',
+    'images/knot_nail.jpg',
+    'images/knot_albright.jpg',
     'https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap',
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
