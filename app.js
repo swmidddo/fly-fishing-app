@@ -2919,14 +2919,27 @@ const initMainApp = async () => {
             const catches = await window.DB.getAllCatches();
             let count = 0;
             for (const c of catches) {
-                if ((c.species === "Rainbow Trout" && parseFloat(c.length) === 48.5) ||
+                if (c.isDemo || (c.species === "Rainbow Trout" && parseFloat(c.length) === 48.5) ||
                     (c.species === "Giant Trevally" && parseFloat(c.length) === 82.0)) {
                     await window.DB.deleteCatch(c.id);
                     count++;
                 }
             }
+            const tackle = await window.DB.getAllTackle();
+            for (const t of tackle) {
+                if (t.isDemo) {
+                    await window.DB.deleteTackle(t.id);
+                }
+            }
+            const rigs = await window.DB.getAllRigs();
+            for (const r of rigs) {
+                if (r.isDemo) {
+                    await window.DB.deleteRig(r.id);
+                }
+            }
             localStorage.setItem('demo_catches_cleared', 'true');
             await loadCatches();
+            await loadTackle();
             if (count > 0) {
                 console.log(`Purged ${count} sample demo catches.`);
             }

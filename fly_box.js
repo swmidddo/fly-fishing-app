@@ -151,6 +151,30 @@ const DEFAULT_FLY_PATTERNS = [
         rating: 5
     },
     {
+        id: "fly_mudeye",
+        name: "Australian Mudeye (Dragonfly Nymph)",
+        category: "Nymph",
+        region: "Australia",
+        seasons: [11, 12, 1, 2, 3, 4],
+        waterType: "lake",
+        hookSizes: ["#8", "#10"],
+        icon: "🦎",
+        description: "Deadly nocturnal & dusk pattern for monster brown trout in Tasmanian & Snowy hydro lakes.",
+        rating: 5
+    },
+    {
+        id: "fly_cicada_hopper",
+        name: "Australian Cicada / Foam Hopper",
+        category: "Dry Fly",
+        region: "Australia",
+        seasons: [12, 1, 2, 3],
+        waterType: "river",
+        hookSizes: ["#6", "#8", "#10"],
+        icon: "🐝",
+        description: "High-buoyancy foam terrestrial for loud plop landings that draw explosive trout & bass strikes.",
+        rating: 5
+    },
+    {
         id: "fly_clouser_minnow",
         name: "Clouser Minnow (Chartreuse/White)",
         category: "Saltwater",
@@ -172,6 +196,18 @@ const DEFAULT_FLY_PATTERNS = [
         hookSizes: ["#6", "#8"],
         icon: "🦐",
         description: "Ultra-realistic shrimp pattern for sight-casting to Yellowfin Bream, Whiting, and Flathead on sand flats.",
+        rating: 5
+    },
+    {
+        id: "fly_surf_candy",
+        name: "Epoxy Surf Candy / Deceiver",
+        category: "Saltwater",
+        region: "Australia & Global",
+        seasons: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        waterType: "saltwater",
+        hookSizes: ["#2", "#1/0", "#2/0"],
+        icon: "🦑",
+        description: "Indestructible clear epoxy baitfish pattern for Australian Salmon, Kingfish, Tailor, and GTs.",
         rating: 5
     },
     {
@@ -201,9 +237,16 @@ const FlyBoxApp = {
         const raw = localStorage.getItem('user_fly_box');
         if (raw) {
             try {
-                this.flies = JSON.parse(raw);
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    this.flies = parsed;
+                } else {
+                    this.flies = [...DEFAULT_FLY_PATTERNS];
+                    this.saveFliesToStorage();
+                }
             } catch (e) {
                 this.flies = [...DEFAULT_FLY_PATTERNS];
+                this.saveFliesToStorage();
             }
         } else {
             this.flies = [...DEFAULT_FLY_PATTERNS];
