@@ -1091,7 +1091,7 @@ textarea.form-input {
     }
     .main-content {
         margin-left: 0;
-        padding: 20px;
+        padding: 16px;
     }
     #tab-map {
         height: calc(100vh - 160px);
@@ -1099,6 +1099,57 @@ textarea.form-input {
     .form-row {
         flex-direction: column;
         gap: 0;
+    }
+
+    /* Weather & Tides Tab Mobile Scaling Fixes */
+    .weather-detailed-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        width: 100%;
+    }
+    .card-forecast-detail,
+    .card-tide-detail,
+    .card-moon-detail,
+    .card-barometer-detail {
+        grid-column: auto;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 16px;
+    }
+    .forecast-scroller {
+        gap: 10px;
+        padding: 8px 0;
+        -webkit-overflow-scrolling: touch;
+    }
+    .forecast-day-card {
+        min-width: 105px;
+        max-width: 125px;
+        padding: 10px 8px;
+        flex-shrink: 0;
+    }
+    .moon-huge-icon {
+        font-size: 48px;
+        margin-bottom: 6px;
+    }
+    .moon-large-display {
+        padding: 10px 0;
+    }
+    .moon-large-display h2 {
+        font-size: 18px;
+    }
+    .tide-stat-row {
+        gap: 8px;
+    }
+    .tide-stat-item {
+        padding: 8px;
+    }
+    .tide-stat-item .value {
+        font-size: 16px;
+    }
+    .tide-chart-container {
+        padding: 6px;
+        margin-top: 10px;
     }
 }
 

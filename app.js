@@ -45,7 +45,9 @@ window.switchTab = function(tabId) {
                 } catch(e){}
             }, 100);
         } else if (tabId === 'weather' && typeof window.drawTideChart === 'function') {
-            window.drawTideChart();
+            setTimeout(() => {
+                window.drawTideChart();
+            }, 120);
         }
     } catch (err) {
         console.warn("Tab callback notice for " + tabId + ":", err);
