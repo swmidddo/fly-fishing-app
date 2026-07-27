@@ -3860,9 +3860,165 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.print();
     };
 
-    // Initialize FlyBox & Knots Apps
+    // Initialize FlyBox & Knots Apps & Analytics
     setTimeout(() => {
         if (window.FlyBoxApp) window.FlyBoxApp.init();
         if (window.KnotsApp) window.KnotsApp.renderKnotsUI();
+        if (window.updateCatchAnalytics) window.updateCatchAnalytics();
     }, 300);
+
+    // --- 1. River Mode Toggle ---
+    window.toggleRiverMode = function() {
+        document.body.classList.toggle('high-contrast-mode');
+        const isHighContrast = document.body.classList.contains('high-contrast-mode');
+        localStorage.setItem('river_mode_enabled', isHighContrast ? 'true' : 'false');
+    };
+
+    if (localStorage.getItem('river_mode_enabled') === 'true') {
+        document.body.classList.add('high-contrast-mode');
+    }
+
+    // --- 2. Catch Analytics Calculation ---
+    window.updateCatchAnalytics = async function() {
+        try {
+            const catches = await db.getAllCatches();
+            const elTrophy = document.getElementById('analytics-trophy');
+            const elTrophySub = document.getElementById('analytics-trophy-sub');
+            const elTopFly = document.getElementById('analytics-top-fly');
+            const elTopFlySub = document.getElementById('analytics-top-fly-sub');
+            const elPeak = document.getElementById('analytics-peak-hour');
+            const elPeakSub = document.getElementById('analytics-peak-hour-sub');
+
+            if (!elTrophy || !catches) return;
+
+            if (catches.length === 0) {
+                elTrophy.textContent = "--";
+                elTopFly.textContent = "--";
+                elPeak.textContent = "--";
+                return;
+            }
+
+            // Trophy Calculation
+            let trophy = catches.reduce((max, c) => (parseFloat(c.length || 0) > parseFloat(max.length || 0) ? c : max), catches[0]);
+            if (trophy && trophy.length) {
+                elTrophy.textContent = `${trophy.length} cm ${trophy.species}`;
+                elTrophySub.textContent = `Caught ${new Date(trophy.date).toLocaleDateString()}`;
+            }
+
+            // Top Producing Fly
+            const flyCounts = {};
+            catches.forEach(c => {
+                const fly = c.lure || c.fly || 'Standard Pattern';
+                flyCounts[fly] = (flyCounts[fly] || 0) + 1;
+            });
+            const topFly = Object.keys(flyCounts).reduce((a, b) => (flyCounts[a] > flyCounts[b] ? a : b), Object.keys(flyCounts)[0]);
+            if (topFly) {
+                elTopFly.textContent = topFly;
+                elTopFlySub.textContent = `${flyCounts[topFly]} total catches logged`;
+            }
+
+            // Peak Hour
+            const hourCounts = {};
+            catches.forEach(c => {
+                const hr = new Date(c.date).getHours();
+                hourCounts[hr] = (hourCounts[hr] || 0) + 1;
+            });
+            const peakHr = Object.keys(hourCounts).reduce((a, b) => (hourCounts[a] > hourCounts[b] ? a : b), Object.keys(hourCounts)[0]);
+            if (peakHr !== undefined) {
+                const hrNum = parseInt(peakHr);
+                const ampm = hrNum >= 12 ? 'PM' : 'AM';
+                const formattedHr = hrNum % 12 || 12;
+                elPeak.textContent = `${formattedHr}:00 ${ampm}`;
+                elPeakSub.textContent = `${hourCounts[peakHr]} catches recorded`;
+            }
+        } catch (e) {
+            console.error("Analytics calc error", e);
+        }
+    };
+
+    // --- 3. Speech-to-Text Voice Dictation ---
+    let recognition = null;
+    window.toggleVoiceDictation = function() {
+        const btn = document.getElementById('btn-voice-dictate');
+        const notesArea = document.getElementById('catch-notes');
+        if (!notesArea) return;
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert("Speech recognition is not supported on this browser. You can type notes directly!");
+            return;
+        }
+
+        if (recognition) {
+            recognition.stop();
+            recognition = null;
+            if (btn) {
+                btn.classList.remove('mic-recording');
+                btn.innerHTML = '🎙️ Dictate Voice Notes';
+            }
+            return;
+        }
+
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        if (btn) {
+            btn.classList.add('mic-recording');
+            btn.innerHTML = '🔴 Listening... Tap to Stop';
+        }
+
+        recognition.onresult = (event) => {
+            let finalTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript;
+                }
+            }
+            if (finalTranscript) {
+                notesArea.value = (notesArea.value ? notesArea.value + ' ' : '') + finalTranscript;
+            }
+        };
+
+        recognition.onerror = (event) => {
+            console.warn("Speech recognition error:", event.error);
+            if (btn) {
+                btn.classList.remove('mic-recording');
+                btn.innerHTML = '🎙️ Dictate Voice Notes';
+            }
+            recognition = null;
+        };
+
+        recognition.onend = () => {
+            if (btn) {
+                btn.classList.remove('mic-recording');
+                btn.innerHTML = '🎙️ Dictate Voice Notes';
+            }
+            recognition = null;
+        };
+
+        recognition.start();
+    };
+
+    // --- 4. PWA Installation Handler ---
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const btn = document.getElementById('btn-pwa-install');
+        if (btn) btn.style.display = 'inline-flex';
+    });
+
+    window.installPwaApp = function() {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+                console.log('User accepted PWA prompt');
+            }
+            deferredPrompt = null;
+            const btn = document.getElementById('btn-pwa-install');
+            if (btn) btn.style.display = 'none';
+        });
+    };
 });

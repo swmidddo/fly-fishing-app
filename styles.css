@@ -1917,3 +1917,63 @@ textarea.form-input {
     }
 }
 
+/* High-Contrast Riverbank Sunlight Mode */
+body.high-contrast-mode {
+    --bg-dark: #000000 !important;
+    --bg-card: #0d0d0d !important;
+    --text-primary: #ffffff !important;
+    --text-secondary: #ffea00 !important;
+    --accent-teal: #00f0ff !important;
+    --border-color: #ffea00 !important;
+    background: #000000 !important;
+    color: #ffffff !important;
+}
+
+body.high-contrast-mode .card,
+body.high-contrast-mode .glass {
+    background: #0d0d0d !important;
+    border: 2px solid #ffea00 !important;
+    box-shadow: 0 0 10px rgba(255, 234, 0, 0.4) !important;
+}
+
+body.high-contrast-mode .badge {
+    background: #ffea00 !important;
+    color: #000000 !important;
+    font-weight: 700 !important;
+}
+
+/* Voice Dictation Button Pulse */
+.mic-recording {
+    animation: micPulse 1.2s infinite alternate !important;
+    background: #ef4444 !important;
+    color: #ffffff !important;
+    border-color: #dc2626 !important;
+}
+
+@keyframes micPulse {
+    from {
+        box-shadow: 0 0 4px #ef4444;
+        transform: scale(1);
+    }
+    to {
+        box-shadow: 0 0 16px #ef4444, 0 0 24px #ef4444;
+        transform: scale(1.06);
+    }
+}
+
+/* Match-the-Hatch & Analytics Cards */
+.match-hatch-card {
+    background: linear-gradient(135deg, rgba(0, 210, 255, 0.08), rgba(163, 230, 53, 0.08));
+    border: 1px solid var(--accent-teal);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+

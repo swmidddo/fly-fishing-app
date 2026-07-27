@@ -9,10 +9,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style -->
-    <link rel="stylesheet" href="styles.css?v=1600">
+    <link rel="stylesheet" href="styles.css?v=1700">
     <script>
         // Force instant cache wipe on every version bump
-        const CURRENT_VERSION = 'v1600';
+        const CURRENT_VERSION = 'v1700';
         if ('serviceWorker' in navigator && localStorage.getItem('sw_app_version') !== CURRENT_VERSION) {
             navigator.serviceWorker.getRegistrations().then(registrations => {
                 for (let r of registrations) r.unregister();
@@ -94,9 +94,19 @@
             
             <!-- Dashboard View -->
             <section id="tab-dashboard" class="tab-content active">
-                <header class="section-header">
-                    <h1>Fisherman Dashboard</h1>
-                    <p class="subtitle">Tight lines and blue skies. Here is your fishing summary.</p>
+                <header class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
+                    <div>
+                        <h1>Fisherman Dashboard</h1>
+                        <p class="subtitle">Tight lines and blue skies. Here is your fishing summary.</p>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button class="btn btn-glass btn-sm" onclick="window.toggleRiverMode()" title="High-contrast sunlight riverbank viewing mode">
+                            ☀️ River Mode
+                        </button>
+                        <button class="btn btn-primary btn-sm" id="btn-pwa-install" onclick="window.installPwaApp()" style="display: none;">
+                            📲 Install App
+                        </button>
+                    </div>
                 </header>
 
                 <div class="dashboard-grid">
@@ -323,6 +333,25 @@
                     </div>
                 </header>
 
+                <!-- Catch Analytics Summary Cards -->
+                <div class="analytics-grid">
+                    <div class="card glass" style="padding: 16px; border-left: 4px solid var(--accent-teal);">
+                        <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600;">🏆 Personal Record Trophy</div>
+                        <div style="font-size: 20px; font-weight: 700; color: var(--accent-teal); margin-top: 4px;" id="analytics-trophy">--</div>
+                        <div style="font-size: 11px; color: #94a3b8;" id="analytics-trophy-sub">Log catches to record trophy size</div>
+                    </div>
+                    <div class="card glass" style="padding: 16px; border-left: 4px solid #a3e635;">
+                        <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600;">🪰 Top Producing Fly</div>
+                        <div style="font-size: 20px; font-weight: 700; color: #a3e635; margin-top: 4px;" id="analytics-top-fly">--</div>
+                        <div style="font-size: 11px; color: #94a3b8;" id="analytics-top-fly-sub">0 catches registered</div>
+                    </div>
+                    <div class="card glass" style="padding: 16px; border-left: 4px solid #f59e0b;">
+                        <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600;">⏰ Peak Bite Hour</div>
+                        <div style="font-size: 20px; font-weight: 700; color: #f59e0b; margin-top: 4px;" id="analytics-peak-hour">--</div>
+                        <div style="font-size: 11px; color: #94a3b8;" id="analytics-peak-hour-sub">Based on catch timestamps</div>
+                    </div>
+                </div>
+
                 <div class="filters-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                     <div style="display: flex; gap: 10px; flex-grow: 1;">
                         <input type="text" id="catch-search" class="form-input search-input" placeholder="Search species, fly, location...">
@@ -531,9 +560,49 @@
                     <button class="btn btn-primary" onclick="window.showAddFlyModal()">+ Add New Fly</button>
                 </header>
 
-                <!-- Hatch Matcher Recommendation Banner -->
-                <div class="card glass mb-20" id="hatch-matcher-recommendations" style="border-left: 4px solid var(--accent-teal);">
-                    <!-- Dynamic hatch recommendations render here -->
+                <!-- Interactive Match-the-Hatch Assistant -->
+                <div class="match-hatch-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 28px;">🪰</span>
+                            <div>
+                                <h3 style="margin: 0; font-size: 17px; color: var(--text-primary);">Riverbank Match-the-Hatch Assistant</h3>
+                                <span style="font-size: 12px; color: var(--accent-teal);">Answer 3 quick questions for instant fly pattern &amp; tippet recommendation</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">
+                        <div>
+                            <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">1. Target Species</label>
+                            <select id="hatch-wizard-target" class="form-select" onchange="window.recommendFlyPattern()">
+                                <option value="trout">Trout (Rainbow / Brown / Brook)</option>
+                                <option value="bass">Bass (Smallmouth / Largemouth)</option>
+                                <option value="salmon">Salmon &amp; Steelhead</option>
+                                <option value="saltwater">Saltwater (Bonefish / Redfish / GT)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">2. Water Condition</label>
+                            <select id="hatch-wizard-water" class="form-select" onchange="window.recommendFlyPattern()">
+                                <option value="clear">Low &amp; Crystal Clear Water</option>
+                                <option value="normal">Normal Stream Flow</option>
+                                <option value="murky">High &amp; Murky Runoff Water</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">3. Current Activity</label>
+                            <select id="hatch-wizard-activity" class="form-select" onchange="window.recommendFlyPattern()">
+                                <option value="dry">Flies Rising / Surface Hatch</option>
+                                <option value="nymph">Sub-surface Nymphing / Deep Run</option>
+                                <option value="streamer">Aggressive Chasing / Deep Pools</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="hatch-wizard-result" style="background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px;">
+                        <!-- Dynamically rendered recommendation -->
+                    </div>
                 </div>
 
                 <!-- Fly Box Compartments Grid -->
@@ -974,7 +1043,12 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="catch-notes">Catches Notes</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <label for="catch-notes" style="margin: 0;">Catches Notes</label>
+                        <button type="button" class="btn btn-sm btn-glass" id="btn-voice-dictate" onclick="window.toggleVoiceDictation()" style="font-size: 11px; padding: 3px 10px; color: var(--accent-teal); border: 1px solid var(--accent-teal);">
+                            🎙️ Dictate Voice Notes
+                        </button>
+                    </div>
                     <textarea id="catch-notes" class="form-input" rows="3" placeholder="Weather conditions, water temperature, structure, retrieve speed, etc..."></textarea>
                 </div>
 
@@ -1273,16 +1347,16 @@
     </div>
 
     <!-- Scripts -->
-    <script src="db.js?v=1600"></script>
-    <script src="regulations.js?v=1600"></script>
-    <script src="weather.js?v=1600"></script>
-    <script src="exif.js?v=1600"></script>
-    <script src="map.js?v=1600"></script>
-    <script src="tackle_db.js?v=1600"></script>
-    <script src="fish_db.js?v=1600"></script>
-    <script src="fly_box.js?v=1600"></script>
-    <script src="knots.js?v=1600"></script>
-    <script src="auth.js?v=1600"></script>
-    <script src="app.js?v=1600"></script>
+    <script src="db.js?v=1700"></script>
+    <script src="regulations.js?v=1700"></script>
+    <script src="weather.js?v=1700"></script>
+    <script src="exif.js?v=1700"></script>
+    <script src="map.js?v=1700"></script>
+    <script src="tackle_db.js?v=1700"></script>
+    <script src="fish_db.js?v=1700"></script>
+    <script src="fly_box.js?v=1700"></script>
+    <script src="knots.js?v=1700"></script>
+    <script src="auth.js?v=1700"></script>
+    <script src="app.js?v=1700"></script>
 </body>
 </html>

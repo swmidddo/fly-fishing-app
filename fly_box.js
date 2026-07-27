@@ -315,3 +315,78 @@ const FlyBoxApp = {
 };
 
 window.FlyBoxApp = FlyBoxApp;
+
+window.recommendFlyPattern = function() {
+    const targetEl = document.getElementById('hatch-wizard-target');
+    const waterEl = document.getElementById('hatch-wizard-water');
+    const actEl = document.getElementById('hatch-wizard-activity');
+    const resultEl = document.getElementById('hatch-wizard-result');
+    if (!targetEl || !resultEl) return;
+
+    const target = targetEl.value;
+    const water = waterEl.value;
+    const activity = actEl.value;
+
+    let recFly = "Parachute Adams (#14)";
+    let tippetRec = "5X Nylon Monofilament (4.75 lbs)";
+    let tech = "Dead-drift on surface riffles near foam lines.";
+    let icon = "🪰";
+
+    if (target === 'trout') {
+        if (activity === 'dry') {
+            recFly = water === 'clear' ? "Royal Wulff / Parachute Adams (#16)" : "Kosciuszko Dun / Gum Beetle (#12)";
+            tippetRec = water === 'clear' ? "6X Nylon Monofilament (3.5 lbs)" : "5X Nylon Monofilament (4.75 lbs)";
+            tech = "High-stealth delicate dry fly cast into tail-outs & seams.";
+        } else if (activity === 'nymph') {
+            recFly = "Pheasant Tail Nymph / Copper John (#14-#16)";
+            tippetRec = "5X Fluorocarbon (5.5 lbs)";
+            tech = "Indicator or Euro-nymphing through deep pools & gravel runs.";
+            icon = "🪱";
+        } else {
+            recFly = "Woolly Bugger (Black/Olive #6-#8)";
+            tippetRec = "3X Fluorocarbon (9.5 lbs)";
+            tech = "Cross-stream cast & slow pulse retrieve along undercut banks.";
+            icon = "🪰";
+        }
+    } else if (target === 'bass') {
+        recFly = activity === 'dry' ? "Popper / Bass Bug (#4)" : "Clouser Minnow / Zonker (#4)";
+        tippetRec = "2X Nylon / Fluorocarbon (11.5 - 12.5 lbs)";
+        tech = "Chug loudly on surface near lily pads or strip fast past structure.";
+        icon = "🐸";
+    } else if (target === 'salmon') {
+        recFly = "Egg-Sucking Leech / Intruder Streamer (#2)";
+        tippetRec = "1X Fluorocarbon (14.5 lbs)";
+        tech = "Swing across current on a sink-tip line through deep tailwaters.";
+        icon = "🐟";
+    } else if (target === 'saltwater') {
+        recFly = "Crazy Charlie / Gotcha Bonefish Fly (#6)";
+        tippetRec = ".012\" Saltwater Fluorocarbon (20.0 lbs)";
+        tech = "Lead cruising fish by 5 feet, allow fly to drop, and strip in short 4-inch hops.";
+        icon = "🦐";
+    }
+
+    resultEl.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 32px;">${icon}</span>
+                <div>
+                    <div style="font-size: 11px; color: var(--accent-teal); font-weight: 600; text-transform: uppercase;">✨ Recommended Fly Pattern:</div>
+                    <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 2px;">${recFly}</div>
+                </div>
+            </div>
+            <span class="badge" style="background: rgba(163, 230, 53, 0.15); color: #a3e635; border: 1px solid #a3e635; padding: 6px 12px; font-size: 12px;">
+                💡 Tippet: ${tippetRec}
+            </span>
+        </div>
+        <p style="font-size: 12.5px; color: var(--text-secondary); margin: 10px 0 0 0; line-height: 1.4;">
+            🎯 <b>Presentation Technique:</b> ${tech}
+        </p>
+    `;
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        if (window.recommendFlyPattern) window.recommendFlyPattern();
+    }, 200);
+});
+
