@@ -1,4 +1,4 @@
-// knots.js - Interactive Fly Fishing Knot & Tippet Guide with Visual Diagrams
+// knots.js - Interactive Fly Fishing Knot & Tippet Guide with Visual & Vector Diagrams
 
 const KNOT_GUIDE = [
     {
@@ -10,6 +10,14 @@ const KNOT_GUIDE = [
         strength: "95%",
         icon: "➰",
         image: "images/knot_uni.jpg",
+        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
+            <path d="M 40 80 L 110 80" stroke="#f59e0b" stroke-width="6" stroke-linecap="round"/>
+            <circle cx="110" cy="80" r="14" fill="none" stroke="#f59e0b" stroke-width="5"/>
+            <path d="M 124 80 L 220 80" stroke="#00d2ff" stroke-width="4"/>
+            <path d="M 220 80 C 260 40, 320 40, 320 80 C 320 120, 260 120, 220 80" fill="none" stroke="#00d2ff" stroke-width="4"/>
+            <path d="M 230 70 L 240 90 M 250 70 L 260 90 M 270 70 L 280 90 M 290 70 L 300 90" stroke="#38bdf8" stroke-width="4"/>
+            <text x="200" y="142" fill="#00d2ff" font-size="12" text-anchor="middle" font-family="sans-serif">1. Loop tag end &amp; wrap 5 turns around standing line</text>
+        </svg>`,
         description: "The standard Uni-Knot is one of the most reliable terminal knots in all of angling. Extremely dependable, easy to tie in low light or cold weather, and holds tight on both monofilament and fluorocarbon lines.",
         steps: [
             "1. Run 6 inches of tippet line through the eye of the fly hook.",
@@ -29,6 +37,14 @@ const KNOT_GUIDE = [
         strength: "95%",
         icon: "🎣",
         image: "images/knot_clinch.jpg",
+        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
+            <path d="M 40 80 L 110 80" stroke="#f59e0b" stroke-width="6" stroke-linecap="round"/>
+            <circle cx="110" cy="80" r="14" fill="none" stroke="#f59e0b" stroke-width="5"/>
+            <path d="M 124 80 L 280 80" stroke="#00d2ff" stroke-width="4"/>
+            <path d="M 150 70 L 160 90 M 180 70 L 190 90 M 210 70 L 220 90 M 240 70 L 250 90 M 270 70 L 280 90" stroke="#00d2ff" stroke-width="4"/>
+            <path d="M 280 80 C 310 40, 130 30, 120 75" fill="none" stroke="#38bdf8" stroke-width="3" stroke-dasharray="4"/>
+            <text x="200" y="142" fill="#00d2ff" font-size="12" text-anchor="middle" font-family="sans-serif">2. Wrap 5-7 times, tuck through eye loop &amp; outer loop</text>
+        </svg>`,
         description: "The most widely used terminal knot in fly fishing. Reliable, easy to tie, and holds tight on standard wire hooks (#8 to #18).",
         steps: [
             "1. Thread 3-4 inches of tippet through the fly hook eye.",
@@ -48,6 +64,14 @@ const KNOT_GUIDE = [
         strength: "95%",
         icon: "➰",
         image: "images/knot_loop.jpg",
+        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
+            <circle cx="150" cy="80" r="16" fill="none" stroke="#00d2ff" stroke-width="4"/>
+            <path d="M 40 80 L 110 80" stroke="#f59e0b" stroke-width="6"/>
+            <circle cx="110" cy="80" r="14" fill="none" stroke="#f59e0b" stroke-width="5"/>
+            <path d="M 124 80 L 134 80" stroke="#00d2ff" stroke-width="4"/>
+            <path d="M 166 80 L 320 80" stroke="#00d2ff" stroke-width="4"/>
+            <text x="200" y="142" fill="#00d2ff" font-size="12" text-anchor="middle" font-family="sans-serif">3. Overhand loop + eye pass + 5 wraps back through loop</text>
+        </svg>`,
         description: "The gold standard knot for tying streamer and nymph flies. Creates an open loop so flies swim with natural movement.",
         steps: [
             "1. Tie an overhand knot in the tippet line about 2-3 inches from the end. Leave it loose.",
@@ -67,6 +91,12 @@ const KNOT_GUIDE = [
         strength: "90% - 98%",
         icon: "🪰",
         image: "images/knot_davy.jpg",
+        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
+            <path d="M 40 80 L 150 80" stroke="#f59e0b" stroke-width="6"/>
+            <circle cx="150" cy="80" r="12" fill="none" stroke="#f59e0b" stroke-width="5"/>
+            <path d="M 162 80 C 190 50, 230 50, 230 80 C 230 110, 190 110, 162 80" fill="none" stroke="#00d2ff" stroke-width="4"/>
+            <text x="200" y="142" fill="#00d2ff" font-size="12" text-anchor="middle" font-family="sans-serif">4. Simple crossover figure-8 loop cinched tight to eye</text>
+        </svg>`,
         description: "The fastest, smallest knot in fly fishing. Uses minimal tippet length, ideal for tiny midges and small flies (#18-#28).",
         steps: [
             "1. Thread tippet through the fly eye, leaving 2 inches of tag end.",
@@ -85,6 +115,13 @@ const KNOT_GUIDE = [
         strength: "100%",
         icon: "⚓",
         image: "images/knot_palomar.jpg",
+        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
+            <path d="M 40 80 L 140 80" stroke="#f59e0b" stroke-width="6"/>
+            <circle cx="140" cy="80" r="14" fill="none" stroke="#f59e0b" stroke-width="5"/>
+            <path d="M 40 76 L 126 76" stroke="#00d2ff" stroke-width="3"/>
+            <path d="M 40 84 L 126 84" stroke="#00d2ff" stroke-width="3"/>
+            <text x="200" y="142" fill="#00d2ff" font-size="12" text-anchor="middle" font-family="sans-serif">5. Doubled line loop overhand knot &amp; pass loop over fly</text>
+        </svg>`,
         description: "Virtually impossible to slip or break. Ideal for tying heavy tippet/fluorocarbon to large streamers, bass bugs, and saltwater flies.",
         steps: [
             "1. Double about 5 inches of tippet line and pass the loop through the fly hook eye.",
@@ -103,6 +140,11 @@ const KNOT_GUIDE = [
         strength: "92%",
         icon: "🦟",
         image: "images/knot_turle.jpg",
+        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
+            <path d="M 40 80 L 140 80 M 140 80 L 140 120" stroke="#f59e0b" stroke-width="6" fill="none"/>
+            <circle cx="140" cy="80" r="12" fill="none" stroke="#f59e0b" stroke-width="5"/>
+            <text x="200" y="142" fill="#00d2ff" font-size="12" text-anchor="middle" font-family="sans-serif">6. Cinch slip knot loop around hook shank behind eye</text>
+        </svg>`,
         description: "Traditional dry fly and salmon knot that cinches around the hook shank, keeping tippet perfectly aligned with the hook body.",
         steps: [
             "1. Thread tippet through the turned eye toward the bend of the hook.",
@@ -121,6 +163,12 @@ const KNOT_GUIDE = [
         strength: "98%",
         icon: "🪢",
         image: "images/knot_surgeons.jpg",
+        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
+            <path d="M 40 60 L 360 60" stroke="#f59e0b" stroke-width="4"/>
+            <path d="M 40 100 L 360 100" stroke="#00d2ff" stroke-width="4"/>
+            <circle cx="200" cy="80" r="28" fill="none" stroke="#a3e635" stroke-width="5"/>
+            <text x="200" y="142" fill="#a3e635" font-size="12" text-anchor="middle" font-family="sans-serif">7. Overlap lines &amp; pass double loop 2-3 times</text>
+        </svg>`,
         description: "The simplest, fastest, and strongest knot for joining tippet to leader or adding a tippet extension on the water.",
         steps: [
             "1. Overlap the leader end and new tippet section by 6-8 inches.",
@@ -140,6 +188,12 @@ const KNOT_GUIDE = [
         strength: "90%",
         icon: "➰",
         image: "images/knot_blood.jpg",
+        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
+            <path d="M 40 80 L 170 80 M 230 80 L 360 80" stroke="#00d2ff" stroke-width="4"/>
+            <rect x="170" y="60" width="60" height="40" rx="8" fill="rgba(0,210,255,0.2)" stroke="#00d2ff" stroke-width="2"/>
+            <text x="200" y="85" fill="#00d2ff" font-size="12" text-anchor="middle" font-weight="bold">BARREL</text>
+            <text x="200" y="142" fill="#a3e635" font-size="12" text-anchor="middle" font-family="sans-serif">8. Interlocking 5-wrap barrel cinched smooth &amp; slim</text>
+        </svg>`,
         description: "Clean, ultra-slim barrel knot for building custom tapered leaders. Passes smoothly through fly rod guides.",
         steps: [
             "1. Overlap ends of the two lines by about 6 inches.",
@@ -159,6 +213,11 @@ const KNOT_GUIDE = [
         strength: "92%",
         icon: "🪢",
         image: "images/knot_nail.jpg",
+        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
+            <path d="M 40 80 L 360 80" stroke="#f59e0b" stroke-width="10"/>
+            <path d="M 160 80 L 260 80" stroke="#00d2ff" stroke-width="5" stroke-dasharray="3,3"/>
+            <text x="200" y="142" fill="#a3e635" font-size="12" text-anchor="middle" font-family="sans-serif">9. Seamless 5-6 turn barrel around fly line tip</text>
+        </svg>`,
         description: "Attaches heavy leader butt section to the tip of fly line without bulk.",
         steps: [
             "1. Lay a hollow tube or nail along the tip of the fly line.",
@@ -178,6 +237,11 @@ const KNOT_GUIDE = [
         strength: "95%",
         icon: "➰",
         image: "images/knot_albright.jpg",
+        svg: `<svg viewBox="0 0 400 160" width="100%" height="100%" style="background:#0b1329; border-radius:8px;">
+            <path d="M 40 80 L 160 80 C 200 50, 200 110, 160 80" fill="none" stroke="#f59e0b" stroke-width="10"/>
+            <path d="M 360 80 L 180 80" stroke="#38bdf8" stroke-width="4"/>
+            <text x="200" y="142" fill="#a3e635" font-size="12" text-anchor="middle" font-family="sans-serif">10. 10 tight wraps over folded fly line loop</text>
+        </svg>`,
         description: "Joins lines of significantly different diameters, such as Dacron backing line to fly line.",
         steps: [
             "1. Fold a 2-inch loop in the end of the thick fly line.",
@@ -220,13 +284,16 @@ const KnotsApp = {
 
                 <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.4;">${k.description}</p>
                 
-                <!-- Visual Diagram Aid with Mobile Fallback -->
-                ${k.image ? `
-                    <div style="margin-bottom: 16px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); text-align: center; padding: 8px;">
-                        <img src="${k.image}" alt="${k.name} Visual Diagram" loading="lazy" style="width: 100%; height: auto; max-height: 260px; border-radius: 8px; object-fit: contain; display: block; margin: 0 auto;">
-                        <span style="display: block; font-size: 11px; color: var(--accent-teal); margin-top: 6px; font-weight: 500;">📷 Step-by-Step Visual Diagram Aid</span>
+                <!-- Visual Diagram Aid with Automatic Inline SVG Fallback -->
+                <div style="margin-bottom: 16px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); text-align: center; padding: 8px;">
+                    <img src="${k.image}" alt="${k.name} Visual Diagram" loading="lazy" 
+                        style="width: 100%; height: auto; max-height: 260px; border-radius: 8px; object-fit: contain; display: block; margin: 0 auto;"
+                        onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                    <div style="display: none; width: 100%; height: 160px; max-height: 180px; margin: 0 auto;">
+                        ${k.svg}
                     </div>
-                ` : ''}
+                    <span style="display: block; font-size: 11px; color: var(--accent-teal); margin-top: 6px; font-weight: 500;">📷 Step-by-Step Visual Diagram Aid</span>
+                </div>
 
                 <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
                     <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px;">Step-by-Step Tying Instructions:</div>
@@ -258,7 +325,7 @@ const KnotsApp = {
             "22": { xRating: "7X / 8X", diam: ".004\" (0.10 mm)", nylon: "2.5 lbs (1.1 kg)", fluoro: "3.0 lbs (1.35 kg)", hooks: "#18, #20, #22, #24", ideal: "Micro Midges & Spring Creek Trout" },
             "24": { xRating: "8X", diam: ".003\" (0.08 mm)", nylon: "1.75 lbs (0.8 kg)", fluoro: "2.2 lbs (1.0 kg)", hooks: "#22, #24, #26, #28", ideal: "Micro Emergers & Ultra-Delicate Trout" },
             "26": { xRating: "8X", diam: ".003\" (0.08 mm)", nylon: "1.75 lbs (0.8 kg)", fluoro: "2.2 lbs (1.0 kg)", hooks: "#22, #24, #26, #28", ideal: "Micro Midges & Spring Creek Trout" },
-            "28": { xRating: "8X", diam: ".003\" (0.08 mm)", nylon: "1.75 lbs (0.8 kg)", fluoro: "2.2 lbs (1.0 kg)", hooks: "#22, #24, #26, #28", ideal: "Micro Midges & Spring Creek Trout" }
+            "28": { xRating: "8X", diam: ".003\" (0.08 mm)", nylon: "1.75 lbs (0.8 kg)", fluoro: "2.2 lbs (1.0 kg)", hooks: "#22, #24, #26, #28", ideal: "Micro Emergers & Ultra-Delicate Trout" }
         };
 
         const spec = exactMap[hookVal] || exactMap["14"];
