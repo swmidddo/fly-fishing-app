@@ -2755,87 +2755,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function seedDefaultData() {
         try {
-            const currentCatches = await window.DB.getAllCatches();
-            const currentTackle = await window.DB.getAllTackle();
-
-            const catchesCleared = localStorage.getItem('demo_catches_cleared') === 'true';
-
-            if (!catchesCleared && (!currentCatches || currentCatches.length === 0)) {
-                console.log("Empty catches detected. Seeding sample catch logs...");
-                const defaultCatches = [
-                    {
-                        species: "Rainbow Trout",
-                        waterType: "freshwater",
-                        length: 48.5,
-                        weight: 1.45,
-                        lat: -37.2849,
-                        lng: 145.8932,
-                        photo: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=600&q=80",
-                        notes: "Caught in a deep bubble line pool just before dusk on the Goulburn River. Rose slowly to a Royal Wulff #12. High jumping runs!",
-                        rod: "Orvis Helios 4 D (Distance)",
-                        reel: "Lamson Litespeed M8",
-                        flyline: "SA Amplitude Smooth Grand Slam",
-                        fly: "Royal Wulff #12",
-                        date: "2026-07-20",
-                        time: "17:45",
-                        weatherCondition: "Partly cloudy",
-                        weatherTemp: 18,
-                        pressure: 1018,
-                        moonPhase: "Waxing Gibbous",
-                        tideHeight: "1.1m",
-                        waterClarity: "Gin Clear",
-                        activeHatch: "Mayfly (Dun/Spinner)"
-                    },
-                    {
-                        species: "Giant Trevally",
-                        waterType: "saltwater",
-                        length: 82.0,
-                        weight: 9.5,
-                        lat: -16.9203,
-                        lng: 145.771,
-                        photo: "https://images.unsplash.com/photo-1542382257-201b3ff74667?auto=format&fit=crop&w=600&q=80",
-                        notes: "Sighted feeding on outer reef dropoff near Cairns. Aggressive strike on a 2/0 Chartreuse Clouser Minnow. Required 10wt rod with backing run!",
-                        rod: "Primal Mega CCC",
-                        reel: "Tibor Riptide",
-                        flyline: "SA Amplitude Textured Infinity",
-                        fly: "EP Minnow",
-                        date: "2026-07-22",
-                        time: "11:15",
-                        weatherCondition: "Mainly clear",
-                        weatherTemp: 27,
-                        pressure: 1015,
-                        moonPhase: "Full Moon",
-                        tideHeight: "1.4m",
-                        waterClarity: "Gin Clear",
-                        activeHatch: "Baitfish / Fry"
-                    }
-                ];
-
-                for (const item of defaultCatches) {
-                    await window.DB.addCatch(item);
-                }
-            }
-
-            if (!currentTackle || currentTackle.length === 0) {
-                console.log("Empty tackle detected. Seeding sample tackle library...");
-                const defaultTackle = [
-                    { type: 'rod', name: 'Orvis Helios 4 5wt', brand: 'Orvis', spec: '9ft 5wt 4pc', notes: 'My primary stream dry fly rod.' },
-                    { type: 'rod', name: 'Sage Igniter 10wt', brand: 'Sage', spec: '9ft 10wt 4pc', notes: 'Heavy saltwater flats & reef rod.' },
-                    { type: 'reel', name: 'Orvis Mirage LT II', brand: 'Orvis', spec: '3-5wt Sealed Drag', notes: 'Loaded with SA Amplitude Smooth WF5F.' },
-                    { type: 'reel', name: 'Hatch Iconic 9 Plus', brand: 'Hatch', spec: '9-11wt Saltwater', notes: 'Sealed drag, loaded with 300m Gel Spun backing.' },
-                    { type: 'flyline', name: 'SA Amplitude Smooth WF5F', brand: 'Scientific Anglers', spec: 'WF5F Floating', notes: 'Smooth textured dry fly taper.' },
-                    { type: 'fly', name: 'Royal Wulff #12', brand: 'Hand Tied', spec: 'Size 12', notes: 'High floating attractor dry fly.' },
-                    { type: 'fly', name: 'Clouser Minnow (Chartreuse) #2/0', brand: 'Tied', spec: 'Size 2/0', notes: 'Weighted dumbbell eyes baitfish streamer.' }
-                ];
-
-                for (const item of defaultTackle) {
-                    await window.DB.addTackle(item);
-                }
-            }
+            // Auto-seeding disabled to prevent sample catches from overwriting real mobile logs.
+            // Users can load sample data on demand via Settings -> Import Demo Data.
         } catch (e) {
             console.error("Failed to seed default data:", e);
         }
     }
+
+    window.purgeDemoCatches = async function() {
+        try {
+            const catches = await window.DB.getAllCatches();
+            let count = 0;
+            for (const c of catches) {
+                if ((c.species === "Rainbow Trout" && parseFloat(c.length) === 48.5) ||
+                    (c.species === "Giant Trevally" && parseFloat(c.length) === 82.0)) {
+                    await window.DB.deleteCatch(c.id);
+                    count++;
+                }
+            }
+            localStorage.setItem('demo_catches_cleared', 'true');
+            await loadCatches();
+            if (count > 0) {
+                console.log(`Purged ${count} sample demo catches.`);
+            }
+        } catch (e) {
+            console.error("Purge error:", e);
+        }
+    };
 
     async function restoreBackupData() {
         try {
@@ -3865,6 +3811,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Initialize FlyBox & Knots Apps & Analytics
     setTimeout(() => {
+        if (window.purgeDemoCatches) window.purgeDemoCatches();
         if (window.FlyBoxApp) window.FlyBoxApp.init();
         if (window.KnotsApp) window.KnotsApp.renderKnotsUI();
         if (window.updateCatchAnalytics) window.updateCatchAnalytics();
