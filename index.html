@@ -12,10 +12,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style -->
-    <link rel="stylesheet" href="styles.css?v=2500">
+    <link rel="stylesheet" href="styles.css?v=2600">
     <script>
         // Force instant cache wipe on every version bump
-        const CURRENT_VERSION = 'v2500';
+        const CURRENT_VERSION = 'v2600';
         if ('serviceWorker' in navigator && localStorage.getItem('sw_app_version') !== CURRENT_VERSION) {
             navigator.serviceWorker.getRegistrations().then(registrations => {
                 for (let r of registrations) r.unregister();
@@ -1028,9 +1028,19 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="catch-photo">Photo Attachment</label>
+                    <label>Photo Attachment</label>
                     <div style="display: flex; gap: 10px; margin-bottom: 5px;">
-                        <input type="file" id="catch-photo" class="form-input" accept="image/*" capture="environment" style="flex-grow: 1;">
+                        <!-- Photo Gallery / Files Input (No capture attribute) -->
+                        <input type="file" id="catch-photo" accept="image/*" style="display: none;">
+                        <button type="button" class="btn btn-glass" onclick="document.getElementById('catch-photo').click()" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; padding: 10px;">
+                            🖼️ Choose from Photos
+                        </button>
+
+                        <!-- Direct Live Camera Input -->
+                        <input type="file" id="catch-camera" accept="image/*" capture="environment" style="display: none;">
+                        <button type="button" class="btn btn-primary" onclick="document.getElementById('catch-camera').click()" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; padding: 10px;">
+                            📸 Take Photo
+                        </button>
                     </div>
                     <div class="photo-preview-container mt-10" id="catch-photo-preview-container" style="display:none; position: relative;">
                         <img id="catch-photo-preview" src="" style="max-width: 100%; max-height: 180px; border-radius: 5px; display: block; margin: 0 auto;">
@@ -1352,16 +1362,16 @@
     </div>
 
     <!-- Scripts -->
-    <script src="db.js?v=2500"></script>
-    <script src="regulations.js?v=2500"></script>
-    <script src="weather.js?v=2500"></script>
-    <script src="exif.js?v=2500"></script>
-    <script src="map.js?v=2500"></script>
-    <script src="tackle_db.js?v=2500"></script>
-    <script src="fish_db.js?v=2500"></script>
-    <script src="fly_box.js?v=2500"></script>
-    <script src="knots.js?v=2500"></script>
-    <script src="auth.js?v=2500"></script>
-    <script src="app.js?v=2500"></script>
+    <script src="db.js?v=2600"></script>
+    <script src="regulations.js?v=2600"></script>
+    <script src="weather.js?v=2600"></script>
+    <script src="exif.js?v=2600"></script>
+    <script src="map.js?v=2600"></script>
+    <script src="tackle_db.js?v=2600"></script>
+    <script src="fish_db.js?v=2600"></script>
+    <script src="fly_box.js?v=2600"></script>
+    <script src="knots.js?v=2600"></script>
+    <script src="auth.js?v=2600"></script>
+    <script src="app.js?v=2600"></script>
 </body>
 </html>

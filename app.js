@@ -1668,8 +1668,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         elements.modalLogCatch.classList.add('active');
     };
 
-    // Camera/file preview hookup
-    elements.catchPhotoInput.addEventListener('change', (e) => {
+    // Camera & File preview hookup (Supports both Photo Library & Direct Camera)
+    const handlePhotoSelect = (e) => {
         const file = e.target.files[0];
         if (file) {
             // Reset previous species & regulation box immediately
@@ -1677,7 +1677,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const regBox = document.getElementById('catch-regulation-box');
             if (regBox) regBox.style.display = 'none';
 
-            // 1. Read preview & trigger scan IMMEDIATELY (never blocked by EXIF)
+            // 1. Read preview & trigger scan IMMEDIATELY
             const reader = new FileReader();
             reader.onload = (event) => {
                 const photoDataUrl = event.target.result;
@@ -1717,7 +1717,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.warn("Non-fatal EXIF buffer error:", err);
             }
         }
-    });
+    };
+
+    if (elements.catchPhotoInput) elements.catchPhotoInput.addEventListener('change', handlePhotoSelect);
+    const catchCameraInput = document.getElementById('catch-camera');
+    if (catchCameraInput) catchCameraInput.addEventListener('change', handlePhotoSelect);
 
     elements.useGpsBtn.addEventListener('click', () => {
         if (AppState.userCoords) {
