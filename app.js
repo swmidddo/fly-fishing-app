@@ -2106,9 +2106,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Display weather station info
         const stationInfoEl = document.getElementById('weather-station-info');
-        const coordsEl = document.getElementById('weather-source-coords');
-        if (stationInfoEl && coordsEl && weather.latitude && weather.longitude) {
-            coordsEl.textContent = `Lat: ${weather.latitude.toFixed(4)}, Lng: ${weather.longitude.toFixed(4)}`;
+        if (stationInfoEl && weather.latitude && weather.longitude) {
+            const stationLabel = weather.stationName || "WillyWeather Australia PWS";
+            stationInfoEl.innerHTML = `📍 <b>Weather Data Source:</b> ${stationLabel} <span id="weather-source-coords" style="color: var(--accent-blue); font-weight: 600;">(Lat: ${weather.latitude.toFixed(4)}, Lng: ${weather.longitude.toFixed(4)})</span>`;
             stationInfoEl.style.display = 'block';
         }
 

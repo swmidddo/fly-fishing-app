@@ -12,10 +12,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style -->
-    <link rel="stylesheet" href="styles.css?v=2300">
+    <link rel="stylesheet" href="styles.css?v=2400">
     <script>
         // Force instant cache wipe on every version bump
-        const CURRENT_VERSION = 'v2300';
+        const CURRENT_VERSION = 'v2400';
         if ('serviceWorker' in navigator && localStorage.getItem('sw_app_version') !== CURRENT_VERSION) {
             navigator.serviceWorker.getRegistrations().then(registrations => {
                 for (let r of registrations) r.unregister();
@@ -483,7 +483,7 @@
                 </header>
 
                 <div class="weather-station-info card glass" id="weather-station-info" style="display:none; padding: 12px 18px; font-size:13px; margin-bottom: 20px; border-left: 4px solid var(--accent-blue);">
-                    📍 <b>Weather Data Source:</b> Interpolated from Open-Meteo Grid Cell <span id="weather-source-coords" style="color: var(--accent-blue); font-weight: 600;">[Lat, Lon]</span>
+                    📍 <b>Weather Data Source:</b> WillyWeather Australia PWS <span id="weather-source-coords" style="color: var(--accent-blue); font-weight: 600;">[Lat, Lon]</span>
                 </div>
 
                 <div class="weather-detailed-grid">
@@ -1352,16 +1352,16 @@
     </div>
 
     <!-- Scripts -->
-    <script src="db.js?v=2300"></script>
-    <script src="regulations.js?v=2300"></script>
-    <script src="weather.js?v=2300"></script>
-    <script src="exif.js?v=2300"></script>
-    <script src="map.js?v=2300"></script>
-    <script src="tackle_db.js?v=2300"></script>
-    <script src="fish_db.js?v=2300"></script>
-    <script src="fly_box.js?v=2300"></script>
-    <script src="knots.js?v=2300"></script>
-    <script src="auth.js?v=2300"></script>
-    <script src="app.js?v=2300"></script>
+    <script src="db.js?v=2400"></script>
+    <script src="regulations.js?v=2400"></script>
+    <script src="weather.js?v=2400"></script>
+    <script src="exif.js?v=2400"></script>
+    <script src="map.js?v=2400"></script>
+    <script src="tackle_db.js?v=2400"></script>
+    <script src="fish_db.js?v=2400"></script>
+    <script src="fly_box.js?v=2400"></script>
+    <script src="knots.js?v=2400"></script>
+    <script src="auth.js?v=2400"></script>
+    <script src="app.js?v=2400"></script>
 </body>
 </html>
