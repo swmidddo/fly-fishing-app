@@ -2251,6 +2251,107 @@ const initMainApp = async () => {
             stationInfoEl.style.display = 'block';
         }
 
+        // -------------------------------------------------------------
+        // WEATHER & MARINE ADVISORIES DISPLAY (DASHBOARD & WEATHER TAB)
+        // -------------------------------------------------------------
+        const bomWarnings = weather.bomWarnings || [];
+        const extraWarnings = [];
+
+        const windSpeed = weather.current.windSpeed || 0;
+        if (windSpeed > 25) {
+            extraWarnings.push({
+                name: `💨 High Wind Advisory (${windSpeed} km/h)`,
+                summary: `Strong winds of ${windSpeed} km/h may hinder delicate dry fly presentation and roll casting. Exercise caution on open water.`
+            });
+        }
+        if (weather.current.temp > 28) {
+            extraWarnings.push({
+                name: `🌡️ Trout Thermal Stress Advisory (${weather.current.temp}°C)`,
+                summary: `Air temperatures above 28°C warm shallow streams quickly. Handle caught trout with care in high water temps.`
+            });
+        }
+
+        const dashWarningsContent = document.getElementById('dash-warnings-content');
+        const dashWarningsBadge = document.getElementById('dash-warnings-count-badge');
+        const tabWarningsList = document.getElementById('weather-warnings-list');
+        const tabWarningsBadge = document.getElementById('weather-warnings-badge');
+
+        const totalWarningsCount = bomWarnings.length + extraWarnings.length;
+
+        if (totalWarningsCount === 0) {
+            const clearHTML = `
+                <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 12px 14px; font-size: 12.5px; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <strong style="color: #34d399; font-size: 13.5px;">🟢 No Active Weather or Marine Warnings</strong>
+                        <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 3px;">Official Bureau of Meteorology (BOM) & WillyWeather Advisory Monitor • Status: All Clear for your location.</div>
+                    </div>
+                </div>
+            `;
+            if (dashWarningsContent) dashWarningsContent.innerHTML = clearHTML;
+            if (tabWarningsList) tabWarningsList.innerHTML = clearHTML;
+            if (dashWarningsBadge) {
+                dashWarningsBadge.textContent = "🟢 ALL CLEAR";
+                dashWarningsBadge.style.background = "rgba(16, 185, 129, 0.15)";
+                dashWarningsBadge.style.color = "#34d399";
+                dashWarningsBadge.style.borderColor = "#34d399";
+            }
+            if (tabWarningsBadge) {
+                tabWarningsBadge.textContent = "🟢 ALL CLEAR";
+                tabWarningsBadge.style.background = "rgba(16, 185, 129, 0.15)";
+                tabWarningsBadge.style.color = "#34d399";
+                tabWarningsBadge.style.borderColor = "#34d399";
+            }
+        } else {
+            let activeHTML = '';
+            
+            bomWarnings.forEach(w => {
+                const title = w.name || (w.warningType ? w.warningType.name : 'Severe Weather Warning');
+                const descText = w.content && w.content.text ? w.content.text.substring(0, 300) + '...' : '';
+                activeHTML += `
+                    <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.4); border-left: 4px solid #ef4444; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                            <strong style="color: #fca5a5; font-size: 14px;">🚨 ${title}</strong>
+                            <span class="badge" style="background: #ef4444; color: #fff; font-size: 10px;">BOM OFFICIAL</span>
+                        </div>
+                        <div style="font-size: 11.5px; color: var(--text-primary); margin-top: 6px; line-height: 1.4;">
+                            ${descText}
+                        </div>
+                        <div style="font-size: 10.5px; color: var(--text-secondary); margin-top: 6px;">
+                            Issued by Australian Bureau of Meteorology (${w.issueDateTime || 'Recent'})
+                        </div>
+                    </div>
+                `;
+            });
+
+            extraWarnings.forEach(ew => {
+                activeHTML += `
+                    <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.4); border-left: 4px solid #f59e0b; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;">
+                        <strong style="color: #fcd34d; font-size: 13.5px;">⚠️ ${ew.name}</strong>
+                        <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4;">
+                            ${ew.summary}
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (dashWarningsContent) dashWarningsContent.innerHTML = activeHTML;
+            if (tabWarningsList) tabWarningsList.innerHTML = activeHTML;
+
+            const badgeText = `⚠️ ${totalWarningsCount} ACTIVE ADVISORIES`;
+            if (dashWarningsBadge) {
+                dashWarningsBadge.textContent = badgeText;
+                dashWarningsBadge.style.background = "rgba(239, 68, 68, 0.2)";
+                dashWarningsBadge.style.color = "#fca5a5";
+                dashWarningsBadge.style.borderColor = "#ef4444";
+            }
+            if (tabWarningsBadge) {
+                tabWarningsBadge.textContent = badgeText;
+                tabWarningsBadge.style.background = "rgba(239, 68, 68, 0.2)";
+                tabWarningsBadge.style.color = "#fca5a5";
+                tabWarningsBadge.style.borderColor = "#ef4444";
+            }
+        }
+
         // Detailed Tab Pressure Analysis
         if (elements.weatherDetailedPressure && weather.current.pressure) {
             const p = weather.current.pressure;
@@ -2921,23 +3022,36 @@ const initMainApp = async () => {
                     count++;
                 }
             }
+            
+            const demoTackleNames = [
+                'Orvis Helios 4 5wt',
+                'Sage Igniter 8wt',
+                'Sage Arbor XL 5/6',
+                'Hatch Iconic 7 Plus',
+                'Rio Gold Premier WF5F',
+                'Royal Wulff #12',
+                'Clouser Minnow (Chartreuse) #2'
+            ];
+
             const tackle = await window.DB.getAllTackle();
             for (const t of tackle) {
-                if (t.isDemo) {
+                if (t.isDemo || demoTackleNames.includes(t.name)) {
                     await window.DB.deleteTackle(t.id);
                 }
             }
+
             const rigs = await window.DB.getAllRigs();
             for (const r of rigs) {
                 if (r.isDemo) {
                     await window.DB.deleteRig(r.id);
                 }
             }
+
             localStorage.setItem('demo_catches_cleared', 'true');
             await loadCatches();
             await loadTackle();
             if (count > 0) {
-                console.log(`Purged ${count} sample demo catches.`);
+                console.log(`Purged ${count} sample demo catches and demo tackle items.`);
             }
         } catch (e) {
             console.error("Purge error:", e);
@@ -3839,8 +3953,8 @@ const initMainApp = async () => {
 
             container.innerHTML = `
                 <div style="text-align: center; border-bottom: 2px solid var(--accent-teal); padding-bottom: 12px; margin-bottom: 16px;">
-                    <img src="images/logo.jpg" style="width: 72px; height: 72px; border-radius: 50%; border: 2px solid var(--accent-teal); box-shadow: 0 0 12px rgba(0, 210, 255, 0.4); margin-bottom: 8px; object-fit: cover;" alt="Middo's Fly Fishing NSW">
-                    <h2 style="margin: 0; color: var(--text-primary); font-size: 20px;">Middo's Fly Fishing <span style="color: var(--accent-teal);">NSW</span></h2>
+                    <img src="images/logo.jpg" style="width: 72px; height: 72px; border-radius: 50%; border: 2px solid var(--accent-teal); box-shadow: 0 0 12px rgba(0, 210, 255, 0.4); margin-bottom: 8px; object-fit: cover;" alt="Middo's Fly Fishing">
+                    <h2 style="margin: 0; color: var(--text-primary); font-size: 20px;">Middo's Fly Fishing</h2>
                     <p style="margin: 4px 0 0 0; font-size: 12px; color: var(--text-secondary);">${dateStr} • ${user ? user.name : 'Angler Logbook'}</p>
                 </div>
                 

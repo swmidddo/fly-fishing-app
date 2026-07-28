@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Middo's Fly Fishing NSW</title>
+    <title>Middo's Fly Fishing</title>
     <!-- App Icon Favicons -->
     <link rel="icon" type="image/jpeg" href="images/logo.jpg">
     <link rel="apple-touch-icon" href="images/logo.jpg">
@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style -->
-    <link rel="stylesheet" href="styles.css?v=23000">
+    <link rel="stylesheet" href="styles.css?v=29000">
     <script>
         // Unregister any active Service Workers and clear CacheStorage instantly on parse
         if ('serviceWorker' in navigator) {
@@ -33,10 +33,10 @@
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="brand">
-                <img src="images/logo.jpg" class="brand-logo-img" alt="Middo's Fly Fishing NSW">
+                <img src="images/logo.jpg" class="brand-logo-img" alt="Middo's Fly Fishing">
                 <div>
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
-                    <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing NSW</span>
+                    <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
                 </div>
             </div>
 
@@ -97,9 +97,9 @@
             <section id="tab-dashboard" class="tab-content active">
                 <header class="section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.06);">
                     <div style="display: flex; align-items: center; gap: 16px;">
-                        <img src="images/logo.jpg" style="width: 58px; height: 58px; border-radius: 50%; border: 2px solid var(--accent-teal); box-shadow: 0 0 15px rgba(0, 210, 255, 0.4); object-fit: cover;" alt="Middo's Fly Fishing NSW">
+                        <img src="images/logo.jpg" style="width: 58px; height: 58px; border-radius: 50%; border: 2px solid var(--accent-teal); box-shadow: 0 0 15px rgba(0, 210, 255, 0.4); object-fit: cover;" alt="Middo's Fly Fishing">
                         <div>
-                            <h1 style="margin: 0; font-size: 24px;">Middo's Fly Fishing <span style="font-size: 13px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px;">NSW</span></h1>
+                            <h1 style="margin: 0; font-size: 24px;">Middo's Fly Fishing</h1>
                             <p class="subtitle" style="margin-top: 2px;">Tight lines and blue skies. Here is your fishing summary.</p>
                         </div>
                     </div>
@@ -163,6 +163,24 @@
                         </div>
                         <div id="dash-solunar-windows" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11.5px;">
                             <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Official Weather & Marine Warnings Card -->
+                    <div class="card glass shadow-lg card-warnings-summary" style="border-left: 4px solid #f59e0b;" id="dash-warnings-card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <h3 style="margin: 0; font-size: 15px; display: flex; align-items: center; gap: 8px;">
+                                <span>⚠️</span> Weather & Marine Advisories
+                            </h3>
+                            <span id="dash-warnings-count-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #34d399; font-size: 11px;">🟢 ALL CLEAR</span>
+                        </div>
+                        <div id="dash-warnings-content">
+                            <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between;">
+                                <div>
+                                    <strong style="color: #34d399;">🟢 No Active Weather or Marine Warnings for this region.</strong>
+                                    <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">BOM & WillyWeather Advisory Monitor • Status: Clear</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -481,8 +499,26 @@
                     <p class="subtitle">Analyze air temperature, wind strength, lunar phase, and live tides.</p>
                 </header>
 
-                <div class="weather-station-info card glass" id="weather-station-info" style="display:none; padding: 12px 18px; font-size:13px; margin-bottom: 20px; border-left: 4px solid var(--accent-blue);">
+                <div class="weather-station-info card glass" id="weather-station-info" style="display:none; padding: 12px 18px; font-size:13px; margin-bottom: 15px; border-left: 4px solid var(--accent-blue);">
                     📍 <b>Weather Data Source:</b> WillyWeather Australia PWS <span id="weather-source-coords" style="color: var(--accent-blue); font-weight: 600;">[Lat, Lon]</span>
+                </div>
+
+                <!-- Official Weather & Marine Warnings Section -->
+                <div class="card glass mb-20" id="weather-warnings-container" style="border-left: 4px solid #f59e0b; padding: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h3 style="margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                            <span>⚠️</span> Bureau of Meteorology & Weather Advisories
+                        </h3>
+                        <span id="weather-warnings-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #34d399; font-size: 11px;">🟢 ALL CLEAR</span>
+                    </div>
+                    <div id="weather-warnings-list">
+                        <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 12px 14px; font-size: 12.5px; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between;">
+                            <div>
+                                <strong style="color: #34d399; font-size: 13.5px;">🟢 No Active Weather or Marine Warnings</strong>
+                                <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 3px;">Official BOM & WillyWeather Advisory Monitor • Status: All Clear for your location.</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="weather-detailed-grid">
@@ -1387,16 +1423,16 @@
     </div>
 
     <!-- Scripts -->
-    <script src="db.js?v=23000"></script>
-    <script src="regulations.js?v=23000"></script>
-    <script src="weather.js?v=23000"></script>
-    <script src="exif.js?v=23000"></script>
-    <script src="map.js?v=23000"></script>
-    <script src="tackle_db.js?v=23000"></script>
-    <script src="fish_db.js?v=23000"></script>
-    <script src="fly_box.js?v=23000"></script>
-    <script src="knots.js?v=23000"></script>
-    <script src="auth.js?v=23000"></script>
-    <script src="app.js?v=23000"></script>
+    <script src="db.js?v=29000"></script>
+    <script src="regulations.js?v=29000"></script>
+    <script src="weather.js?v=29000"></script>
+    <script src="exif.js?v=29000"></script>
+    <script src="map.js?v=29000"></script>
+    <script src="tackle_db.js?v=29000"></script>
+    <script src="fish_db.js?v=29000"></script>
+    <script src="fly_box.js?v=29000"></script>
+    <script src="knots.js?v=29000"></script>
+    <script src="auth.js?v=29000"></script>
+    <script src="app.js?v=29000"></script>
 </body>
 </html>

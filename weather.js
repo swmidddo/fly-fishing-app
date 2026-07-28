@@ -146,8 +146,11 @@ const WEATHER = {
                 }
             }
 
+            // Clean location string for WillyWeather search (e.g. "Hobart city centre" -> "Hobart", "Cairns City" -> "Cairns")
+            const cleanSearch = searchLocation.replace(/\s+(city centre|city|cbd|central)/gi, '').trim() || searchLocation;
+
             // 2. Search WillyWeather API for station using location query
-            const searchUrl = `https://api.willyweather.com.au/v2/${apiKey}/search.json?query=${encodeURIComponent(searchLocation)}`;
+            const searchUrl = `https://api.willyweather.com.au/v2/${apiKey}/search.json?query=${encodeURIComponent(cleanSearch)}`;
             const searchRes = await this.willyFetch(searchUrl);
             if (!searchRes.ok) return null;
             const searchData = await searchRes.json();
@@ -155,10 +158,26 @@ const WEATHER = {
             let locationId = null;
             let stationName = '';
             if (Array.isArray(searchData) && searchData.length > 0) {
-                const airportMatch = searchData.find(item => item.name && item.name.toLowerCase().includes('airport'));
-                const chosen = airportMatch || searchData[0];
+                const getDistKm = (sLat, sLng) => {
+                    if (sLat == null || sLng == null) return 9999;
+                    const R = 6371;
+                    const dLat = (sLat - lat) * Math.PI / 180;
+                    const dLon = (sLng - lon) * Math.PI / 180;
+                    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                              Math.cos(lat * Math.PI / 180) * Math.cos(sLat * Math.PI / 180) *
+                              Math.sin(dLon/2) * Math.sin(dLon/2);
+                    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                };
+
+                const candidates = searchData.map(item => ({
+                    ...item,
+                    dist: getDistKm(item.lat, item.lng)
+                })).sort((a, b) => a.dist - b.dist);
+
+                const chosen = candidates[0];
                 locationId = chosen.id;
-                stationName = chosen.name;
+                const distLabel = chosen.dist < 999 ? ` (${chosen.dist < 0.1 ? '<0.1' : chosen.dist.toFixed(1)} km away)` : '';
+                stationName = `${chosen.name}${distLabel}`;
             } else if (searchData && searchData.location) {
                 locationId = searchData.location.id;
                 stationName = searchData.location.name;
@@ -166,13 +185,27 @@ const WEATHER = {
 
             if (!locationId) return null;
 
-            // 3. Fetch comprehensive WillyWeather data
-            const weatherUrl = `https://api.willyweather.com.au/v2/${apiKey}/locations/${locationId}/weather.json?forecasts=weather,wind,rainfall,tides,sunrisesunset,uv,moonphases&days=7`;
+            // 3. Fetch comprehensive WillyWeather data with live BOM station observations
+            const weatherUrl = `https://api.willyweather.com.au/v2/${apiKey}/locations/${locationId}/weather.json?observational=true&forecasts=weather,wind,rainfall,tides,sunrisesunset,uv,moonphases&days=7`;
             const weatherRes = await this.willyFetch(weatherUrl);
             if (!weatherRes.ok) return null;
             const wData = await weatherRes.json();
 
-            console.log(`[WillyWeather] Connected to Australian Station: ${stationName} (ID: ${locationId})`);
+            // 4. Fetch official BOM weather warnings
+            let bomWarnings = [];
+            try {
+                const warnUrl = `https://api.willyweather.com.au/v2/${apiKey}/locations/${locationId}/warnings.json`;
+                const warnRes = await this.willyFetch(warnUrl);
+                if (warnRes.ok) {
+                    const warnData = await warnRes.json();
+                    if (Array.isArray(warnData)) bomWarnings = warnData;
+                }
+            } catch (e) {
+                console.warn("[WillyWeather] Warnings fetch notice:", e);
+            }
+            wData.bomWarnings = bomWarnings;
+
+            console.log(`[WillyWeather] Connected to Australian Station: ${stationName} (ID: ${locationId}) | Active BOM Warnings: ${bomWarnings.length}`);
             return this.formatWillyWeatherData(wData, stationName, lat, lon);
         } catch (err) {
             console.warn("[WillyWeather] Request failed:", err);
@@ -206,7 +239,14 @@ const WEATHER = {
                 }
             }
         }
-        if (wData.observational && wData.observational.temp !== undefined) {
+        
+        // Extract live station observation telemetry (temperature, wind, pressure)
+        if (wData.observational && wData.observational.observations) {
+            const obs = wData.observational.observations;
+            if (obs.temperature && obs.temperature.temperature !== undefined) {
+                currentTemp = obs.temperature.temperature;
+            }
+        } else if (wData.observational && wData.observational.temp !== undefined) {
             currentTemp = wData.observational.temp;
         }
 
@@ -247,6 +287,7 @@ const WEATHER = {
             latitude: lat,
             longitude: lon,
             stationName: `WillyWeather PWS: ${stationName}`,
+            bomWarnings: wData.bomWarnings || [],
             current: {
                 temp: currentTemp,
                 windSpeed: todayWind.entries ? Math.round(todayWind.entries[0].speed) : 12,
