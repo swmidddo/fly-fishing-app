@@ -100,6 +100,26 @@ const WEATHER = {
                 console.warn("[WillyWeather Proxy] Fallback to direct fetch:", e);
             }
         }
+        try {
+            const dRes = await fetch(targetUrl);
+            if (dRes.ok) return dRes;
+        } catch (e) {
+            console.warn("[WillyWeather Direct] Failed (CORS), attempting public CORS proxy fallback:", e);
+        }
+
+        const corsProxies = [
+            `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`,
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
+        ];
+
+        for (const cProxy of corsProxies) {
+            try {
+                const cRes = await fetch(cProxy);
+                if (cRes.ok) return cRes;
+            } catch (err) {
+                console.warn("[WillyWeather Public Proxy] Failed:", err);
+            }
+        }
         return fetch(targetUrl);
     },
 
@@ -240,11 +260,22 @@ const WEATHER = {
             }
         }
         
+        let currentPressure = 1013;
+        let currentWindSpeed = todayWind.entries ? Math.round(todayWind.entries[0].speed) : 12;
+        let currentWindDir = todayWind.entries ? todayWind.entries[0].direction : 180;
+
         // Extract live station observation telemetry (temperature, wind, pressure)
         if (wData.observational && wData.observational.observations) {
             const obs = wData.observational.observations;
             if (obs.temperature && obs.temperature.temperature !== undefined) {
                 currentTemp = obs.temperature.temperature;
+            }
+            if (obs.pressure && obs.pressure.pressure !== undefined) {
+                currentPressure = Math.round(obs.pressure.pressure);
+            }
+            if (obs.wind) {
+                if (obs.wind.speed !== undefined) currentWindSpeed = Math.round(obs.wind.speed);
+                if (obs.wind.direction !== undefined) currentWindDir = Math.round(obs.wind.direction);
             }
         } else if (wData.observational && wData.observational.temp !== undefined) {
             currentTemp = wData.observational.temp;
@@ -290,9 +321,9 @@ const WEATHER = {
             bomWarnings: wData.bomWarnings || [],
             current: {
                 temp: currentTemp,
-                windSpeed: todayWind.entries ? Math.round(todayWind.entries[0].speed) : 12,
-                windDirection: todayWind.entries ? todayWind.entries[0].direction : 180,
-                pressure: 1025,
+                windSpeed: currentWindSpeed,
+                windDirection: currentWindDir,
+                pressure: currentPressure,
                 condition: currentCond,
                 icon: weatherIcon,
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
