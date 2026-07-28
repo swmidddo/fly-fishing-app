@@ -1085,40 +1085,30 @@ const initMainApp = async () => {
         };
 
         function populateDatalistsAndChips() {
-            const selectedType = typeSelect.value || 'rod';
-            const catData = window.TACKLE_DATABASE[selectedType] || { models: [], brands: [], specs: [] };
+            const userBrandSet = new Set();
+            const userNameSet = new Set();
+            const userSpecSet = new Set();
 
-            // 1. Datalists
-            if (nameDatalist && catData.models) {
-                nameDatalist.innerHTML = catData.models.map(m => `<option value="${m.name}">${m.brand ? m.brand + ' - ' : ''}${m.spec || ''}</option>`).join('');
-            }
-            if (brandDatalist && catData.brands) {
-                brandDatalist.innerHTML = catData.brands.map(b => `<option value="${b}"></option>`).join('');
-            }
-            if (specDatalist && catData.specs) {
-                specDatalist.innerHTML = catData.specs.map(s => `<option value="${s}"></option>`).join('');
-            }
-
-            // 2. 1-Tap Chips
-            if (chipsContainer && catData.models) {
-                chipsContainer.innerHTML = '';
-                catData.models.slice(0, 6).forEach(m => {
-                    const btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.className = 'btn btn-glass btn-sm';
-                    btn.style.fontSize = '11px';
-                    btn.style.padding = '3px 8px';
-                    btn.style.borderRadius = '10px';
-                    btn.style.background = 'rgba(255, 255, 255, 0.05)';
-                    btn.textContent = `⚙️ ${m.name}`;
-                    btn.addEventListener('click', () => {
-                        if (nameInput) nameInput.value = m.name;
-                        if (brandInput && m.brand) brandInput.value = m.brand;
-                        if (specInput && m.spec) specInput.value = m.spec;
-                        if (notesInput && m.notes) notesInput.value = m.notes;
-                    });
-                    chipsContainer.appendChild(btn);
+            if (AppState.tackle && Array.isArray(AppState.tackle)) {
+                AppState.tackle.forEach(t => {
+                    if (t.brand) userBrandSet.add(t.brand);
+                    if (t.name) userNameSet.add(t.name);
+                    if (t.spec) userSpecSet.add(t.spec);
                 });
+            }
+
+            if (nameDatalist) {
+                nameDatalist.innerHTML = Array.from(userNameSet).map(n => `<option value="${n}"></option>`).join('');
+            }
+            if (brandDatalist) {
+                brandDatalist.innerHTML = Array.from(userBrandSet).map(b => `<option value="${b}"></option>`).join('');
+            }
+            if (specDatalist) {
+                specDatalist.innerHTML = Array.from(userSpecSet).map(s => `<option value="${s}"></option>`).join('');
+            }
+
+            if (chipsContainer) {
+                chipsContainer.innerHTML = '';
             }
         }
 
@@ -2235,7 +2225,13 @@ const initMainApp = async () => {
         if (!weather || !weather.current) return;
         // Dashboard
         if (elements.dashWeatherIcon) elements.dashWeatherIcon.textContent = weather.current.icon || "🌤️";
-        if (elements.dashWeatherTemp) elements.dashWeatherTemp.textContent = `${weather.current.temp || 22}°C`;
+        let displayTemp = weather.current.temp;
+        if (typeof displayTemp === 'number') {
+            displayTemp = Math.round(displayTemp * 10) / 10;
+        } else if (typeof displayTemp === 'string' && !isNaN(parseFloat(displayTemp))) {
+            displayTemp = Math.round(parseFloat(displayTemp) * 10) / 10;
+        }
+        if (elements.dashWeatherTemp) elements.dashWeatherTemp.textContent = `${displayTemp || 22}°C`;
         if (elements.dashWeatherDesc) elements.dashWeatherDesc.textContent = weather.current.condition || "Fine";
         if (elements.dashWind) {
             const cardinal = getWindDirText(weather.current.windDirection || 0);

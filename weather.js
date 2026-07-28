@@ -210,6 +210,10 @@ const WEATHER = {
             currentTemp = wData.observational.temp;
         }
 
+        if (typeof currentTemp === 'number') {
+            currentTemp = Math.round(currentTemp * 10) / 10;
+        }
+
         const firstEntry = (todayWeather.entries && todayWeather.entries.length > 0) ? todayWeather.entries[0] : {};
         const currentCond = firstEntry.precis || firstEntry.precipText || "Partly cloudy";
         let weatherIcon = "🌤️";
