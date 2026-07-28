@@ -2083,8 +2083,10 @@ const initMainApp = async () => {
 
     async function loadWeatherAndTides(lat, lon, forceRefresh = false) {
         if (!lat || !lon) {
-            lat = -30.3183;
-            lon = 149.8265;
+            const storedCoordsStr = localStorage.getItem('user_last_coords');
+            const saved = storedCoordsStr ? JSON.parse(storedCoordsStr) : null;
+            lat = saved ? saved.lat : -30.3183;
+            lon = saved ? saved.lng : 149.8265;
         }
 
         const now = Date.now();
@@ -2100,8 +2102,8 @@ const initMainApp = async () => {
             distanceKm = 6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
         }
 
-        // Throttle: Re-fetch only if forced, or > 10 minutes passed, or moved > 2 km
-        if (!forceRefresh && lastWeatherFetchTime > 0 && timeDiff < 600000 && distanceKm < 2.0) {
+        // Throttle: Re-fetch only if forced, or > 5 minutes passed, or moved > 0.2 km
+        if (!forceRefresh && lastWeatherFetchTime > 0 && timeDiff < 300000 && distanceKm < 0.2) {
             return;
         }
 
@@ -3851,14 +3853,16 @@ const initMainApp = async () => {
     }
 
     // INITIAL APP BOOTSTRAPPING (UI, GPS & Live Data First)
-    const defaultLat = -33.8688;
-    const defaultLon = 151.2093;
+    const storedCoordsBoot = localStorage.getItem('user_last_coords');
+    const savedBoot = storedCoordsBoot ? JSON.parse(storedCoordsBoot) : null;
+    const defaultLat = savedBoot ? savedBoot.lat : -30.3183;
+    const defaultLon = savedBoot ? savedBoot.lng : 149.8265;
 
     try { initNavigation(); } catch (e) { console.error("Navigation init failed", e); }
     try { initSettings(); } catch (e) { console.error("Settings init failed", e); }
     try { initLocationTracking(); } catch (e) { console.error("GPS init failed", e); }
     try { initRegulations(); } catch (e) { console.error("Regulations init failed", e); }
-    try { loadWeatherAndTides(defaultLat, defaultLon); } catch (e) { console.error("Weather init failed", e); }
+    try { loadWeatherAndTides(defaultLat, defaultLon, true); } catch (e) { console.error("Weather init failed", e); }
     try { initTacklePredictiveText(); } catch (e) { console.error("Tackle predictive text init failed", e); }
     try { initFishPredictiveText(); } catch (e) { console.error("Fish predictive text init failed", e); }
     try { initMapEngine(); } catch (e) { console.error("Map init failed", e); }
