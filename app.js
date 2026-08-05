@@ -2480,12 +2480,49 @@ const initMainApp = async () => {
         ctx.fillText("+24h", getX(24), height - 5);
     }
 
+    window.refreshWeatherForecast = async function(e) {
+        if (e && e.preventDefault) e.preventDefault();
+        const btn = document.getElementById('btn-refresh-weather');
+        const origHTML = btn ? btn.innerHTML : '🔄 Refresh';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<span style="display:inline-block; animation: spin 1s linear infinite;">🔄</span> Refreshing...`;
+        }
+
+        let lat = AppState.userCoords ? AppState.userCoords.lat : null;
+        let lon = AppState.userCoords ? AppState.userCoords.lng : null;
+
+        if (!lat || !lon) {
+            const storedCoordsStr = localStorage.getItem('user_last_coords');
+            const saved = storedCoordsStr ? JSON.parse(storedCoordsStr) : null;
+            lat = saved ? saved.lat : -30.3183;
+            lon = saved ? saved.lng : 149.8265;
+        }
+
+        try {
+            await loadWeatherAndTides(lat, lon, true);
+            if (btn) {
+                btn.innerHTML = `✅ Updated!`;
+                btn.style.borderColor = 'var(--accent-teal)';
+                btn.style.color = '#34d399';
+            }
+        } catch (err) {
+            console.error("Manual weather refresh error:", err);
+            if (btn) btn.innerHTML = `⚠️ Failed`;
+        }
+
+        setTimeout(() => {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origHTML;
+                btn.style.borderColor = '';
+                btn.style.color = '';
+            }
+        }, 1500);
+    };
+
     if (elements.refreshWeatherBtn) {
-        elements.refreshWeatherBtn.addEventListener('click', () => {
-            const lat = AppState.userCoords ? AppState.userCoords.lat : -33.8688;
-            const lon = AppState.userCoords ? AppState.userCoords.lng : 151.2093;
-            loadWeatherAndTides(lat, lon, true);
-        });
+        elements.refreshWeatherBtn.addEventListener('click', (e) => window.refreshWeatherForecast(e));
     }
 
     // 9. Demo Data Importer
