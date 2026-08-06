@@ -318,35 +318,18 @@ const initMainApp = async () => {
         const fallbackLat = -30.3183; // Narrabri Airport NSW
         const fallbackLon = 149.8265;
 
-        // Instant 2.5-second safety timer: Ensures live weather & location ALWAYS load on mobile HTTP
-        const gpsSafetyTimer = setTimeout(() => {
-            if (!AppState.userCoords) {
-                console.warn("GPS lock timed out, applying default NSW coordinates for live weather");
-                AppState.userCoords = { lat: fallbackLat, lng: fallbackLon };
-                updateGpsStatus(true, `📍 Location: Narrabri Airport, NSW`);
-                if (typeof loadWeatherAndTides === 'function') {
-                    loadWeatherAndTides(fallbackLat, fallbackLon);
-                }
-            }
-        }, 2500);
-
         if (!navigator.geolocation) {
-            clearTimeout(gpsSafetyTimer);
-            AppState.userCoords = { lat: fallbackLat, lng: fallbackLon };
-            updateGpsStatus(true, `📍 Location: NSW Waters`);
-            if (typeof loadWeatherAndTides === 'function') {
-                loadWeatherAndTides(fallbackLat, fallbackLon);
-            }
+            updateGpsStatus(false, `📍 Location: Narrabri, NSW`);
             return;
         }
 
         updateGpsStatus(true, "Locating GPS...");
 
         const handlePosition = (position) => {
-            clearTimeout(gpsSafetyTimer);
             const lat = position.coords.latitude;
             const lon = position.coords.longitude;
             AppState.userCoords = { lat, lng: lon };
+            localStorage.setItem('user_last_coords', JSON.stringify({ lat, lng: lon }));
 
             const st = getStateFromCoords(lat, lon);
             updateGpsStatus(true, `📍 GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)} (${st})`);
@@ -354,7 +337,6 @@ const initMainApp = async () => {
             // Update map location
             if (window.AppMap && window.AppMap.map) {
                 window.AppMap.updateUserLocation(lat, lon);
-                
                 if (!AppState.hasCenteredOnUser) {
                     window.AppMap.reCenter();
                     AppState.hasCenteredOnUser = true;
@@ -363,29 +345,33 @@ const initMainApp = async () => {
 
             // Always fetch live weather for current position
             if (typeof loadWeatherAndTides === 'function') {
-                loadWeatherAndTides(lat, lon);
+                loadWeatherAndTides(lat, lon, true);
             }
         };
 
-        const highAccuracyOptions = { enableHighAccuracy: true, timeout: 4000, maximumAge: 10000 };
-        const lowAccuracyOptions = { enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 };
+        const handleError = (err) => {
+            console.warn("Geolocation request notice:", err);
+            const savedCoordsStr = localStorage.getItem('user_last_coords');
+            const saved = savedCoordsStr ? JSON.parse(savedCoordsStr) : { lat: fallbackLat, lng: fallbackLon };
+            AppState.userCoords = saved;
+            const st = getStateFromCoords(saved.lat, saved.lng);
+            updateGpsStatus(true, `📍 Location: ${st} (Click to Change)`);
+            if (typeof loadWeatherAndTides === 'function') {
+                loadWeatherAndTides(saved.lat, saved.lng);
+            }
+        };
+
+        const highAccuracyOptions = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
+        const lowAccuracyOptions = { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 };
 
         try {
             navigator.geolocation.getCurrentPosition(
                 handlePosition,
-                (error) => {
-                    console.warn("High accuracy GPS failed/timed out, trying cellular/WiFi position...", error);
+                (err1) => {
+                    console.warn("High accuracy GPS failed, trying low accuracy...", err1);
                     navigator.geolocation.getCurrentPosition(
                         handlePosition,
-                        (err2) => {
-                            console.warn("Fallback geolocation failed, using NSW coordinates:", err2);
-                            clearTimeout(gpsSafetyTimer);
-                            AppState.userCoords = { lat: fallbackLat, lng: fallbackLon };
-                            updateGpsStatus(true, `📍 Location: NSW Waters`);
-                            if (typeof loadWeatherAndTides === 'function') {
-                                loadWeatherAndTides(fallbackLat, fallbackLon);
-                            }
-                        },
+                        handleError,
                         lowAccuracyOptions
                     );
                 },
@@ -395,25 +381,14 @@ const initMainApp = async () => {
             if (!AppState.gpsWatchId) {
                 AppState.gpsWatchId = navigator.geolocation.watchPosition(
                     handlePosition,
-                    (err) => console.warn("Watch position error:", err),
+                    (err) => console.warn("Watch position notice:", err),
                     lowAccuracyOptions
                 );
             }
         } catch (err) {
-            console.warn("Geolocation API call error:", err);
+            handleError(err);
         }
     };
-
-    function initLocationTracking() {
-        const gpsEl = document.getElementById('gps-status') || elements.gpsStatus;
-        if (gpsEl) {
-            gpsEl.style.cursor = 'pointer';
-            gpsEl.addEventListener('click', () => {
-                window.requestGpsLocation();
-            });
-        }
-        window.requestGpsLocation();
-    }
 
     function updateGpsStatus(isActive, text) {
         const gpsEl = document.getElementById('gps-status') || elements.gpsStatus;
