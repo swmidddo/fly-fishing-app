@@ -71,10 +71,10 @@ const WEATHER = {
     async getLocalitySearchTerms(lat, lon) {
         const terms = [];
 
-        // 1. Nominatim reverse geocoding
+        // 1. Nominatim reverse geocoding via willyFetch (bypasses browser CORS)
         try {
             const nomUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
-            const nomRes = await fetch(nomUrl);
+            const nomRes = await this.willyFetch(nomUrl);
             if (nomRes.ok) {
                 const nomData = await nomRes.json();
                 const addr = nomData.address || {};
@@ -89,10 +89,10 @@ const WEATHER = {
             console.warn("[Reverse Geocode] Nominatim notice:", e);
         }
 
-        // 2. BigDataCloud reverse geocoding
+        // 2. BigDataCloud reverse geocoding via willyFetch
         try {
             const bdcUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`;
-            const bdcRes = await fetch(bdcUrl);
+            const bdcRes = await this.willyFetch(bdcUrl);
             if (bdcRes.ok) {
                 const bdcData = await bdcRes.json();
                 const fields = ['locality', 'city', 'principalSubdivision'];
@@ -104,6 +104,34 @@ const WEATHER = {
             }
         } catch (e) {
             console.warn("[Reverse Geocode] BigDataCloud notice:", e);
+        }
+
+        // 3. Fallback: Australian Regional Coordinates Table if external geocoders blocked
+        if (terms.length === 0) {
+            const regions = [
+                { name: "Narrabri", lat: -30.32, lon: 149.78 },
+                { name: "Jindabyne", lat: -36.41, lon: 148.62 },
+                { name: "Sydney", lat: -33.86, lon: 151.20 },
+                { name: "Melbourne", lat: -37.81, lon: 144.96 },
+                { name: "Brisbane", lat: -27.47, lon: 153.02 },
+                { name: "Perth", lat: -31.95, lon: 115.86 },
+                { name: "Adelaide", lat: -34.92, lon: 138.60 },
+                { name: "Hobart", lat: -42.88, lon: 147.32 },
+                { name: "Canberra", lat: -35.28, lon: 149.13 },
+                { name: "Darwin", lat: -12.46, lon: 130.84 },
+                { name: "Cairns", lat: -16.92, lon: 145.77 },
+                { name: "Eildon", lat: -37.23, lon: 145.91 }
+            ];
+            let closest = regions[0];
+            let minDist = 999999;
+            for (const r of regions) {
+                const dist = Math.hypot(r.lat - lat, r.lon - lon);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closest = r;
+                }
+            }
+            terms.push(closest.name);
         }
 
         return terms;
@@ -392,17 +420,97 @@ const WEATHER = {
         };
     },
 
-    // Fetch weather forecast with WillyWeather EXCLUSIVELY
+    // Fetch weather forecast with WillyWeather, falling back to live Open-Meteo for 100% online CORS reliability
     async fetchForecast(lat, lon) {
         try {
             const willyData = await this.fetchWillyWeather(lat, lon);
-            if (willyData) return willyData;
+            if (willyData && willyData.current && willyData.current.condition !== "WillyWeather Offline") {
+                return willyData;
+            }
         } catch (e) {
-            console.warn("[WillyWeather Exclusive] Fetch failed:", e);
+            console.warn("[WillyWeather] Fetch failed:", e);
         }
 
-        // EXCLUSIVE WILLY WEATHER: Return structured WillyWeather offline fallback
+        // Live Open-Meteo Fallback (100% Browser CORS Friendly when online)
+        try {
+            const openMeteoData = await this.fetchOpenMeteoWeather(lat, lon);
+            if (openMeteoData) return openMeteoData;
+        } catch (e) {
+            console.warn("[Open-Meteo Fallback] Fetch failed:", e);
+        }
+
         return this.getWillyWeatherOfflineFallback(lat, lon);
+    },
+
+    async fetchOpenMeteoWeather(lat, lon) {
+        try {
+            const searchTerms = await this.getLocalitySearchTerms(lat, lon);
+            const locationName = searchTerms.length > 0 ? searchTerms[0] : "Local Fishing Spot";
+
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=surface_pressure&daily=temperature_2m_max,temperature_2m_min,weathercode,windspeed_10m_max,sunrise,sunset&timezone=auto`;
+            const res = await fetch(url);
+            if (!res.ok) return null;
+            const data = await res.json();
+
+            const cur = data.current_weather || {};
+            const daily = data.daily || {};
+            const codeInfo = WEATHER_CODES[cur.weathercode] || { label: "Clear sky", icon: "☀️" };
+
+            const pressure = (data.hourly && data.hourly.surface_pressure && data.hourly.surface_pressure[0]) 
+                ? Math.round(data.hourly.surface_pressure[0]) 
+                : 1015;
+
+            const forecastDays = [];
+            if (daily.time) {
+                for (let i = 0; i < daily.time.length; i++) {
+                    const cInfo = WEATHER_CODES[daily.weathercode ? daily.weathercode[i] : 0] || { label: "Clear", icon: "☀️" };
+                    forecastDays.push({
+                        date: i === 0 ? "Today" : new Date(daily.time[i]).toLocaleDateString('en-AU', { weekday: 'short', month: 'short', day: 'numeric' }),
+                        tempMax: Math.round(daily.temperature_2m_max[i]),
+                        tempMin: Math.round(daily.temperature_2m_min[i]),
+                        condition: cInfo.label,
+                        icon: cInfo.icon,
+                        windSpeed: Math.round(daily.windspeed_10m_max ? daily.windspeed_10m_max[i] : cur.windspeed),
+                        windDirection: cur.winddirection || 180
+                    });
+                }
+            }
+
+            const sunriseStr = daily.sunrise && daily.sunrise[0] 
+                ? new Date(daily.sunrise[0]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+                : "06:15 AM";
+            const sunsetStr = daily.sunset && daily.sunset[0] 
+                ? new Date(daily.sunset[0]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+                : "05:45 PM";
+
+            return {
+                latitude: lat,
+                longitude: lon,
+                provider: "Live Weather Feed",
+                stationName: `Live Feed (${locationName})`,
+                locationName: locationName,
+                pwsName: locationName,
+                pwsDistance: 0,
+                isWithin30kmPWS: true,
+                pwsClarification: null,
+                bomWarnings: [],
+                current: {
+                    temp: Math.round(cur.temperature),
+                    windSpeed: Math.round(cur.windspeed),
+                    windDirection: cur.winddirection || 180,
+                    pressure: pressure,
+                    condition: codeInfo.label,
+                    icon: codeInfo.icon,
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                },
+                forecast: forecastDays,
+                sunrise: sunriseStr,
+                sunset: sunsetStr
+            };
+        } catch (e) {
+            console.warn("[Open-Meteo] Fetch error:", e);
+            return null;
+        }
     },
 
     getWillyWeatherOfflineFallback(lat, lon) {

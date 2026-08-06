@@ -56,10 +56,13 @@ window.switchTab = function(tabId) {
 
 const initMainApp = async () => {
     // App State
+    const savedCoordsStr = localStorage.getItem('user_last_coords');
+    const initialCoords = savedCoordsStr ? JSON.parse(savedCoordsStr) : { lat: -30.3183, lng: 149.8265 };
+
     const AppState = {
         activeTab: 'dashboard',
         gpsWatchId: null,
-        userCoords: { lat: -33.8688, lng: 151.2093 },
+        userCoords: initialCoords,
         tackle: [],
         catches: [],
         rigs: [],
