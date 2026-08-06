@@ -91,7 +91,7 @@ const AppMap = {
         const container = document.getElementById(containerId);
         if (container) container.innerHTML = '';
 
-        if (googleApiKey && googleApiKey.trim() !== '' && googleApiKey.trim().startsWith('AIza')) {
+        if (googleApiKey && googleApiKey.trim() !== '') {
             try {
                 await this.loadGoogleMapsScript(googleApiKey.trim());
                 this.isGoogleMaps = true;
@@ -117,7 +117,7 @@ const AppMap = {
             }
             const timer = setTimeout(() => {
                 reject(new Error("Google Maps script load timed out. Falling back to Leaflet."));
-            }, 2500);
+            }, 8000);
 
             const script = document.createElement('script');
             script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__initGoogleMapCallback`;
@@ -173,9 +173,13 @@ const AppMap = {
         const defaultCenter = { lat: -25.2744, lng: 133.7751 }; // Center of Australia
         const mapType = localStorage.getItem('mapType') || 'roadmap';
 
+        const initialCenter = (this.userCoords && this.userCoords.lat) ? 
+            { lat: this.userCoords.lat, lng: this.userCoords.lng } : defaultCenter;
+        const initialZoom = (this.userCoords && this.userCoords.lat) ? 13 : 4;
+
         this.map = new google.maps.Map(document.getElementById(containerId), {
-            center: defaultCenter,
-            zoom: 4,
+            center: initialCenter,
+            zoom: initialZoom,
             mapTypeId: mapType,
             disableDefaultUI: false,
             zoomControl: true,

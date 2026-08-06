@@ -323,7 +323,8 @@ const initMainApp = async () => {
 
         if (saveGeminiBtn) {
             saveGeminiBtn.addEventListener('click', () => {
-                localStorage.setItem('geminiApiKey', settingsGeminiKeyInput.value.trim());
+                const k = settingsGeminiKeyInput ? settingsGeminiKeyInput.value.trim() : '';
+                localStorage.setItem('geminiApiKey', k);
                 alert('Gemini Vision AI key saved successfully!');
             });
         }
@@ -332,6 +333,205 @@ const initMainApp = async () => {
         const mapType = localStorage.getItem('mapType') || 'roadmap';
         updateMapTypeBtnLabel(mapType);
     }
+
+    window.testGoogleMapsApiKey = async function() {
+        const inputEl = document.getElementById('settings-gmaps-key');
+        const badgeEl = document.getElementById('gmaps-status-badge');
+        const key = inputEl ? inputEl.value.trim() : (localStorage.getItem('googleMapsApiKey') || '');
+
+        if (!key) {
+            alert("Please enter your Google Maps API key first!");
+            return;
+        }
+
+        if (badgeEl) {
+            badgeEl.textContent = "⏳ Testing Key with Google Maps API...";
+            badgeEl.style.color = "var(--accent-teal)";
+        }
+
+        try {
+            const testUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=Sydney+NSW+Australia&key=${encodeURIComponent(key)}`;
+            const response = await fetch(testUrl);
+            const data = await response.json();
+
+            if (data.status === "OK" || data.status === "ZERO_RESULTS") {
+                localStorage.setItem('googleMapsApiKey', key);
+                if (badgeEl) {
+                    badgeEl.textContent = "✅ Google Maps API Verified & Connected!";
+                    badgeEl.style.color = "#2ed573";
+                }
+                alert("✅ Success! Your Google Maps API key is valid and connected.");
+                if (typeof initMapEngine === 'function') {
+                    initMapEngine();
+                }
+            } else if (data.status === "REQUEST_DENIED") {
+                const errorMsg = data.error_message || "API key not authorized for Google Maps services.";
+                if (badgeEl) {
+                    badgeEl.textContent = `❌ Request Denied: ${errorMsg}`;
+                    badgeEl.style.color = "#ff5252";
+                }
+                alert(`❌ Google Maps Error (REQUEST_DENIED): ${errorMsg}\n\nTip: Ensure "Maps JavaScript API" and "Geocoding API" are enabled in your Google Cloud Console.`);
+            } else {
+                if (badgeEl) {
+                    badgeEl.textContent = `⚠️ Response: ${data.status}`;
+                    badgeEl.style.color = "var(--accent-gold)";
+                }
+                alert(`Notice from Google Maps API (${data.status}): ${data.error_message || 'Key submitted'}`);
+            }
+        } catch (err) {
+            if (badgeEl) {
+                badgeEl.textContent = `❌ Connection Error: ${err.message}`;
+                badgeEl.style.color = "#ff5252";
+            }
+            alert("❌ Network Error testing Google Maps key: " + err.message);
+        }
+    };
+
+    window.testGeminiApiKey = async function() {
+        const inputEl = document.getElementById('settings-gemini-key');
+        const badgeEl = document.getElementById('gemini-status-badge');
+        const key = inputEl ? inputEl.value.trim() : (localStorage.getItem('geminiApiKey') || '');
+
+        if (!key) {
+            alert("Please enter your Gemini API key first!");
+            return;
+        }
+
+        if (badgeEl) {
+            badgeEl.textContent = "⏳ Verifying API Key with Google Gemini...";
+            badgeEl.style.color = "var(--accent-teal)";
+        }
+
+        try {
+            // 1. Query ModelService.ListModels to validate key and fetch available models
+            const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`;
+            const listResp = await fetch(listUrl);
+
+            if (!listResp.ok) {
+                const errData = await listResp.json().catch(() => ({}));
+                const msg = (errData.error && errData.error.message) ? errData.error.message : listResp.statusText;
+                if (badgeEl) {
+                    badgeEl.textContent = `❌ Invalid Key: ${msg}`;
+                    badgeEl.style.color = "#ff5252";
+                }
+                alert(`❌ Gemini API Key Error (${listResp.status}): ${msg}`);
+                return;
+            }
+
+            const listData = await listResp.json();
+            const availableModels = (listData.models || [])
+                .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
+                .map(m => m.name.replace('models/', ''));
+
+            console.log("Available Gemini Models for Key:", availableModels);
+
+            // Save key & best active model to localStorage
+            localStorage.setItem('geminiApiKey', key);
+            let chosenModel = availableModels.find(m => m.includes('flash')) || availableModels[0] || 'gemini-1.5-flash';
+            localStorage.setItem('geminiActiveModel', chosenModel);
+
+            // 2. Perform test generateContent query with chosen model
+            const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/${chosenModel}:generateContent?key=${encodeURIComponent(key)}`;
+            const genResp = await fetch(testUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{ text: "Hello! Respond with JSON {\"status\":\"ok\"}" }]
+                    }]
+                })
+            });
+
+            if (genResp.ok) {
+                if (badgeEl) {
+                    badgeEl.textContent = `✅ Connected (${chosenModel})!`;
+                    badgeEl.style.color = "#2ed573";
+                }
+                alert(`✅ Success! Your Gemini API key is valid and connected via Google ${chosenModel}.`);
+            } else {
+                if (badgeEl) {
+                    badgeEl.textContent = `✅ Key Verified (${availableModels.length} models ready)`;
+                    badgeEl.style.color = "#2ed573";
+                }
+                alert(`✅ Gemini API key verified successfully! (${availableModels.length} Gemini vision models ready).`);
+            }
+        } catch (err) {
+            if (badgeEl) {
+                badgeEl.textContent = `❌ Network Error: ${err.message}`;
+                badgeEl.style.color = "#ff5252";
+            }
+            alert("❌ Failed to connect to Gemini API: " + err.message);
+        }
+    };
+
+    window.generateMobileSyncLink = function() {
+        const gmapsKey = localStorage.getItem('googleMapsApiKey') || '';
+        const geminiKey = localStorage.getItem('geminiApiKey') || '';
+        const activeModel = localStorage.getItem('geminiActiveModel') || '';
+
+        if (!gmapsKey && !geminiKey) {
+            alert("Please save your Google Maps or Gemini API key in Settings first!");
+            return;
+        }
+
+        const origin = window.location.origin + window.location.pathname;
+        const params = new URLSearchParams();
+        if (gmapsKey) params.set('sync_gmaps', gmapsKey);
+        if (geminiKey) params.set('sync_gemini', geminiKey);
+        if (activeModel) params.set('sync_model', activeModel);
+
+        const shareUrl = `${origin}?${params.toString()}`;
+        const container = document.getElementById('mobile-sync-container');
+        const shareInput = document.getElementById('sync-share-url');
+        const qrContainer = document.getElementById('sync-qr-code');
+
+        if (shareInput) shareInput.value = shareUrl;
+        if (qrContainer) {
+            const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(shareUrl)}`;
+            qrContainer.innerHTML = `<img src="${qrApiUrl}" alt="Mobile Sync QR Code" style="width:160px; height:160px; display:block;"/>`;
+        }
+        if (container) container.style.display = 'block';
+    };
+
+    window.copyMobileSyncLink = function() {
+        const shareInput = document.getElementById('sync-share-url');
+        if (shareInput && shareInput.value) {
+            navigator.clipboard.writeText(shareInput.value).then(() => {
+                alert("📋 Mobile sync link copied to clipboard! Send this link to your phone to sync API keys.");
+            }).catch(() => {
+                shareInput.select();
+                document.execCommand('copy');
+                alert("📋 Mobile sync link copied!");
+            });
+        }
+    };
+
+    window.checkMobileSyncUrl = function() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const gmaps = params.get('sync_gmaps');
+            const gemini = params.get('sync_gemini');
+            const model = params.get('sync_model');
+
+            let synced = false;
+            if (gmaps) {
+                localStorage.setItem('googleMapsApiKey', gmaps);
+                synced = true;
+            }
+            if (gemini) {
+                localStorage.setItem('geminiApiKey', gemini);
+                synced = true;
+            }
+            if (model) {
+                localStorage.setItem('geminiActiveModel', model);
+            }
+
+            if (synced) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+                alert("✅ API Keys successfully imported to this mobile device! Google Maps & Gemini AI are now live.");
+            }
+        } catch(e){}
+    };
 
     function updateMapTypeBtnLabel(type) {
         if (!elements.btnMapType) return;
@@ -3336,8 +3536,14 @@ const initMainApp = async () => {
                 localStorage.setItem('carCoords', JSON.stringify(backup.carCoords));
             }
             if (backup.settings) {
-                if (backup.settings.googleMapsApiKey) {
+                if (backup.settings.googleMapsApiKey && !localStorage.getItem('googleMapsApiKey')) {
                     localStorage.setItem('googleMapsApiKey', backup.settings.googleMapsApiKey);
+                }
+                if (backup.settings.geminiApiKey && !localStorage.getItem('geminiApiKey')) {
+                    localStorage.setItem('geminiApiKey', backup.settings.geminiApiKey);
+                }
+                if (backup.settings.geminiActiveModel && !localStorage.getItem('geminiActiveModel')) {
+                    localStorage.setItem('geminiActiveModel', backup.settings.geminiActiveModel);
                 }
                 if (backup.settings.mapType) {
                     localStorage.setItem('mapType', backup.settings.mapType);
@@ -3378,6 +3584,8 @@ const initMainApp = async () => {
             const fishingSpots = JSON.parse(localStorage.getItem('fishingSpots') || '[]');
             const carCoords = JSON.parse(localStorage.getItem('carCoords') || 'null');
             const googleMapsApiKey = localStorage.getItem('googleMapsApiKey') || '';
+            const geminiApiKey = localStorage.getItem('geminiApiKey') || '';
+            const geminiActiveModel = localStorage.getItem('geminiActiveModel') || '';
             const mapType = localStorage.getItem('mapType') || 'roadmap';
             const lastActiveTab = localStorage.getItem('lastActiveTab') || 'dashboard';
 
@@ -3390,6 +3598,8 @@ const initMainApp = async () => {
                 carCoords,
                 settings: {
                     googleMapsApiKey,
+                    geminiApiKey,
+                    geminiActiveModel,
                     mapType,
                     lastActiveTab
                 },
@@ -3806,9 +4016,65 @@ const initMainApp = async () => {
             console.warn("Training dataset match note:", e);
         }
 
-        // 1. Query iNaturalist Open Marine Taxonomy AI (Keyless, High Precision Global & Australian Species Network)
+        // 1. Query Gemini Vision AI API FIRST if a key is provided
+        if (geminiKey && geminiKey.length > 5) {
+            try {
+                if (statusLabel) statusLabel.textContent = "🤖 1/3 Scanning photo with Gemini Vision AI...";
+                let base64Data = photoSrc.startsWith('data:image') ? photoSrc.split(',')[1] : null;
+
+                if (base64Data) {
+                    const headers = {
+                        'Content-Type': 'application/json',
+                        'x-goog-api-key': geminiKey
+                    };
+
+                    const activeModel = localStorage.getItem('geminiActiveModel') || 'gemini-1.5-flash';
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${encodeURIComponent(geminiKey)}`;
+
+                    const controller = new AbortController();
+                    const fetchTimeout = setTimeout(() => controller.abort(), 6000);
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: headers,
+                        signal: controller.signal,
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [
+                                    { text: "You are a master marine biologist and angler. Examine this photograph and identify all fish species present. Return ONLY a valid JSON object: {\"species\": \"Common Name\", \"details\": \"Angling notes.\"}. If no fish is present, return {\"species\": \"Unidentified\"}." },
+                                    { inline_data: { mime_type: "image/jpeg", data: base64Data } }
+                                ]
+                            }]
+                        })
+                    });
+                    clearTimeout(fetchTimeout);
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        const candidate = data.candidates && data.candidates[0];
+                        if (candidate && candidate.content && candidate.content.parts && candidate.content.parts[0]) {
+                            const textResult = candidate.content.parts[0].text.trim();
+                            const jsonClean = textResult.replace(/```json/g, '').replace(/```/g, '').trim();
+                            try {
+                                const parsed = JSON.parse(jsonClean);
+                                if (parsed.species && parsed.species.toLowerCase() !== 'unidentified') {
+                                    finish(parsed.species, `Identified via Google ${activeModel} Vision AI: ${parsed.details || ''}`);
+                                    return;
+                                }
+                            } catch (e) {
+                                console.warn("Failed to parse Gemini output:", e);
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Gemini Vision AI analysis error:", err);
+            }
+        }
+
+        // 2. Query iNaturalist Open Marine Taxonomy AI
         try {
-            if (statusLabel) statusLabel.textContent = "🐟 1/3 Querying iNaturalist Global Taxonomy Network...";
+            if (statusLabel) statusLabel.textContent = "🐟 2/3 Querying iNaturalist Global Taxonomy Network...";
             
             let imageBlob = null;
             if (photoSrc && photoSrc.startsWith('data:image')) {
@@ -3866,10 +4132,10 @@ const initMainApp = async () => {
             console.warn("iNaturalist Vision API note:", inatErr);
         }
 
-        // 2. Query Roboflow Computer Vision AI
+        // 3. Query Roboflow Computer Vision AI
         if (roboflowKey && roboflowKey.length > 5) {
             try {
-                if (statusLabel) statusLabel.textContent = "👁️ 2/3 Querying Roboflow Computer Vision AI...";
+                if (statusLabel) statusLabel.textContent = "👁️ 3/3 Querying Roboflow Computer Vision AI...";
                 let base64Data = photoSrc.startsWith('data:image') ? photoSrc.split(',')[1] : null;
                 if (!base64Data && photoSrc) {
                     base64Data = await new Promise((resolve) => {
@@ -3919,61 +4185,6 @@ const initMainApp = async () => {
                 }
             } catch (rfErr) {
                 console.warn("Roboflow Inference query note:", rfErr);
-            }
-        }
-
-        // 3. Query Gemini Vision AI API if a key is provided
-        if (geminiKey && geminiKey.length > 5) {
-            try {
-                if (statusLabel) statusLabel.textContent = "🌐 2/3 Querying AI Vision Neural Network...";
-                let base64Data = photoSrc.startsWith('data:image') ? photoSrc.split(',')[1] : null;
-
-                if (base64Data) {
-                    const headers = {
-                        'Content-Type': 'application/json',
-                        'x-goog-api-key': geminiKey
-                    };
-
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
-
-                    const controller = new AbortController();
-                    const fetchTimeout = setTimeout(() => controller.abort(), 6000);
-
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: headers,
-                        signal: controller.signal,
-                        body: JSON.stringify({
-                            contents: [{
-                                parts: [
-                                    { text: "You are a master marine biologist and angler. Examine this photograph and identify all fish species present. Return ONLY a valid JSON object: {\"species\": \"Common Name\", \"details\": \"Angling notes.\"}. If no fish is present, return {\"species\": \"Unidentified\"}." },
-                                    { inline_data: { mime_type: "image/jpeg", data: base64Data } }
-                                ]
-                            }]
-                        })
-                    });
-                    clearTimeout(fetchTimeout);
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        const candidate = data.candidates && data.candidates[0];
-                        if (candidate && candidate.content && candidate.content.parts && candidate.content.parts[0]) {
-                            const textResult = candidate.content.parts[0].text.trim();
-                            const jsonClean = textResult.replace(/```json/g, '').replace(/```/g, '').trim();
-                            try {
-                                const parsed = JSON.parse(jsonClean);
-                                if (parsed.species && parsed.species.toLowerCase() !== 'unidentified') {
-                                    finish(parsed.species, parsed.details || '');
-                                    return;
-                                }
-                            } catch (e) {
-                                console.warn("Failed to parse Gemini output:", e);
-                            }
-                        }
-                    }
-                }
-            } catch (err) {
-                console.error("Gemini Vision AI analysis error:", err);
             }
         }
 
@@ -4107,6 +4318,7 @@ const initMainApp = async () => {
     const defaultLat = savedBoot ? savedBoot.lat : -30.3183;
     const defaultLon = savedBoot ? savedBoot.lng : 149.8265;
 
+    try { if (typeof window.checkMobileSyncUrl === 'function') window.checkMobileSyncUrl(); } catch(e){}
     try { initNavigation(); } catch (e) { console.error("Navigation init failed", e); }
     try { initSettings(); } catch (e) { console.error("Settings init failed", e); }
     try { initLocationTracking(); } catch (e) { console.error("GPS init failed", e); }

@@ -912,11 +912,15 @@
                     <div class="card glass mb-20">
                         <h3>Google Maps Configuration</h3>
                         <p class="text-secondary mb-15">To use Google Satellite and Hybrid maps, enter your Google Maps API Key. If left blank, the app will fall back to Leaflet.js with OpenStreetMap layers.</p>
-                        <div class="form-group">
+                        <div class="form-group mb-15">
                             <label for="settings-gmaps-key">Google Maps API Key</label>
                             <input type="password" id="settings-gmaps-key" class="form-input" placeholder="AIzaSy...">
                         </div>
-                        <button class="btn btn-primary" id="btn-save-settings">Save API Key</button>
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <button class="btn btn-primary" id="btn-save-settings">Save API Key</button>
+                            <button class="btn btn-glass" id="btn-test-gmaps-settings" onclick="window.testGoogleMapsApiKey()">⚡ Test Google Maps Key</button>
+                            <span id="gmaps-status-badge" style="font-size: 13px; font-weight: 600; margin-left: 8px;"></span>
+                        </div>
                     </div>
 
                     <!-- WillyWeather & Personal Weather Station Card -->
@@ -942,7 +946,11 @@
                                 <input type="password" id="settings-gemini-key" class="form-input" placeholder="AIzaSy...">
                             </div>
                         </div>
-                        <button class="btn btn-primary" id="btn-save-gemini-settings">Save Gemini Key</button>
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <button class="btn btn-primary" id="btn-save-gemini-settings">Save Gemini Key</button>
+                            <button class="btn btn-glass" id="btn-test-gemini-settings" onclick="window.testGeminiApiKey()">⚡ Test Gemini Key</button>
+                            <span id="gemini-status-badge" style="font-size: 13px; font-weight: 600; margin-left: 8px;"></span>
+                        </div>
                     </div>
 
                     <!-- Roboflow AI Fish Recognition Configuration Card -->
@@ -956,6 +964,23 @@
                             </div>
                         </div>
                         <button class="btn btn-primary" id="btn-save-roboflow-settings">Save Roboflow Key</button>
+                    </div>
+
+                    <!-- Mobile API Key & Device Sync Card -->
+                    <div class="card glass mb-20">
+                        <h3>📱 1-Tap Mobile Sync</h3>
+                        <p class="text-secondary mb-15">Seamlessly sync your Google Maps and Gemini AI keys across all your mobile phones and devices without manual copy-pasting.</p>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                            <button class="btn btn-primary" onclick="window.generateMobileSyncLink()">🔗 Generate Mobile Sync QR & Link</button>
+                        </div>
+                        <div id="mobile-sync-container" style="display: none; margin-top: 15px; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid var(--accent-teal);">
+                            <p style="font-size: 13px; margin-bottom: 10px; color: var(--accent-teal); font-weight: 600;">Scan QR code or open link on your mobile phone to instantly import keys:</p>
+                            <div id="sync-qr-code" style="display: flex; justify-content: center; margin: 10px 0; background: #fff; padding: 10px; border-radius: 6px; width: max-content;"></div>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" id="sync-share-url" class="form-input" readonly style="font-size: 12px; flex-grow: 1;">
+                                <button class="btn btn-glass" onclick="window.copyMobileSyncLink()">📋 Copy</button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Developer/Test Utilities Card -->
@@ -1548,16 +1573,16 @@
     </div>
 
     <!-- Scripts -->
-    <script src="db.js?v=100002"></script>
-    <script src="regulations.js?v=100002"></script>
-    <script src="weather.js?v=100002"></script>
-    <script src="exif.js?v=100002"></script>
-    <script src="map.js?v=100002"></script>
-    <script src="tackle_db.js?v=100002"></script>
-    <script src="fish_db.js?v=100002"></script>
-    <script src="fly_box.js?v=100002"></script>
-    <script src="knots.js?v=100002"></script>
-    <script src="auth.js?v=100002"></script>
-    <script src="app.js?v=100002"></script>
+    <script src="db.js?v=100009"></script>
+    <script src="regulations.js?v=100009"></script>
+    <script src="weather.js?v=100009"></script>
+    <script src="exif.js?v=100009"></script>
+    <script src="map.js?v=100009"></script>
+    <script src="tackle_db.js?v=100009"></script>
+    <script src="fish_db.js?v=100009"></script>
+    <script src="fly_box.js?v=100009"></script>
+    <script src="knots.js?v=100009"></script>
+    <script src="auth.js?v=100009"></script>
+    <script src="app.js?v=100009"></script>
 </body>
 </html>
