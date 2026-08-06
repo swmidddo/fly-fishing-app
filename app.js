@@ -482,13 +482,23 @@ const initMainApp = async () => {
             return;
         }
 
-        const origin = window.location.origin + window.location.pathname;
+        const targetUrlInput = document.getElementById('sync-target-url');
+        let baseUrl = (targetUrlInput && targetUrlInput.value.trim()) ? targetUrlInput.value.trim() : (window.location.origin + window.location.pathname);
+        
+        if (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')) {
+            const promptUrl = prompt("Scanning localhost on a mobile phone will fail. Please enter your published web app URL (e.g., https://your-site.github.io/fly-fishing-app):", baseUrl);
+            if (promptUrl && promptUrl.trim()) {
+                baseUrl = promptUrl.trim();
+                if (targetUrlInput) targetUrlInput.value = baseUrl;
+            }
+        }
+
         const params = new URLSearchParams();
         if (gmapsKey) params.set('sync_gmaps', gmapsKey);
         if (geminiKey) params.set('sync_gemini', geminiKey);
         if (activeModel) params.set('sync_model', activeModel);
 
-        const shareUrl = `${origin}?${params.toString()}`;
+        const shareUrl = baseUrl.includes('?') ? `${baseUrl}&${params.toString()}` : `${baseUrl}?${params.toString()}`;
         const container = document.getElementById('mobile-sync-container');
         const shareInput = document.getElementById('sync-share-url');
         const qrContainer = document.getElementById('sync-qr-code');
@@ -4063,6 +4073,20 @@ const initMainApp = async () => {
             }
         } catch (e) {
             console.warn("Training dataset match note:", e);
+        }
+
+        let geminiKey = (localStorage.getItem('geminiApiKey') || '').trim();
+        if (!geminiKey) {
+            try {
+                const resp = await fetch('session_backup.json');
+                if (resp.ok) {
+                    const backup = await resp.json();
+                    if (backup && backup.settings && backup.settings.geminiApiKey) {
+                        geminiKey = backup.settings.geminiApiKey.trim();
+                        if (geminiKey) localStorage.setItem('geminiApiKey', geminiKey);
+                    }
+                }
+            } catch(e){}
         }
 
         // 1. Query Gemini Vision AI API FIRST if a key is provided
