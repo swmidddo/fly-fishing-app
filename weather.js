@@ -486,8 +486,8 @@ const WEATHER = {
             return {
                 latitude: lat,
                 longitude: lon,
-                provider: "Live Weather Feed",
-                stationName: `Live Feed (${locationName})`,
+                provider: "WillyWeather Feed",
+                stationName: `WillyWeather (PWS: ${locationName}, Live Station)`,
                 locationName: locationName,
                 pwsName: locationName,
                 pwsDistance: 0,

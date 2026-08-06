@@ -405,6 +405,23 @@ const initMainApp = async () => {
         }
     }
 
+    // Bind click event on GPS badge to prompt user for location or town search
+    const gpsBadgeEl = document.getElementById('gps-status');
+    if (gpsBadgeEl) {
+        gpsBadgeEl.style.cursor = 'pointer';
+        gpsBadgeEl.title = "Click to set or change your location";
+        gpsBadgeEl.addEventListener('click', () => {
+            if (typeof window.promptChangeLocation === 'function') {
+                window.promptChangeLocation();
+            } else {
+                window.requestGpsLocation();
+            }
+        });
+    }
+
+    // Request GPS location on app initialization
+    window.requestGpsLocation();
+
     // 4. Map Interface Actions
     async function loadCatches() {
         try {
