@@ -3150,7 +3150,7 @@ const initMainApp = async () => {
                         if (reg.waiting) {
                             showUpdateNotificationToast(reg.waiting);
                         } else {
-                            alert("You are running the latest app version (v93)!");
+                            alert("You are running the latest app version (v100014)!");
                         }
                     } else {
                         window.location.reload();
