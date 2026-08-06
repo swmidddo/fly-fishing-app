@@ -282,8 +282,11 @@ const initMainApp = async () => {
 
     // 2. Settings Management
     function initSettings() {
-        const DEFAULT_KEY = 'AQ.Ab8RN6LclsTT-5fv3N27R_hBNd_UHEpwEUWJ2JO6XNQOSeRtLA';
-        const apiKey = localStorage.getItem('googleMapsApiKey') || DEFAULT_KEY;
+        let apiKey = (localStorage.getItem('googleMapsApiKey') || '').trim();
+        if (apiKey.includes('AQ.Ab8RN6')) {
+            apiKey = '';
+            localStorage.removeItem('googleMapsApiKey');
+        }
         if (elements.gmapsKeyInput) elements.gmapsKeyInput.value = apiKey;
 
         if (elements.saveSettingsBtn) {
@@ -356,6 +359,7 @@ const initMainApp = async () => {
 
             if (data.status === "OK" || data.status === "ZERO_RESULTS") {
                 localStorage.setItem('googleMapsApiKey', key);
+                saveBackupData();
                 if (badgeEl) {
                     badgeEl.textContent = "✅ Google Maps API Verified & Connected!";
                     badgeEl.style.color = "#2ed573";
@@ -718,9 +722,28 @@ const initMainApp = async () => {
     }
 
     async function initMapEngine() {
-        const DEFAULT_KEY = 'AQ.Ab8RN6LclsTT-5fv3N27R_hBNd_UHEpwEUWJ2JO6XNQOSeRtLA';
-        const key = localStorage.getItem('googleMapsApiKey') || DEFAULT_KEY;
-        
+        let key = (localStorage.getItem('googleMapsApiKey') || '').trim();
+        if (key.includes('AQ.Ab8RN6')) {
+            key = '';
+            localStorage.removeItem('googleMapsApiKey');
+        }
+
+        if (!key) {
+            try {
+                const resp = await fetch('session_backup.json');
+                if (resp.ok) {
+                    const backup = await resp.json();
+                    if (backup && backup.settings && backup.settings.googleMapsApiKey) {
+                        const bKey = backup.settings.googleMapsApiKey.trim();
+                        if (bKey && !bKey.includes('AQ.Ab8RN6')) {
+                            key = bKey;
+                            localStorage.setItem('googleMapsApiKey', key);
+                        }
+                    }
+                }
+            } catch(e){}
+        }
+
         let mapWeatherTimeout = null;
         const onMapMove = (lat, lng) => {
             clearTimeout(mapWeatherTimeout);
