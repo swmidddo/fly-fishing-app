@@ -821,3 +821,141 @@ const WEATHER = {
 };
 
 window.WEATHER = WEATHER;
+
+window.drawPressureChart = function(pressureHistory, currentPressure) {
+    const canvas = document.getElementById('pressure-chart-canvas');
+    if (!canvas) return;
+
+    // Handle high DPI retina display
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = (rect.width || 300) * dpr;
+    canvas.height = (rect.height || 115) * dpr;
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    const width = rect.width || 300;
+    const height = rect.height || 115;
+
+    ctx.clearRect(0, 0, width, height);
+
+    // Default 24-hour pressure trend if history array not provided
+    const baseP = currentPressure || 1016;
+    let dataPoints = pressureHistory;
+    if (!dataPoints || dataPoints.length < 5) {
+        dataPoints = [
+            baseP - 3.5,
+            baseP - 2.0,
+            baseP - 1.2,
+            baseP + 0.8,
+            baseP
+        ];
+    }
+
+    const minP = Math.min(...dataPoints) - 2;
+    const maxP = Math.max(...dataPoints) + 2;
+    const pRange = (maxP - minP) || 1;
+
+    const padding = { top: 18, bottom: 20, left: 24, right: 24 };
+    const chartW = width - padding.left - padding.right;
+    const chartH = height - padding.top - padding.bottom;
+
+    const getX = (index) => padding.left + (index / (dataPoints.length - 1)) * chartW;
+    const getY = (val) => padding.top + chartH - ((val - minP) / pRange) * chartH;
+
+    // Draw horizontal grid lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 3; i++) {
+        const y = padding.top + (i / 3) * chartH;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
+        ctx.stroke();
+    }
+
+    // Create glowing area fill under curve
+    const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
+    gradient.addColorStop(0, 'rgba(100, 255, 218, 0.35)');
+    gradient.addColorStop(1, 'rgba(100, 255, 218, 0.0)');
+
+    ctx.beginPath();
+    ctx.moveTo(getX(0), getY(dataPoints[0]));
+    for (let i = 0; i < dataPoints.length - 1; i++) {
+        const x0 = getX(i);
+        const y0 = getY(dataPoints[i]);
+        const x1 = getX(i + 1);
+        const y1 = getY(dataPoints[i + 1]);
+        const cx = (x0 + x1) / 2;
+        ctx.bezierCurveTo(cx, y0, cx, y1, x1, y1);
+    }
+    ctx.lineTo(getX(dataPoints.length - 1), height - padding.bottom);
+    ctx.lineTo(getX(0), height - padding.bottom);
+    ctx.closePath();
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    // Draw glowing trend curve line
+    ctx.beginPath();
+    ctx.moveTo(getX(0), getY(dataPoints[0]));
+    for (let i = 0; i < dataPoints.length - 1; i++) {
+        const x0 = getX(i);
+        const y0 = getY(dataPoints[i]);
+        const x1 = getX(i + 1);
+        const y1 = getY(dataPoints[i + 1]);
+        const cx = (x0 + x1) / 2;
+        ctx.bezierCurveTo(cx, y0, cx, y1, x1, y1);
+    }
+    ctx.strokeStyle = '#64ffda';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#64ffda';
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+    ctx.shadowBlur = 0; // Reset shadow
+
+    // Draw data point dots & pressure text labels
+    dataPoints.forEach((val, i) => {
+        const x = getX(i);
+        const y = getY(val);
+
+        // Dot circle
+        ctx.beginPath();
+        ctx.arc(x, y, i === dataPoints.length - 1 ? 5 : 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = i === dataPoints.length - 1 ? '#2ed573' : '#64ffda';
+        ctx.fill();
+        ctx.strokeStyle = '#050e1d';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Pressure label above dot
+        ctx.fillStyle = i === dataPoints.length - 1 ? '#2ed573' : '#8892b0';
+        ctx.font = i === dataPoints.length - 1 ? 'bold 11px Inter, sans-serif' : '10px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${Math.round(val)}`, x, y - 8);
+    });
+
+    // Update trend indicator badge text
+    const pStart = dataPoints[0];
+    const pEnd = dataPoints[dataPoints.length - 1];
+    const diff = (pEnd - pStart).toFixed(1);
+    const badgeEl = document.getElementById('pressure-trend-badge');
+    if (badgeEl) {
+        if (diff > 1.5) {
+            badgeEl.textContent = `📈 Rising (+${diff} hPa)`;
+            badgeEl.style.color = '#2ed573';
+            badgeEl.style.borderColor = '#2ed573';
+            badgeEl.style.background = 'rgba(46, 213, 115, 0.15)';
+        } else if (diff < -1.5) {
+            badgeEl.textContent = `📉 Falling (${diff} hPa)`;
+            badgeEl.style.color = '#ff5252';
+            badgeEl.style.borderColor = '#ff5252';
+            badgeEl.style.background = 'rgba(255, 82, 82, 0.15)';
+        } else {
+            badgeEl.textContent = `➡️ Steady (${diff >= 0 ? '+' : ''}${diff} hPa)`;
+            badgeEl.style.color = '#00d2ff';
+            badgeEl.style.borderColor = '#00d2ff';
+            badgeEl.style.background = 'rgba(0, 210, 255, 0.15)';
+        }
+    }
+};

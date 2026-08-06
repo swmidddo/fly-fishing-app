@@ -49,9 +49,10 @@ window.switchTab = function(tabId) {
                     }
                 } catch(e){}
             }, 100);
-        } else if (tabId === 'weather' && typeof window.drawTideChart === 'function') {
+        } else if (tabId === 'weather') {
             setTimeout(() => {
-                window.drawTideChart();
+                if (typeof window.drawTideChart === 'function') window.drawTideChart();
+                if (typeof window.drawPressureChart === 'function') window.drawPressureChart();
             }, 120);
         }
     } catch (err) {
@@ -2264,6 +2265,10 @@ const initMainApp = async () => {
                 AppState.weatherData = weather;
                 displayWeatherData(weather);
                 drawTideChart();
+                if (typeof window.drawPressureChart === 'function') {
+                    const curP = (weather && weather.current) ? weather.current.pressure : 1016;
+                    window.drawPressureChart(null, curP);
+                }
             }
         } catch (e) {
             console.error("Weather forecast display error:", e);
