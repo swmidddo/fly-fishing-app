@@ -835,14 +835,23 @@ textarea.form-input {
 }
 
 /* Regulations Table styling */
+#reg-table-container {
+    overflow-x: auto !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 0 !important;
+    border-radius: 16px !important;
+}
+
 .table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 14px;
+    font-size: 13.5px;
+    box-sizing: border-box;
 }
 
 .table th, .table td {
-    padding: 16px;
+    padding: 12px 14px;
     text-align: left;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -854,6 +863,8 @@ textarea.form-input {
     text-transform: uppercase;
     font-size: 11px;
     letter-spacing: 0.05em;
+    background: rgba(0, 0, 0, 0.3);
+    white-space: nowrap;
 }
 
 .table tr:hover td {
@@ -862,8 +873,12 @@ textarea.form-input {
 
 .regulations-control-bar {
     display: flex;
-    gap: 20px;
+    gap: 16px;
     flex-wrap: wrap;
+    align-items: center;
+    box-sizing: border-box;
+    width: 100%;
+    overflow: hidden;
 }
 
 /* Weather & Marine Forecast Page */
