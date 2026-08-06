@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style -->
-    <link rel="stylesheet" href="styles.css?v=34000">
+    <link rel="stylesheet" href="styles.css?v=38000">
     <script>
         // Unregister any active Service Workers and clear CacheStorage instantly on parse
         if ('serviceWorker' in navigator) {
@@ -116,7 +116,13 @@
                 <div class="dashboard-grid">
                     <!-- Weather Widget -->
                     <div class="card glass shadow-lg card-weather-summary">
-                        <h3>Local Weather</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <h3 style="margin: 0;">Local Weather</h3>
+                            <button class="btn btn-glass btn-sm" onclick="window.promptChangeLocation()" style="font-size: 11px; padding: 3px 8px;">📍 Location</button>
+                        </div>
+                        <div id="dash-weather-station-badge" style="font-size: 11px; color: var(--accent-teal); font-weight: 600; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            📍 WillyWeather: Loading station...
+                        </div>
                         <div class="weather-current-details">
                             <span class="weather-large-icon" id="dash-weather-icon">🌧️</span>
                             <div class="weather-temp-group">
@@ -129,6 +135,9 @@
                             <div>🎈 Pressure: <span id="dash-pressure">-- hPa</span></div>
                             <div>🌅 Sunrise: <span id="dash-sunrise">--</span></div>
                             <div>🌇 Sunset: <span id="dash-sunset">--</span></div>
+                        </div>
+                        <div id="dash-pws-clarification" style="font-size: 10.5px; color: var(--text-secondary); margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 6px;">
+                            📍 WillyWeather Exclusive Feed
                         </div>
                     </div>
 
@@ -430,9 +439,15 @@
 
             <!-- Regulations View -->
             <section id="tab-regulations" class="tab-content">
-                <header class="section-header">
-                    <h1>Australian Fish Size Guide</h1>
-                    <p class="subtitle">Access legal limits, bag quotas, and closed seasons for all Australian states.</p>
+                <header class="section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                    <div>
+                        <h1>Australian Fish Species & Size Guide</h1>
+                        <p class="subtitle">Official species photos, legal size limits, bag quotas, and season rules (like NSW DPI Guide).</p>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-glass btn-sm active" id="btn-reg-view-table" onclick="window.switchRegView('table')">📋 Table View</button>
+                        <button class="btn btn-glass btn-sm" id="btn-reg-view-cards" onclick="window.switchRegView('cards')">🎴 DPI Species Cards</button>
+                    </div>
                 </header>
 
                 <div class="regulations-control-bar card glass">
@@ -472,16 +487,18 @@
                     </div>
                 </div>
 
-                <div class="card glass list-card mt-20">
+                <!-- 1. Table View -->
+                <div class="card glass list-card mt-20" id="reg-table-container">
                     <table class="table" id="regulations-table">
                         <thead>
                             <tr>
+                                <th>Photo</th>
                                 <th>State</th>
-                                <th>Species</th>
-                                <th>Min Size (cm)</th>
-                                <th>Max Size (cm)</th>
+                                <th>Species Name</th>
+                                <th>Min Size</th>
+                                <th>Max Size</th>
                                 <th>Bag Limit</th>
-                                <th>Possession Limit</th>
+                                <th>Possession</th>
                                 <th>Season / Comments</th>
                             </tr>
                         </thead>
@@ -489,6 +506,13 @@
                             <!-- Dynamically populated -->
                         </tbody>
                     </table>
+                </div>
+
+                <!-- 2. DPI Species Cards View -->
+                <div id="reg-cards-container" class="mt-20" style="display: none;">
+                    <div class="grid-three-col" id="reg-cards-grid">
+                        <!-- Dynamically populated DPI Cards -->
+                    </div>
                 </div>
             </section>
 
@@ -1423,16 +1447,16 @@
     </div>
 
     <!-- Scripts -->
-    <script src="db.js?v=34000"></script>
-    <script src="regulations.js?v=34000"></script>
-    <script src="weather.js?v=34000"></script>
-    <script src="exif.js?v=34000"></script>
-    <script src="map.js?v=34000"></script>
-    <script src="tackle_db.js?v=34000"></script>
-    <script src="fish_db.js?v=34000"></script>
-    <script src="fly_box.js?v=34000"></script>
-    <script src="knots.js?v=34000"></script>
-    <script src="auth.js?v=34000"></script>
-    <script src="app.js?v=34000"></script>
+    <script src="db.js?v=38000"></script>
+    <script src="regulations.js?v=38000"></script>
+    <script src="weather.js?v=38000"></script>
+    <script src="exif.js?v=38000"></script>
+    <script src="map.js?v=38000"></script>
+    <script src="tackle_db.js?v=38000"></script>
+    <script src="fish_db.js?v=38000"></script>
+    <script src="fly_box.js?v=38000"></script>
+    <script src="knots.js?v=38000"></script>
+    <script src="auth.js?v=38000"></script>
+    <script src="app.js?v=38000"></script>
 </body>
 </html>

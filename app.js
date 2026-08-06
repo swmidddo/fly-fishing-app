@@ -2037,13 +2037,31 @@ const initMainApp = async () => {
         });
 
         if (rows.length === 0) {
-            elements.regTbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-secondary);">No regulations found matching your filters.</td></tr>`;
+            if (elements.regTbody) elements.regTbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-secondary);">No species found matching your filters.</td></tr>`;
+            const cardsGrid = document.getElementById('reg-cards-grid');
+            if (cardsGrid) cardsGrid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary);">No species found.</div>`;
             return;
         }
 
+        const cardsGrid = document.getElementById('reg-cards-grid');
+        if (cardsGrid) cardsGrid.innerHTML = '';
+
         rows.forEach(item => {
             const fish = item.fish;
-            
+            const fishNameLower = fish.name.toLowerCase();
+            const cleanFishName = fishNameLower.replace(/\s*\([^)]*\)/g, '').trim();
+
+            let dbMatch = null;
+            if (window.FISH_DATABASE) {
+                dbMatch = window.FISH_DATABASE.find(f => f.name.toLowerCase() === fishNameLower);
+                if (!dbMatch) {
+                    dbMatch = window.FISH_DATABASE.find(f => f.name.toLowerCase().replace(/\s*\([^)]*\)/g, '').trim() === cleanFishName);
+                }
+            }
+
+            const imgUrl = (dbMatch && dbMatch.image) ? dbMatch.image : 'images/dpi_illustrations/rainbow_trout.jpg';
+            const sciName = (dbMatch && dbMatch.sciName) ? dbMatch.sciName : 'Species Identification';
+
             let minSize = 'No Limit';
             if (typeof fish.minSize === 'number' && fish.minSize > 0) {
                 minSize = `${fish.minSize} cm`;
@@ -2062,19 +2080,111 @@ const initMainApp = async () => {
                 maxSize = 'No Limit';
             }
             
-            elements.regTbody.insertAdjacentHTML('beforeend', `
-                <tr>
-                    <td style="color: var(--accent-blue); font-weight:600;">${item.state}</td>
-                    <td><strong>🐟 ${fish.name}</strong></td>
-                    <td style="color: var(--accent-teal); font-weight:600;">${minSize}</td>
-                    <td style="color: var(--accent-orange);">${maxSize}</td>
-                    <td>${fish.bagLimit}</td>
-                    <td style="color: var(--accent-teal); font-weight:600;">${fish.possessionLimit || 'N/A'}</td>
-                    <td style="font-size:12px; color:var(--text-secondary);">${fish.season}</td>
-                </tr>
-            `);
+            // 1. Render Table Row with DPIRD Official Cutout Photo
+            if (elements.regTbody) {
+                elements.regTbody.insertAdjacentHTML('beforeend', `
+                    <tr>
+                        <td>
+                            <div style="width: 70px; height: 44px; background: #ffffff; border-radius: 6px; display: flex; align-items: center; justify-content: center; padding: 2px; border: 1px solid rgba(255,255,255,0.15);">
+                                <img src="${imgUrl}" alt="${fish.name}" onerror="this.onerror=null; this.src='images/dpi_illustrations/rainbow_trout.jpg';" style="max-width: 100%; max-height: 100%; object-fit: contain; cursor: pointer;" onclick="window.viewEnlargedPhoto('${imgUrl}', '${fish.name}')" title="Click to view NSW DPIRD scientific photo">
+                            </div>
+                        </td>
+                        <td style="color: var(--accent-blue); font-weight:600;">${item.state}</td>
+                        <td>
+                            <strong>🐟 ${fish.name}</strong>
+                            <div style="font-size: 10.5px; color: var(--text-secondary); font-style: italic;">${sciName}</div>
+                        </td>
+                        <td style="color: var(--accent-teal); font-weight:600;">${minSize}</td>
+                        <td style="color: var(--accent-orange);">${maxSize}</td>
+                        <td>${fish.bagLimit}</td>
+                        <td style="color: var(--accent-teal); font-weight:600;">${fish.possessionLimit || 'N/A'}</td>
+                        <td style="font-size:12px; color:var(--text-secondary);">${fish.season}</td>
+                    </tr>
+                `);
+            }
+
+            // 2. Render NSW DPIRD Style Visual Card with White Cutout Backdrop
+            if (cardsGrid) {
+                cardsGrid.insertAdjacentHTML('beforeend', `
+                    <div class="card glass shadow-lg" style="padding: 0; overflow: hidden; border: 1px solid var(--border-color); display: flex; flex-direction: column;">
+                        <div style="position: relative; height: 160px; overflow: hidden; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 12px;">
+                            <img src="${imgUrl}" alt="${fish.name}" onerror="this.onerror=null; this.src='images/dpi_illustrations/rainbow_trout.jpg';" style="max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.4s ease;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
+                            <span class="badge" style="position: absolute; top: 10px; right: 10px; background: rgba(0, 210, 255, 0.85); color: #fff; font-weight: 700; font-size: 11px;">${item.state}</span>
+                            <span class="badge" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: var(--accent-teal); font-size: 10.5px; text-transform: uppercase;">${dbMatch ? dbMatch.category : (item.waterType || 'Fish Species')}</span>
+                        </div>
+                        <div style="padding: 16px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                            <div>
+                                <h3 style="margin: 0 0 2px 0; font-size: 16px; color: var(--text-primary);">🐟 ${fish.name}</h3>
+                                <div style="font-size: 11.5px; color: var(--accent-teal); font-style: italic; margin-bottom: 12px;">${sciName}</div>
+                                
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; margin-bottom: 12px; background: rgba(255,255,255,0.03); padding: 10px; border-radius: 8px;">
+                                    <div>
+                                        <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Min Legal Size</div>
+                                        <strong style="color: var(--accent-teal); font-size: 13px;">${minSize}</strong>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Max / Slot Limit</div>
+                                        <strong style="color: var(--accent-orange); font-size: 13px;">${maxSize}</strong>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Daily Bag Limit</div>
+                                        <strong style="color: var(--text-primary);">${fish.bagLimit}</strong>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Possession</div>
+                                        <strong style="color: var(--accent-blue);">${fish.possessionLimit || 'N/A'}</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.4; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px;">
+                                ℹ️ <b>Season & Rules:</b> ${fish.season}
+                            </div>
+                        </div>
+                    </div>
+                `);
+            }
         });
     }
+
+    // Switch between Table View and DPI Species Cards View
+    window.switchRegView = function(mode) {
+        const tableCont = document.getElementById('reg-table-container');
+        const cardsCont = document.getElementById('reg-cards-container');
+        const btnTable = document.getElementById('btn-reg-view-table');
+        const btnCards = document.getElementById('btn-reg-view-cards');
+
+        if (mode === 'cards') {
+            if (tableCont) tableCont.style.display = 'none';
+            if (cardsCont) cardsCont.style.display = 'block';
+            if (btnTable) btnTable.classList.remove('active');
+            if (btnCards) btnCards.classList.add('active');
+        } else {
+            if (tableCont) tableCont.style.display = 'block';
+            if (cardsCont) cardsCont.style.display = 'none';
+            if (btnTable) btnTable.classList.add('active');
+            if (btnCards) btnCards.classList.remove('active');
+        }
+    };
+
+    window.viewEnlargedPhoto = function(imgUrl, title) {
+        let modal = document.getElementById('modal-enlarged-fish-photo');
+        if (!modal) {
+            document.body.insertAdjacentHTML('beforeend', `
+                <div class="modal" id="modal-enlarged-fish-photo" style="z-index: 9999;">
+                    <div class="modal-content card glass shadow-lg" style="max-width: 600px; padding: 20px; text-align: center;">
+                        <h3 id="enlarged-fish-title" style="margin-top: 0; color: var(--accent-teal);">Species Photo</h3>
+                        <img id="enlarged-fish-img" src="" style="width: 100%; max-height: 380px; object-fit: contain; border-radius: 8px; border: 2px solid var(--accent-teal); margin: 15px 0;">
+                        <button class="btn btn-primary" onclick="document.getElementById('modal-enlarged-fish-photo').classList.remove('active')">Close</button>
+                    </div>
+                </div>
+            `);
+            modal = document.getElementById('modal-enlarged-fish-photo');
+        }
+        document.getElementById('enlarged-fish-title').textContent = title;
+        document.getElementById('enlarged-fish-img').src = imgUrl;
+        modal.classList.add('active');
+    };
 
     // 8. Weather, Moon and Tides logic
     let lastWeatherFetchTime = 0;
@@ -2245,11 +2355,31 @@ const initMainApp = async () => {
         if (elements.dashSunrise) elements.dashSunrise.textContent = weather.sunrise || "06:15 AM";
         if (elements.dashSunset) elements.dashSunset.textContent = weather.sunset || "05:45 PM";
 
-        // Display weather station info
+        // Dashboard Station & PWS Clarification Badges
+        const dashBadgeEl = document.getElementById('dash-weather-station-badge');
+        const dashPwsClarifEl = document.getElementById('dash-pws-clarification');
+        const stationLabel = weather.stationName || "WillyWeather Australia";
+
+        if (dashBadgeEl) {
+            dashBadgeEl.innerHTML = `📍 <b>WillyWeather:</b> ${stationLabel}`;
+        }
+
+        if (dashPwsClarifEl) {
+            if (weather.isWithin30kmPWS && weather.pwsClarification) {
+                dashPwsClarifEl.innerHTML = `<span style="color: var(--accent-teal); font-weight: 600;">📍 PWS Clarification Active (&lt;30km):</span> ${weather.pwsClarification}`;
+            } else {
+                dashPwsClarifEl.innerHTML = `📍 <b>WillyWeather Feed:</b> Standard WillyWeather location forecast for ${weather.locationName || 'your fishing spot'}.`;
+            }
+        }
+
+        // Detailed Weather Tab station info
         const stationInfoEl = document.getElementById('weather-station-info');
         if (stationInfoEl && weather.latitude && weather.longitude) {
-            const stationLabel = weather.stationName || "WillyWeather Australia PWS";
-            stationInfoEl.innerHTML = `📍 <b>Weather Data Source:</b> ${stationLabel} <span id="weather-source-coords" style="color: var(--accent-blue); font-weight: 600;">(Lat: ${weather.latitude.toFixed(4)}, Lng: ${weather.longitude.toFixed(4)})</span>`;
+            let pwsBadge = '';
+            if (weather.isWithin30kmPWS && weather.pwsClarification) {
+                pwsBadge = `<span style="margin-left: 8px; padding: 2px 8px; background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); border: 1px solid var(--accent-teal); border-radius: 4px; font-size: 11px; font-weight: 600;">📍 ${weather.pwsClarification}</span>`;
+            }
+            stationInfoEl.innerHTML = `📍 <b>Weather Data Source:</b> ${stationLabel} ${pwsBadge} <span id="weather-source-coords" style="color: var(--accent-blue); font-weight: 600;">(Lat: ${weather.latitude.toFixed(4)}, Lng: ${weather.longitude.toFixed(4)})</span>`;
             stationInfoEl.style.display = 'block';
         }
 
@@ -2519,6 +2649,56 @@ const initMainApp = async () => {
                 btn.style.color = '';
             }
         }, 1500);
+    };
+
+    window.promptChangeLocation = async function() {
+        const input = prompt("Enter an Australian town, suburb, or postcode for WillyWeather (or type 'gps' to lock exact GPS location):");
+        if (!input || !input.trim()) return;
+
+        const query = input.trim();
+        if (query.toLowerCase() === 'gps') {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        const lat = pos.coords.latitude;
+                        const lng = pos.coords.longitude;
+                        AppState.userCoords = { lat, lng };
+                        localStorage.setItem('user_last_coords', JSON.stringify({ lat, lng }));
+                        loadWeatherAndTides(lat, lng, true);
+                    },
+                    (err) => alert("GPS lock failed: " + err.message)
+                );
+            } else {
+                alert("Geolocation is not supported by your browser.");
+            }
+            return;
+        }
+
+        try {
+            const apiKey = localStorage.getItem('willyWeatherApiKey') || 'MjlkNjAwNWVjMzA4MTFlOGEwZjMyY2';
+            const searchUrl = `https://api.willyweather.com.au/v2/${apiKey}/search.json?query=${encodeURIComponent(query)}`;
+            const res = await window.WEATHER.willyFetch(searchUrl);
+            if (res.ok) {
+                const data = await res.json();
+                let chosen = null;
+                if (Array.isArray(data) && data.length > 0) chosen = data[0];
+                else if (data && data.location) chosen = data.location;
+
+                if (chosen && chosen.lat != null && chosen.lng != null) {
+                    const lat = chosen.lat;
+                    const lng = chosen.lng;
+                    AppState.userCoords = { lat, lng };
+                    localStorage.setItem('user_last_coords', JSON.stringify({ lat, lng }));
+                    await loadWeatherAndTides(lat, lng, true);
+                    alert(`Connected to WillyWeather: ${chosen.name || query}!`);
+                } else {
+                    alert(`Could not find WillyWeather location for '${query}'. Please try another town name.`);
+                }
+            }
+        } catch (e) {
+            console.error("Location search failed:", e);
+            alert("Error connecting to WillyWeather search.");
+        }
     };
 
     if (elements.refreshWeatherBtn) {

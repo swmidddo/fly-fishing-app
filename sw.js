@@ -61,7 +61,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     // Ignore non-GET requests and APIs
     if (event.request.method !== 'GET' || 
-        event.request.url.includes('open-meteo.com/') || 
+        event.request.url.includes('willyweather.com.au') || 
         event.request.url.includes('maps.googleapis.com') ||
         event.request.url.includes('generativelanguage.googleapis.com') ||
         event.request.url.includes('/api/save-backup') ||

@@ -15,7 +15,6 @@ const REGULATIONS = {
             { name: "Macquarie Perch", minSize: "Protected", maxSize: "N/A", bagLimit: "0", possessionLimit: "0", season: "Protected species. Total closure in all waters" },
             { name: "Trout Cod", minSize: "Protected", maxSize: "N/A", bagLimit: "0", possessionLimit: "0", season: "Protected species. Total closure, return to water immediately" },
             { name: "Eastern Freshwater Cod", minSize: "Protected", maxSize: "N/A", bagLimit: "0", possessionLimit: "0", season: "Protected species. Total closure in all waters" },
-            { name: "Murray Crayfish", minSize: 10, maxSize: 12, bagLimit: "2", possessionLimit: "4", season: "Open June 1 - Aug 31 only (Slot limit 10–12cm)" },
             { name: "European Carp", minSize: "No Limit (Pest)", maxSize: "N/A", bagLimit: "Unlimited", possessionLimit: "Unlimited", season: "Declared pest. Do not return to water alive" },
             { name: "Redfin Perch", minSize: "No Limit (Pest)", maxSize: "N/A", bagLimit: "Unlimited", possessionLimit: "Unlimited", season: "Declared pest. Do not return to water alive" }
         ],
@@ -33,9 +32,7 @@ const REGULATIONS = {
             { name: "Silver Trevally", minSize: 30, maxSize: null, bagLimit: "10", possessionLimit: "20", season: "Open all year" },
             { name: "Mahi Mahi (Dorado)", minSize: 60, maxSize: null, bagLimit: "10 (only 1 over 110cm)", possessionLimit: "20", season: "Open all year" },
             { name: "Spanish Mackerel", minSize: 75, maxSize: null, bagLimit: "5", possessionLimit: "10", season: "Open all year" },
-            { name: "Eastern Blue Groper", minSize: "Protected", maxSize: "N/A", bagLimit: "0", possessionLimit: "0", season: "Protected state fish. Total no-take closure in all NSW waters" },
-            { name: "Blue Swimmer Crab", minSize: 6.5, maxSize: null, bagLimit: "10", possessionLimit: "20", season: "Open all year" },
-            { name: "Mud Crab", minSize: 8.5, maxSize: null, bagLimit: "5", possessionLimit: "10", season: "Open all year" }
+            { name: "Eastern Blue Groper", minSize: "Protected", maxSize: "N/A", bagLimit: "0", possessionLimit: "0", season: "Protected state fish. Total no-take closure in all NSW waters" }
         ]
     },
     VIC: {
@@ -96,8 +93,7 @@ const REGULATIONS = {
             { name: "Rainbow Trout", minSize: 30, maxSize: null, bagLimit: "4", possessionLimit: "8", season: "Closed July 1 - Aug 31" },
             { name: "Brown Trout", minSize: 30, maxSize: null, bagLimit: "4", possessionLimit: "8", season: "Closed July 1 - Aug 31" },
             { name: "Redfin Perch", minSize: "No Limit (Pest)", maxSize: "N/A", bagLimit: "Unlimited", possessionLimit: "Unlimited", season: "Open all year" },
-            { name: "European Carp", minSize: "No Limit (Pest)", maxSize: "N/A", bagLimit: "Unlimited", possessionLimit: "Unlimited", season: "Pest. Do not return to water alive" },
-            { name: "Marron", minSize: 7.6, maxSize: null, bagLimit: "5", possessionLimit: "10", season: "Strict open season (typically Jan-Feb), permit required" }
+            { name: "European Carp", minSize: "No Limit (Pest)", maxSize: "N/A", bagLimit: "Unlimited", possessionLimit: "Unlimited", season: "Pest. Do not return to water alive" }
         ],
         saltwater: [
             { name: "Pink Snapper", minSize: 41, maxSize: null, bagLimit: "2", possessionLimit: "4", season: "Closed periods apply for Cockburn Sound & Shark Bay" },
@@ -179,9 +175,7 @@ const REGULATIONS = {
             { name: "European Carp", minSize: "No Limit (Pest)", maxSize: "N/A", bagLimit: "Unlimited", possessionLimit: "Unlimited", season: "Pest. Do not return to water alive" },
             { name: "Australian Bass", minSize: 25, maxSize: null, bagLimit: "2", possessionLimit: "4", season: "Open all year" }
         ],
-        saltwater: [
-            { name: "No marine waters in ACT", minSize: 0, maxSize: null, bagLimit: "N/A", possessionLimit: "N/A", season: "Landlocked territory" }
-        ]
+        saltwater: []
     }
 };
 

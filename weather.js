@@ -68,25 +68,45 @@ const WEATHER = {
         return { score, text, color };
     },
 
-    getAustralianTownName(lat, lon) {
-        if (lat >= -30.6 && lat <= -30.0 && lon >= 149.5 && lon <= 150.1) return 'Narrabri';
-        if (lat >= -34.2 && lat <= -33.4 && lon >= 150.5 && lon <= 151.4) return 'Sydney';
-        if (lat >= -38.3 && lat <= -37.4 && lon >= 144.7 && lon <= 145.4) return 'Melbourne';
-        if (lat >= -35.5 && lat <= -35.1 && lon >= 148.9 && lon <= 149.4) return 'Canberra';
-        if (lat >= -36.7 && lat <= -36.1 && lon >= 148.3 && lon <= 148.9) return 'Jindabyne';
-        if (lat >= -36.5 && lat <= -36.0 && lon >= 149.0 && lon <= 149.4) return 'Cooma';
-        if (lat >= -37.4 && lat <= -36.8 && lon >= 145.6 && lon <= 146.2) return 'Eildon';
-        if (lat >= -36.2 && lat <= -35.8 && lon >= 146.7 && lon <= 147.2) return 'Albury';
-        if (lat >= -33.1 && lat <= -32.6 && lon >= 151.5 && lon <= 151.9) return 'Newcastle';
-        if (lat >= -34.6 && lat <= -34.3 && lon >= 150.7 && lon <= 151.0) return 'Wollongong';
-        if (lat >= -31.2 && lat <= -30.8 && lon >= 150.8 && lon <= 151.2) return 'Tamworth';
-        if (lat >= -32.4 && lat <= -32.0 && lon >= 148.4 && lon <= 148.8) return 'Dubbo';
-        if (lat >= -17.1 && lat <= -16.7 && lon >= 145.6 && lon <= 145.9) return 'Cairns';
-        if (lat >= -27.7 && lat <= -27.2 && lon >= 152.8 && lon <= 153.3) return 'Brisbane';
-        if (lat >= -32.2 && lat <= -31.7 && lon >= 115.6 && lon <= 116.1) return 'Perth';
-        if (lat >= -35.1 && lat <= -34.7 && lon >= 138.4 && lon <= 138.8) return 'Adelaide';
-        if (lat >= -43.1 && lat <= -42.7 && lon >= 147.1 && lon <= 147.5) return 'Hobart';
-        return null;
+    async getLocalitySearchTerms(lat, lon) {
+        const terms = [];
+
+        // 1. Nominatim reverse geocoding
+        try {
+            const nomUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
+            const nomRes = await fetch(nomUrl);
+            if (nomRes.ok) {
+                const nomData = await nomRes.json();
+                const addr = nomData.address || {};
+                const fields = ['suburb', 'town', 'city', 'village', 'hamlet', 'municipality', 'county', 'state_district', 'state'];
+                for (const field of fields) {
+                    if (addr[field] && !terms.includes(addr[field])) {
+                        terms.push(addr[field]);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("[Reverse Geocode] Nominatim notice:", e);
+        }
+
+        // 2. BigDataCloud reverse geocoding
+        try {
+            const bdcUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`;
+            const bdcRes = await fetch(bdcUrl);
+            if (bdcRes.ok) {
+                const bdcData = await bdcRes.json();
+                const fields = ['locality', 'city', 'principalSubdivision'];
+                for (const field of fields) {
+                    if (bdcData[field] && !terms.includes(bdcData[field])) {
+                        terms.push(bdcData[field]);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("[Reverse Geocode] BigDataCloud notice:", e);
+        }
+
+        return terms;
     },
 
     async willyFetch(targetUrl) {
@@ -128,90 +148,75 @@ const WEATHER = {
         if (!apiKey) return null;
 
         try {
-            let searchLocation = this.getAustralianTownName(lat, lon);
+            const getDistKm = (sLat, sLng) => {
+                if (sLat == null || sLng == null) return 99999;
+                const R = 6371;
+                const dLat = (sLat - lat) * Math.PI / 180;
+                const dLon = (sLng - lon) * Math.PI / 180;
+                const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                          Math.cos(lat * Math.PI / 180) * Math.cos(sLat * Math.PI / 180) *
+                          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            };
 
-            if (!searchLocation) {
+            const searchTerms = await this.getLocalitySearchTerms(lat, lon);
+            if (searchTerms.length === 0) {
+                searchTerms.push('Australia');
+            }
+
+            const candidates = [];
+            const seenIds = new Set();
+
+            for (const term of searchTerms) {
+                const cleanSearch = term.replace(/\s+(city centre|city|cbd|central)/gi, '').trim() || term;
+                if (!cleanSearch) continue;
+
+                const searchUrl = `https://api.willyweather.com.au/v2/${apiKey}/search.json?query=${encodeURIComponent(cleanSearch)}`;
                 try {
-                    const geoUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`;
-                    const geoRes = await fetch(geoUrl);
-                    if (geoRes.ok) {
-                        const geoData = await geoRes.json();
-                        searchLocation = geoData.locality || geoData.city || geoData.principalSubdivision || '';
+                    const searchRes = await this.willyFetch(searchUrl);
+                    if (searchRes.ok) {
+                        const searchData = await searchRes.json();
+                        if (Array.isArray(searchData)) {
+                            for (const item of searchData) {
+                                if (item.id && !seenIds.has(item.id)) {
+                                    seenIds.add(item.id);
+                                    candidates.push({
+                                        ...item,
+                                        dist: getDistKm(item.lat, item.lng)
+                                    });
+                                }
+                            }
+                        } else if (searchData && searchData.location && !seenIds.has(searchData.location.id)) {
+                            seenIds.add(searchData.location.id);
+                            candidates.push({
+                                ...searchData.location,
+                                dist: getDistKm(searchData.location.lat, searchData.location.lng)
+                            });
+                        }
                     }
                 } catch (e) {
-                    console.warn("BigDataCloud geocode notice:", e);
+                    console.warn(`[WillyWeather] Search failed for term '${term}':`, e);
+                }
+
+                if (candidates.length > 0) {
+                    break;
                 }
             }
 
-            if (!searchLocation) {
-                try {
-                    const geoUrl2 = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
-                    const geoRes2 = await fetch(geoUrl2);
-                    if (geoRes2.ok) {
-                        const geoData2 = await geoRes2.json();
-                        const addr = geoData2.address || {};
-                        searchLocation = addr.town || addr.suburb || addr.city || addr.village || addr.hamlet || addr.county || '';
-                    }
-                } catch (e) {
-                    console.warn("Nominatim geocode notice:", e);
-                }
-            }
+            if (candidates.length === 0) return null;
 
-            if (!searchLocation) {
-                // If coordinates are inside Australia, default to Sydney/Narrabri, else return null for Open-Meteo global fallback
-                if (lat >= -44 && lat <= -10 && lon >= 112 && lon <= 154) {
-                    searchLocation = 'Narrabri';
-                } else {
-                    return null;
-                }
-            }
+            // Sort candidates strictly by exact Haversine distance to user position
+            candidates.sort((a, b) => a.dist - b.dist);
+            const chosen = candidates[0];
+            const locationId = chosen.id;
 
-            // Clean location string for WillyWeather search (e.g. "Hobart city centre" -> "Hobart", "Cairns City" -> "Cairns")
-            const cleanSearch = searchLocation.replace(/\s+(city centre|city|cbd|central)/gi, '').trim() || searchLocation;
-
-            // 2. Search WillyWeather API for station using location query
-            const searchUrl = `https://api.willyweather.com.au/v2/${apiKey}/search.json?query=${encodeURIComponent(cleanSearch)}`;
-            const searchRes = await this.willyFetch(searchUrl);
-            if (!searchRes.ok) return null;
-            const searchData = await searchRes.json();
-            
-            let locationId = null;
-            let stationName = '';
-            if (Array.isArray(searchData) && searchData.length > 0) {
-                const getDistKm = (sLat, sLng) => {
-                    if (sLat == null || sLng == null) return 9999;
-                    const R = 6371;
-                    const dLat = (sLat - lat) * Math.PI / 180;
-                    const dLon = (sLng - lon) * Math.PI / 180;
-                    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                              Math.cos(lat * Math.PI / 180) * Math.cos(sLat * Math.PI / 180) *
-                              Math.sin(dLon/2) * Math.sin(dLon/2);
-                    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                };
-
-                const candidates = searchData.map(item => ({
-                    ...item,
-                    dist: getDistKm(item.lat, item.lng)
-                })).sort((a, b) => a.dist - b.dist);
-
-                const chosen = candidates[0];
-                locationId = chosen.id;
-                const distLabel = chosen.dist < 999 ? ` (${chosen.dist < 0.1 ? '<0.1' : chosen.dist.toFixed(1)} km away)` : '';
-                stationName = `${chosen.name}${distLabel}`;
-            } else if (searchData && searchData.location) {
-                locationId = searchData.location.id;
-                stationName = searchData.location.name;
-            }
-
-            if (!locationId) return null;
-
-            // 3. Fetch comprehensive WillyWeather data with live BOM station observations
+            // Fetch comprehensive WillyWeather data with live BOM station observations
             const weatherUrl = `https://api.willyweather.com.au/v2/${apiKey}/locations/${locationId}/weather.json?observational=true&forecasts=weather,wind,rainfall,tides,sunrisesunset,uv,moonphases&days=7`;
             const weatherRes = await this.willyFetch(weatherUrl);
             if (!weatherRes.ok) return null;
             const wData = await weatherRes.json();
 
-            // 4. Fetch official BOM weather warnings
+            // Fetch official BOM weather warnings
             let bomWarnings = [];
             try {
                 const warnUrl = `https://api.willyweather.com.au/v2/${apiKey}/locations/${locationId}/warnings.json`;
@@ -225,21 +230,23 @@ const WEATHER = {
             }
             wData.bomWarnings = bomWarnings;
 
-            console.log(`[WillyWeather] Connected to Australian Station: ${stationName} (ID: ${locationId}) | Active BOM Warnings: ${bomWarnings.length}`);
-            return this.formatWillyWeatherData(wData, stationName, lat, lon);
+            console.log(`[WillyWeather Exclusive] Connected to Station: ${chosen.name} (${chosen.dist.toFixed(1)} km away, ID: ${locationId}) | BOM Warnings: ${bomWarnings.length}`);
+            return this.formatWillyWeatherData(wData, chosen, lat, lon);
         } catch (err) {
-            console.warn("[WillyWeather] Request failed:", err);
+            console.warn("[WillyWeather Exclusive] Request failed:", err);
             return null;
         }
     },
 
-    formatWillyWeatherData(wData, stationName, lat, lon) {
+    formatWillyWeatherData(wData, chosen, lat, lon) {
         const forecasts = wData.forecasts || {};
         const weatherDays = forecasts.weather ? forecasts.weather.days : [];
         const windDays = forecasts.wind ? forecasts.wind.days : [];
+        const sunDays = forecasts.sunrisesunset ? forecasts.sunrisesunset.days : [];
         
         const todayWeather = weatherDays[0] || {};
         const todayWind = windDays[0] || {};
+        const todaySun = sunDays[0] || {};
 
         let currentTemp = 22;
         if (todayWeather.entries && todayWeather.entries.length > 0) {
@@ -264,7 +271,29 @@ const WEATHER = {
         let currentWindSpeed = todayWind.entries ? Math.round(todayWind.entries[0].speed) : 12;
         let currentWindDir = todayWind.entries ? todayWind.entries[0].direction : 180;
 
-        // Extract live station observation telemetry (temperature, wind, pressure)
+        // Determine PWS / Observation station distance & name
+        let pwsStationName = chosen.name;
+        let pwsDistance = chosen.dist;
+
+        if (wData.observational && wData.observational.stations) {
+            const obsStation = wData.observational.stations.temperature || wData.observational.stations.wind;
+            if (obsStation) {
+                pwsStationName = obsStation.name || chosen.name;
+                if (obsStation.distance !== undefined && obsStation.distance !== null) {
+                    pwsDistance = obsStation.distance;
+                } else if (obsStation.lat != null && obsStation.lng != null) {
+                    const R = 6371;
+                    const dLat = (obsStation.lat - lat) * Math.PI / 180;
+                    const dLon = (obsStation.lng - lon) * Math.PI / 180;
+                    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                              Math.cos(lat * Math.PI / 180) * Math.cos(obsStation.lat * Math.PI / 180) *
+                              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                    pwsDistance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                }
+            }
+        }
+
+        // Extract live station observation telemetry
         if (wData.observational && wData.observational.observations) {
             const obs = wData.observational.observations;
             if (obs.temperature && obs.temperature.temperature !== undefined) {
@@ -314,10 +343,39 @@ const WEATHER = {
             };
         });
 
+        // PWS Clarification Rule: Incorporate PWS ONLY when within 30km
+        const isWithin30kmPWS = pwsDistance <= 30.0;
+        const distFormatted = pwsDistance < 0.1 ? '<0.1' : pwsDistance.toFixed(1);
+        const locationName = (wData.location ? wData.location.name : chosen.name);
+        
+        let stationDisplayName = `WillyWeather (${locationName})`;
+        let pwsClarification = null;
+
+        if (isWithin30kmPWS) {
+            stationDisplayName = `WillyWeather (PWS: ${pwsStationName}, ${distFormatted} km away)`;
+            pwsClarification = `Verified via PWS: ${pwsStationName} (${distFormatted} km away)`;
+        }
+
+        // Sunrise/Sunset formatting
+        let sunriseStr = "06:45 AM";
+        let sunsetStr = "05:20 PM";
+        if (todaySun.entries && todaySun.entries.length > 0) {
+            const sr = todaySun.entries.find(e => e.type === 'rise');
+            const ss = todaySun.entries.find(e => e.type === 'set');
+            if (sr && sr.dateTime) sunriseStr = new Date(sr.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            if (ss && ss.dateTime) sunsetStr = new Date(ss.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
         return {
             latitude: lat,
             longitude: lon,
-            stationName: `WillyWeather PWS: ${stationName}`,
+            provider: "WillyWeather",
+            stationName: stationDisplayName,
+            locationName: locationName,
+            pwsName: pwsStationName,
+            pwsDistance: pwsDistance,
+            isWithin30kmPWS: isWithin30kmPWS,
+            pwsClarification: pwsClarification,
             bomWarnings: wData.bomWarnings || [],
             current: {
                 temp: currentTemp,
@@ -329,101 +387,47 @@ const WEATHER = {
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             },
             forecast: forecastList,
-            sunrise: "06:45 AM",
-            sunset: "05:20 PM"
+            sunrise: sunriseStr,
+            sunset: sunsetStr
         };
     },
 
-    // Fetch weather forecast with WillyWeather PWS & Open-Meteo fallback
+    // Fetch weather forecast with WillyWeather EXCLUSIVELY
     async fetchForecast(lat, lon) {
-        // Try WillyWeather Nearby Personal Weather Station (<30km) first
         try {
             const willyData = await this.fetchWillyWeather(lat, lon);
             if (willyData) return willyData;
         } catch (e) {
-            console.warn("WillyWeather check failed, resorting to fallback model", e);
+            console.warn("[WillyWeather Exclusive] Fetch failed:", e);
         }
 
-        try {
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=pressure_msl&daily=temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset,windspeed_10m_max,winddirection_10m_dominant&timezone=auto`;
-            const response = await fetch(url);
-            if (!response.ok) throw new Error('Weather API request failed');
-            const data = await response.json();
-            return this.formatWeatherData(data);
-        } catch (error) {
-            console.error('Error fetching weather:', error);
-            return this.getMockWeather(lat, lon);
-        }
+        // EXCLUSIVE WILLY WEATHER: Return structured WillyWeather offline fallback
+        return this.getWillyWeatherOfflineFallback(lat, lon);
     },
 
-    formatWeatherData(data) {
-        const current = data.current_weather;
-        const daily = data.daily;
-        
-        const currentMeta = WEATHER_CODES[current.weathercode] || { label: "Unknown", icon: "🌡️" };
-
-        let pressure = 1013;
-        if (data.hourly && data.hourly.pressure_msl && data.hourly.time) {
-            const nowTimeStr = current.time;
-            const index = data.hourly.time.indexOf(nowTimeStr);
-            if (index !== -1) {
-                pressure = Math.round(data.hourly.pressure_msl[index]);
-            } else {
-                pressure = Math.round(data.hourly.pressure_msl[0]);
-            }
-        }
-
-        const forecast = daily.time.map((time, index) => {
-            const code = daily.weathercode[index];
-            const meta = WEATHER_CODES[code] || { label: "Unknown", icon: "🌡️" };
-            const windSpd = daily.windspeed_10m_max ? Math.round(daily.windspeed_10m_max[index]) : 0;
-            const windDir = daily.winddirection_10m_dominant ? Math.round(daily.winddirection_10m_dominant[index]) : 0;
-            return {
-                date: new Date(time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
-                tempMax: Math.round(daily.temperature_2m_max[index]),
-                tempMin: Math.round(daily.temperature_2m_min[index]),
-                condition: meta.label,
-                icon: meta.icon,
-                windSpeed: windSpd,
-                windDirection: windDir
-            };
-        });
-
-        return {
-            latitude: data.latitude,
-            longitude: data.longitude,
-            current: {
-                temp: current.temperature,
-                windSpeed: Math.round(current.windspeed),
-                windDirection: current.winddirection,
-                pressure: pressure,
-                condition: currentMeta.label,
-                icon: currentMeta.icon,
-                time: new Date(current.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            },
-            forecast: forecast,
-            sunrise: daily.sunrise[0] ? new Date(daily.sunrise[0]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "N/A",
-            sunset: daily.sunset[0] ? new Date(daily.sunset[0]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "N/A"
-        };
-    },
-
-    getMockWeather(lat, lon) {
+    getWillyWeatherOfflineFallback(lat, lon) {
         return {
             latitude: lat,
             longitude: lon,
+            provider: "WillyWeather",
+            stationName: "WillyWeather (Offline / Reconnecting)",
+            locationName: "Current Location",
+            pwsName: "Offline Station",
+            pwsDistance: 0,
+            isWithin30kmPWS: false,
+            pwsClarification: null,
+            bomWarnings: [],
             current: {
-                temp: 22,
-                windSpeed: 12,
+                temp: 20,
+                windSpeed: 10,
                 windDirection: 180,
                 pressure: 1015,
-                condition: "Partly cloudy (Offline Mode)",
-                icon: "⛅",
+                condition: "WillyWeather Offline",
+                icon: "🌤️",
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             },
             forecast: [
-                { date: "Today", tempMax: 24, tempMin: 15, condition: "Partly cloudy", icon: "⛅", windSpeed: 12, windDirection: 180 },
-                { date: "Tomorrow", tempMax: 26, tempMin: 16, condition: "Clear sky", icon: "☀️", windSpeed: 8, windDirection: 220 },
-                { date: "Day after", tempMax: 21, tempMin: 14, condition: "Slight rain", icon: "🌧️", windSpeed: 18, windDirection: 90 }
+                { date: "Today", tempMax: 22, tempMin: 14, condition: "WillyWeather Offline", icon: "🌤️", windSpeed: 10, windDirection: 180 }
             ],
             sunrise: "06:15 AM",
             sunset: "05:45 PM"
