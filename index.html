@@ -32,12 +32,17 @@
     <div class="app-container">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
-            <div class="brand">
-                <img src="images/logo.jpg" class="brand-logo-img" alt="Middo's Fly Fishing">
-                <div>
-                    <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
-                    <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
+            <div class="brand" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <img src="images/logo.jpg" class="brand-logo-img" alt="Middo's Fly Fishing">
+                    <div>
+                        <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
+                        <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
+                    </div>
                 </div>
+                <button class="btn btn-glass btn-sm mobile-header-menu-btn" onclick="window.toggleMobileMoreDrawer()" style="display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-weight: 600;">
+                    ☰ Menu
+                </button>
             </div>
 
             <nav class="nav-menu">

@@ -2054,7 +2054,36 @@ body.high-contrast-mode .badge {
     }
 
     .sidebar .nav-menu {
-        display: none; /* Replaced by bottom nav bar on mobile */
+        display: flex !important;
+        flex-direction: row !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        padding: 10px 0 4px 0 !important;
+        gap: 8px !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        margin-top: 8px !important;
+    }
+
+    .sidebar .nav-menu::-webkit-scrollbar {
+        display: none;
+    }
+
+    .sidebar .nav-item {
+        white-space: nowrap !important;
+        padding: 8px 14px !important;
+        font-size: 13px !important;
+        border-radius: 20px !important;
+        background: rgba(255, 255, 255, 0.06) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        flex-shrink: 0 !important;
+    }
+
+    .sidebar .nav-item.active {
+        background: var(--accent-teal) !important;
+        color: #0d1424 !important;
+        border-color: var(--accent-teal) !important;
+        font-weight: 700 !important;
     }
 
     .sidebar-footer {
@@ -2268,7 +2297,8 @@ body.high-contrast-mode .badge {
 @media (min-width: 769px) {
     .mobile-bottom-nav,
     .mobile-drawer-backdrop,
-    .mobile-drawer-sheet {
+    .mobile-drawer-sheet,
+    .mobile-header-menu-btn {
         display: none !important;
     }
 }
