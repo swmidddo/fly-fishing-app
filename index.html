@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style -->
-    <link rel="stylesheet" href="styles.css?v=38000">
+    <link rel="stylesheet" href="styles.css?v=99999">
     <script>
         // Unregister any active Service Workers and clear CacheStorage instantly on parse
         if ('serviceWorker' in navigator) {
@@ -1444,19 +1444,87 @@
                 <button type="button" class="btn btn-primary" onclick="window.printTripJournalReport()">📄 Print / Save PDF</button>
             </div>
         </div>
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav class="mobile-bottom-nav">
+        <button class="mobile-nav-item active" data-tab="dashboard" onclick="window.switchTab('dashboard')">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            <span>Home</span>
+        </button>
+        <button class="mobile-nav-item" data-tab="map" onclick="window.switchTab('map')">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polygon points="1 6 1 22 8 18 15 22 22 18 22 2 15 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="15" y1="6" x2="15" y2="22"></line></svg>
+            <span>Map</span>
+        </button>
+        <button class="mobile-nav-item" onclick="window.openLogCatchModal()">
+            <div class="mobile-nav-add-btn">
+                <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </div>
+            <span>Log Catch</span>
+        </button>
+        <button class="mobile-nav-item" data-tab="regulations" onclick="window.switchTab('regulations')">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+            <span>Fish Guide</span>
+        </button>
+        <button class="mobile-nav-item" data-tab="weather" onclick="window.switchTab('weather')">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M17.5 19a4.5 4.5 0 0 0 2.5-8.4A6 6 0 0 0 8.5 7A5.5 5.5 0 0 0 3 12.5a5.5 5.5 0 0 0 5.5 5.5h9z"></path></svg>
+            <span>Weather</span>
+        </button>
+        <button class="mobile-nav-item" id="btn-mobile-more" onclick="window.toggleMobileMoreDrawer()">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            <span>More</span>
+        </button>
+    </nav>
+
+    <!-- Mobile More Sub-Menu Drawer Backdrop & Sheet -->
+    <div id="mobile-more-backdrop" class="mobile-drawer-backdrop" onclick="window.toggleMobileMoreDrawer(false)"></div>
+    <div id="mobile-more-drawer" class="mobile-drawer-sheet">
+        <div class="mobile-drawer-header">
+            <div class="mobile-drawer-pill"></div>
+            <h3>Menu & Tools</h3>
+            <button class="modal-close" onclick="window.toggleMobileMoreDrawer(false)">&times;</button>
+        </div>
+        <div class="mobile-drawer-grid">
+            <button class="mobile-drawer-card" data-tab="flybox" onclick="window.switchTab('flybox'); window.toggleMobileMoreDrawer(false);">
+                <span class="mobile-drawer-icon">🪰</span>
+                <span class="mobile-drawer-label">Fly Box</span>
+            </button>
+            <button class="mobile-drawer-card" data-tab="tackle" onclick="window.switchTab('tackle'); window.toggleMobileMoreDrawer(false);">
+                <span class="mobile-drawer-icon">🎣</span>
+                <span class="mobile-drawer-label">Tackle & Rigs</span>
+            </button>
+            <button class="mobile-drawer-card" data-tab="knots" onclick="window.switchTab('knots'); window.toggleMobileMoreDrawer(false);">
+                <span class="mobile-drawer-icon">🪢</span>
+                <span class="mobile-drawer-label">Knots Guide</span>
+            </button>
+            <button class="mobile-drawer-card" data-tab="licenses" onclick="window.switchTab('licenses'); window.toggleMobileMoreDrawer(false);">
+                <span class="mobile-drawer-icon">📜</span>
+                <span class="mobile-drawer-label">Licenses</span>
+            </button>
+            <button class="mobile-drawer-card" data-tab="settings" onclick="window.switchTab('settings'); window.toggleMobileMoreDrawer(false);">
+                <span class="mobile-drawer-icon">⚙️</span>
+                <span class="mobile-drawer-label">Settings</span>
+            </button>
+            <button class="mobile-drawer-card" onclick="window.promptChangeLocation(); window.toggleMobileMoreDrawer(false);">
+                <span class="mobile-drawer-icon">📍</span>
+                <span class="mobile-drawer-label">Set Location</span>
+            </button>
+            <button class="mobile-drawer-card" onclick="window.toggleRiverMode(); window.toggleMobileMoreDrawer(false);">
+                <span class="mobile-drawer-icon">☀️</span>
+                <span class="mobile-drawer-label">River Mode</span>
+            </button>
+        </div>
     </div>
 
     <!-- Scripts -->
-    <script src="db.js?v=38000"></script>
-    <script src="regulations.js?v=38000"></script>
-    <script src="weather.js?v=38000"></script>
-    <script src="exif.js?v=38000"></script>
-    <script src="map.js?v=38000"></script>
-    <script src="tackle_db.js?v=38000"></script>
-    <script src="fish_db.js?v=38000"></script>
-    <script src="fly_box.js?v=38000"></script>
-    <script src="knots.js?v=38000"></script>
-    <script src="auth.js?v=38000"></script>
-    <script src="app.js?v=38000"></script>
+    <script src="db.js?v=99999"></script>
+    <script src="regulations.js?v=99999"></script>
+    <script src="weather.js?v=99999"></script>
+    <script src="exif.js?v=99999"></script>
+    <script src="map.js?v=99999"></script>
+    <script src="tackle_db.js?v=99999"></script>
+    <script src="fish_db.js?v=99999"></script>
+    <script src="fly_box.js?v=99999"></script>
+    <script src="knots.js?v=99999"></script>
+    <script src="auth.js?v=99999"></script>
+    <script src="app.js?v=99999"></script>
 </body>
 </html>

@@ -5,7 +5,7 @@ window.switchTab = function(tabId) {
         localStorage.setItem('lastActiveTab', tabId);
     } catch (e) {}
 
-    const allNavItems = document.querySelectorAll('.nav-item');
+    const allNavItems = document.querySelectorAll('.nav-item, .mobile-nav-item');
     const allTabs = document.querySelectorAll('.tab-content');
 
     allNavItems.forEach(item => {
@@ -25,6 +25,29 @@ window.switchTab = function(tabId) {
             tab.style.setProperty('display', 'none', 'important');
         }
     });
+
+    // Close mobile drawer if open
+    if (typeof window.toggleMobileMoreDrawer === 'function') {
+        window.toggleMobileMoreDrawer(false);
+    }
+};
+
+window.toggleMobileMoreDrawer = function(forceState) {
+    const drawer = document.getElementById('mobile-more-drawer');
+    const backdrop = document.getElementById('mobile-more-backdrop');
+    if (!drawer || !backdrop) return;
+
+    const isActive = forceState !== undefined ? forceState : !drawer.classList.contains('active');
+    if (isActive) {
+        drawer.classList.add('active');
+        backdrop.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    } else {
+        drawer.classList.remove('active');
+        backdrop.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+};
 
     try {
         if (tabId === 'flybox' && window.FlyBoxApp && typeof window.FlyBoxApp.renderFlyBoxUI === 'function') {
@@ -313,17 +336,27 @@ const initMainApp = async () => {
         elements.btnMapType.textContent = `Type: ${capitalized}`;
     }
 
-    // 3. Location Tracking (GPS)
+    // 3. Location Tracking (GPS & Location Manager)
     window.requestGpsLocation = function() {
         const fallbackLat = -30.3183; // Narrabri Airport NSW
         const fallbackLon = 149.8265;
 
+        // Retrieve last saved location or default to Narrabri
+        const savedCoordsStr = localStorage.getItem('user_last_coords');
+        const saved = savedCoordsStr ? JSON.parse(savedCoordsStr) : { lat: fallbackLat, lng: fallbackLon };
+        AppState.userCoords = saved;
+        const savedState = getStateFromCoords(saved.lat, saved.lng);
+
+        // Instantly display active location badge on startup
+        updateGpsStatus(true, `📍 Location: Narrabri, ${savedState} (Click to Change)`);
+
         if (!navigator.geolocation) {
-            updateGpsStatus(false, `📍 Location: Narrabri, NSW`);
+            console.warn("Geolocation API unavailable (requires HTTPS or secure context). Using active location.");
+            if (typeof loadWeatherAndTides === 'function') {
+                loadWeatherAndTides(saved.lat, saved.lng);
+            }
             return;
         }
-
-        updateGpsStatus(true, "Locating GPS...");
 
         const handlePosition = (position) => {
             const lat = position.coords.latitude;
@@ -351,18 +384,14 @@ const initMainApp = async () => {
 
         const handleError = (err) => {
             console.warn("Geolocation request notice:", err);
-            const savedCoordsStr = localStorage.getItem('user_last_coords');
-            const saved = savedCoordsStr ? JSON.parse(savedCoordsStr) : { lat: fallbackLat, lng: fallbackLon };
-            AppState.userCoords = saved;
-            const st = getStateFromCoords(saved.lat, saved.lng);
-            updateGpsStatus(true, `📍 Location: ${st} (Click to Change)`);
+            updateGpsStatus(true, `📍 Location: ${savedState} (Click to Change)`);
             if (typeof loadWeatherAndTides === 'function') {
                 loadWeatherAndTides(saved.lat, saved.lng);
             }
         };
 
-        const highAccuracyOptions = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
-        const lowAccuracyOptions = { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 };
+        const highAccuracyOptions = { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 };
+        const lowAccuracyOptions = { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 };
 
         try {
             navigator.geolocation.getCurrentPosition(
@@ -391,18 +420,19 @@ const initMainApp = async () => {
     };
 
     function updateGpsStatus(isActive, text) {
-        const gpsEl = document.getElementById('gps-status') || elements.gpsStatus;
-        if (!gpsEl) return;
-        const dot = gpsEl.querySelector('.pulse-dot');
-        const textEl = gpsEl.querySelector('.gps-text');
+        const gpsElements = document.querySelectorAll('#gps-status, .gps-indicator');
+        gpsElements.forEach(gpsEl => {
+            const dot = gpsEl.querySelector('.pulse-dot');
+            const textEl = gpsEl.querySelector('.gps-text');
 
-        if (isActive) {
-            if (dot) dot.className = 'pulse-dot green';
-            if (textEl) textEl.textContent = text;
-        } else {
-            if (dot) dot.className = 'pulse-dot red';
-            if (textEl) textEl.textContent = text;
-        }
+            if (isActive) {
+                if (dot) dot.className = 'pulse-dot green';
+                if (textEl) textEl.textContent = text;
+            } else {
+                if (dot) dot.className = 'pulse-dot red';
+                if (textEl) textEl.textContent = text;
+            }
+        });
     }
 
     // Bind click event on GPS badge to prompt user for location or town search
