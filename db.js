@@ -121,54 +121,99 @@ const DB = {
     },
 
     // Catch Operations
-    addCatch(item) {
-        return getStore('catches', 'readwrite').then((store) => {
-            return new Promise((resolve, reject) => {
+    async addCatch(item) {
+        if (!item.id) item.id = Date.now();
+        let localCatches = [];
+        try { localCatches = JSON.parse(localStorage.getItem('fly_catches_db') || '[]'); } catch(e){}
+        localCatches.push(item);
+        try { localStorage.setItem('fly_catches_db', JSON.stringify(localCatches)); } catch(e){}
+
+        try {
+            const store = await getStore('catches', 'readwrite');
+            return new Promise((resolve) => {
                 const request = store.add(item);
                 request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
+                request.onerror = () => resolve(item.id);
             });
-        });
+        } catch(e) {
+            return Promise.resolve(item.id);
+        }
     },
 
-    getAllCatches() {
-        return getStore('catches', 'readonly').then((store) => {
-            return new Promise((resolve, reject) => {
+    async getAllCatches() {
+        let localCatches = [];
+        try { localCatches = JSON.parse(localStorage.getItem('fly_catches_db') || '[]'); } catch(e){}
+
+        try {
+            const store = await getStore('catches', 'readonly');
+            const idbCatches = await new Promise((resolve) => {
                 const request = store.getAll();
                 request.onsuccess = () => resolve(request.result || []);
-                request.onerror = () => reject(request.error);
+                request.onerror = () => resolve([]);
             });
-        });
+            
+            const catchMap = new Map();
+            localCatches.forEach(c => catchMap.set(String(c.id), c));
+            idbCatches.forEach(c => catchMap.set(String(c.id), c));
+
+            const merged = Array.from(catchMap.values());
+            try { localStorage.setItem('fly_catches_db', JSON.stringify(merged)); } catch(e){}
+            return merged;
+        } catch(e) {
+            return localCatches;
+        }
     },
 
-    updateCatch(item) {
-        return getStore('catches', 'readwrite').then((store) => {
-            return new Promise((resolve, reject) => {
+    async updateCatch(item) {
+        let localCatches = [];
+        try { localCatches = JSON.parse(localStorage.getItem('fly_catches_db') || '[]'); } catch(e){}
+        const idx = localCatches.findIndex(c => String(c.id) === String(item.id));
+        if (idx !== -1) localCatches[idx] = item;
+        else localCatches.push(item);
+        try { localStorage.setItem('fly_catches_db', JSON.stringify(localCatches)); } catch(e){}
+
+        try {
+            const store = await getStore('catches', 'readwrite');
+            return new Promise((resolve) => {
                 const request = store.put(item);
                 request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
+                request.onerror = () => resolve(item.id);
             });
-        });
+        } catch(e) {
+            return Promise.resolve(item.id);
+        }
     },
 
-    deleteCatch(id) {
-        return getStore('catches', 'readwrite').then((store) => {
-            return new Promise((resolve, reject) => {
+    async deleteCatch(id) {
+        let localCatches = [];
+        try { localCatches = JSON.parse(localStorage.getItem('fly_catches_db') || '[]'); } catch(e){}
+        localCatches = localCatches.filter(c => String(c.id) !== String(id));
+        try { localStorage.setItem('fly_catches_db', JSON.stringify(localCatches)); } catch(e){}
+
+        try {
+            const store = await getStore('catches', 'readwrite');
+            return new Promise((resolve) => {
                 const request = store.delete(Number(id));
                 request.onsuccess = () => resolve();
-                request.onerror = () => reject(request.error);
+                request.onerror = () => resolve();
             });
-        });
+        } catch(e) {
+            return Promise.resolve();
+        }
     },
 
-    clearAllCatches() {
-        return getStore('catches', 'readwrite').then((store) => {
-            return new Promise((resolve, reject) => {
+    async clearAllCatches() {
+        try { localStorage.removeItem('fly_catches_db'); } catch(e){}
+        try {
+            const store = await getStore('catches', 'readwrite');
+            return new Promise((resolve) => {
                 const request = store.clear();
                 request.onsuccess = () => resolve();
-                request.onerror = () => reject(request.error);
+                request.onerror = () => resolve();
             });
-        });
+        } catch(e) {
+            return Promise.resolve();
+        }
     },
 
     // Rig / Combo Operations

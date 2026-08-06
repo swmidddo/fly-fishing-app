@@ -700,8 +700,16 @@ const AppMap = {
         this.markers.catches = [];
 
         catches.forEach(catchItem => {
-            if (!catchItem.lat || !catchItem.lng) return;
-            const pos = this.isGoogleMaps ? new google.maps.LatLng(catchItem.lat, catchItem.lng) : [catchItem.lat, catchItem.lng];
+            let lat = parseFloat(catchItem.lat);
+            let lng = parseFloat(catchItem.lng);
+
+            if ((isNaN(lat) || isNaN(lng)) && this.userCoords) {
+                lat = parseFloat(this.userCoords.lat);
+                lng = parseFloat(this.userCoords.lng);
+            }
+            if (isNaN(lat) || isNaN(lng)) return;
+
+            const pos = this.isGoogleMaps ? new google.maps.LatLng(lat, lng) : [lat, lng];
 
             const imgHtml = catchItem.photo ? `<img src="${catchItem.photo}" style="width:100%; max-height:100px; object-fit:cover; border-radius:5px; margin-top:5px;"/>` : '';
 
