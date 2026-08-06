@@ -735,15 +735,24 @@ const AppMap = {
                     position: pos,
                     map: this.map,
                     title: `Catch: ${catchItem.species}`,
-                    label: '🐟'
+                    icon: {
+                        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+                                <circle cx="20" cy="20" r="18" fill="#0d2838" stroke="#64ffda" stroke-width="2.5"/>
+                                <text x="20" y="27" font-size="20" text-anchor="middle">🐟</text>
+                            </svg>
+                        `),
+                        scaledSize: new google.maps.Size(40, 40),
+                        anchor: new google.maps.Point(20, 20)
+                    }
                 });
 
                 const infoWindow = new google.maps.InfoWindow({
                     content: `
-                        <div style="color: #000; font-family: sans-serif; min-width: 150px;">
-                            <h4 style="margin:0 0 5px 0;">🐟 ${catchItem.species}</h4>
-                            <p style="margin:2px 0; font-size:12px;"><b>Length:</b> ${catchItem.length || 'N/A'} cm</p>
-                            <p style="margin:2px 0; font-size:12px;"><b>Tackle:</b> ${catchItem.fly || 'N/A'}</p>
+                        <div style="color: #000; font-family: sans-serif; min-width: 160px; padding: 4px;">
+                            <h4 style="margin:0 0 6px 0; color: #0f172a; font-size: 15px;">🐟 ${catchItem.species}</h4>
+                            <p style="margin:3px 0; font-size:12.5px; color: #334155;"><b>Length:</b> ${catchItem.length || 'N/A'} cm</p>
+                            <p style="margin:3px 0; font-size:12.5px; color: #334155;"><b>Tackle:</b> ${catchItem.fly || 'N/A'}</p>
                             ${imgHtml}
                         </div>
                     `
@@ -756,26 +765,35 @@ const AppMap = {
                 this.markers.catches.push(marker);
             } else {
                 const catchPinIcon = L.divIcon({
-                    className: 'catch-pin-marker-wrapper',
+                    className: 'catch-fish-icon-wrapper',
                     html: `
-                        <div class="catch-pin-marker" style="position:relative; width:34px; height:34px; display:flex; align-items:center; justify-content:center;">
-                            <svg viewBox="0 0 24 24" width="34" height="34" style="filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));">
-                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#2ed573" stroke="white" stroke-width="2"/>
-                            </svg>
-                            <span style="position:absolute; top:5px; font-size:13px;">🐟</span>
+                        <div class="fish-icon-marker" style="
+                            position: relative; 
+                            width: 42px; 
+                            height: 42px; 
+                            border-radius: 50%; 
+                            background: linear-gradient(135deg, #051923 0%, #0d2838 100%); 
+                            border: 2.5px solid #64ffda; 
+                            box-shadow: 0 0 15px rgba(100, 255, 218, 0.6), 0 4px 10px rgba(0, 0, 0, 0.5); 
+                            display: flex; 
+                            align-items: center; 
+                            justify-content: center;
+                            cursor: pointer;
+                        ">
+                            <span style="font-size: 24px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); transform: scaleX(-1);">🐟</span>
                         </div>
                     `,
-                    iconSize: [34, 34],
-                    iconAnchor: [17, 34]
+                    iconSize: [42, 42],
+                    iconAnchor: [21, 21]
                 });
 
                 const marker = L.marker(pos, { icon: catchPinIcon })
                     .addTo(this.map)
                     .bindPopup(`
-                        <div style="font-family: sans-serif; min-width: 150px;">
-                            <h4 style="margin:0 0 5px 0; color:#333;">🐟 ${catchItem.species}</h4>
-                            <p style="margin:2px 0; font-size:12px; color:#555;"><b>Length:</b> ${catchItem.length || 'N/A'} cm</p>
-                            <p style="margin:2px 0; font-size:12px; color:#555;"><b>Tackle:</b> ${catchItem.fly || 'N/A'}</p>
+                        <div style="font-family: sans-serif; min-width: 160px; padding: 4px;">
+                            <h4 style="margin:0 0 6px 0; color:#0f172a; font-size: 15px;">🐟 ${catchItem.species}</h4>
+                            <p style="margin:3px 0; font-size:12.5px; color:#334155;"><b>Length:</b> ${catchItem.length || 'N/A'} cm</p>
+                            <p style="margin:3px 0; font-size:12.5px; color:#334155;"><b>Tackle:</b> ${catchItem.fly || 'N/A'}</p>
                             ${imgHtml}
                         </div>
                     `);
