@@ -30,24 +30,6 @@ window.switchTab = function(tabId) {
     if (typeof window.toggleMobileMoreDrawer === 'function') {
         window.toggleMobileMoreDrawer(false);
     }
-};
-
-window.toggleMobileMoreDrawer = function(forceState) {
-    const drawer = document.getElementById('mobile-more-drawer');
-    const backdrop = document.getElementById('mobile-more-backdrop');
-    if (!drawer || !backdrop) return;
-
-    const isActive = forceState !== undefined ? forceState : !drawer.classList.contains('active');
-    if (isActive) {
-        drawer.classList.add('active');
-        backdrop.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    } else {
-        drawer.classList.remove('active');
-        backdrop.classList.remove('active');
-        document.body.style.overflow = '';
-    }
-};
 
     try {
         if (tabId === 'flybox' && window.FlyBoxApp && typeof window.FlyBoxApp.renderFlyBoxUI === 'function') {
@@ -74,6 +56,23 @@ window.toggleMobileMoreDrawer = function(forceState) {
         }
     } catch (err) {
         console.warn("Tab callback notice for " + tabId + ":", err);
+    }
+};
+
+window.toggleMobileMoreDrawer = function(forceState) {
+    const drawer = document.getElementById('mobile-more-drawer');
+    const backdrop = document.getElementById('mobile-more-backdrop');
+    if (!drawer || !backdrop) return;
+
+    const isActive = forceState !== undefined ? forceState : !drawer.classList.contains('active');
+    if (isActive) {
+        drawer.classList.add('active');
+        backdrop.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    } else {
+        drawer.classList.remove('active');
+        backdrop.classList.remove('active');
+        document.body.style.overflow = '';
     }
 };
 
