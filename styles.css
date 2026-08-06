@@ -2097,7 +2097,11 @@ body.high-contrast-mode .badge {
 
     .main-content {
         margin-left: 0;
-        padding: 16px 16px 85px 16px;
+        padding: 16px 16px 140px 16px !important;
+    }
+
+    .tab-content {
+        padding-bottom: 60px !important;
     }
 
     /* Fixed Frosted Glass Bottom Navigation Bar */

@@ -21,7 +21,7 @@ window.FISH_DATABASE = [
     { name: "Saratoga", sciName: "Scleropages leichardti", waterType: "freshwater", category: "Ancient Freshwater Native", image: "images/dpi_illustrations/saratoga.jpg" },
     { name: "Redfin Perch", sciName: "Perca fluviatilis", waterType: "freshwater", category: "Declared Pest Species", image: "images/dpi_illustrations/redfin_perch.jpg" },
     { name: "European Carp", sciName: "Cyprinus carpio", waterType: "freshwater", category: "Noxious Pest Species", image: "images/dpi_illustrations/european_carp.jpg" },
-    { name: "Tilapia", sciName: "Oreochromis mossambicus", waterType: "freshwater", category: "Declared Pest Species", image: "images/dpi_illustrations/australian_bass.jpg" },
+    { name: "Tilapia", sciName: "Oreochromis mossambicus", waterType: "freshwater", category: "Declared Pest Species", image: "images/dpi_illustrations/tilapia.jpg" },
 
     // Saltwater & Estuary Species
     { name: "Dusky Flathead", sciName: "Platycephalus fuscus", waterType: "saltwater", category: "Estuary Bottom Predator", image: "images/dpi_illustrations/dusky_flathead.jpg" },

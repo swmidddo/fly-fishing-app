@@ -72,7 +72,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
     } else {
         drawer.classList.remove('active');
         backdrop.classList.remove('active');
-        document.body.style.overflow = '';
+        document.body.style.overflow = 'auto';
     }
 };
 

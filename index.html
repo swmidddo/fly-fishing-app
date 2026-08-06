@@ -25,6 +25,22 @@
                 for (let k of keys) caches.delete(k);
             });
         }
+
+        window.toggleMobileMoreDrawer = function(forceState) {
+            var drawer = document.getElementById('mobile-more-drawer');
+            var backdrop = document.getElementById('mobile-more-backdrop');
+            if (!drawer || !backdrop) return;
+            var isActive = forceState !== undefined ? forceState : !drawer.classList.contains('active');
+            if (isActive) {
+                drawer.classList.add('active');
+                backdrop.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            } else {
+                drawer.classList.remove('active');
+                backdrop.classList.remove('active');
+                document.body.style.overflow = 'auto';
+            }
+        };
     </script>
 </head>
 <body class="dark-theme">
