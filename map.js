@@ -81,10 +81,9 @@ const AppMap = {
         this.fishingSpotsData = JSON.parse(localStorage.getItem('fishingSpots') || '[]');
         this.carCoords = JSON.parse(localStorage.getItem('carCoords') || 'null');
         
-        // Register Google Maps auth failure handler to catch invalid keys / disabled billing
+        // Register Google Maps auth failure notice logger (Preserve Google Maps engine)
         window.gm_authFailure = () => {
-            console.warn("Google Maps JS API auth error. Falling back to Leaflet engine.");
-            this.fallbackToLeaflet();
+            console.warn("Google Maps JS API auth notice received. Preserving Google Maps engine.");
         };
 
         // Clean container first

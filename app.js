@@ -293,6 +293,7 @@ const initMainApp = async () => {
             elements.saveSettingsBtn.addEventListener('click', async () => {
                 const key = elements.gmapsKeyInput ? elements.gmapsKeyInput.value.trim() : '';
                 localStorage.setItem('googleMapsApiKey', key);
+                if (typeof window.syncWebConfigToBackupFile === 'function') window.syncWebConfigToBackupFile();
                 alert('Settings saved. Reloading map...');
                 await initMapEngine();
             });
@@ -300,7 +301,7 @@ const initMainApp = async () => {
 
         // Google Photos credentials setup
         const gphotosClientId = localStorage.getItem('gphotosClientId') || '';
-        const gphotosApiKey = localStorage.getItem('gphotosApiKey') || DEFAULT_KEY;
+        const gphotosApiKey = localStorage.getItem('gphotosApiKey') || '';
         
         const settingsClientIdInput = document.getElementById('settings-gphotos-client-id');
         const settingsApiKeyInput = document.getElementById('settings-gphotos-api-key');
@@ -318,7 +319,7 @@ const initMainApp = async () => {
         }
 
         // Gemini Vision AI key setup
-        const geminiKey = localStorage.getItem('geminiApiKey') || DEFAULT_KEY;
+        const geminiKey = localStorage.getItem('geminiApiKey') || '';
         const settingsGeminiKeyInput = document.getElementById('settings-gemini-key');
         const saveGeminiBtn = document.getElementById('btn-save-gemini-settings');
 
@@ -328,6 +329,7 @@ const initMainApp = async () => {
             saveGeminiBtn.addEventListener('click', () => {
                 const k = settingsGeminiKeyInput ? settingsGeminiKeyInput.value.trim() : '';
                 localStorage.setItem('geminiApiKey', k);
+                if (typeof window.syncWebConfigToBackupFile === 'function') window.syncWebConfigToBackupFile();
                 alert('Gemini Vision AI key saved successfully!');
             });
         }
@@ -360,6 +362,7 @@ const initMainApp = async () => {
             if (data.status === "OK" || data.status === "ZERO_RESULTS") {
                 localStorage.setItem('googleMapsApiKey', key);
                 saveBackupData();
+                if (typeof window.syncWebConfigToBackupFile === 'function') window.syncWebConfigToBackupFile();
                 if (badgeEl) {
                     badgeEl.textContent = "✅ Google Maps API Verified & Connected!";
                     badgeEl.style.color = "#2ed573";
@@ -433,6 +436,7 @@ const initMainApp = async () => {
             localStorage.setItem('geminiApiKey', key);
             let chosenModel = availableModels.find(m => m.includes('flash')) || availableModels[0] || 'gemini-1.5-flash';
             localStorage.setItem('geminiActiveModel', chosenModel);
+            if (typeof window.syncWebConfigToBackupFile === 'function') window.syncWebConfigToBackupFile();
 
             // 2. Perform test generateContent query with chosen model
             const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/${chosenModel}:generateContent?key=${encodeURIComponent(key)}`;
@@ -3592,17 +3596,39 @@ const initMainApp = async () => {
         }
     }
 
+    window.syncWebConfigToBackupFile = async function() {
+        const googleMapsApiKey = localStorage.getItem('googleMapsApiKey') || '';
+        const geminiApiKey = localStorage.getItem('geminiApiKey') || '';
+        const geminiActiveModel = localStorage.getItem('geminiActiveModel') || '';
+        const mapType = localStorage.getItem('mapType') || 'roadmap';
+
+        try {
+            const resp = await fetch('session_backup.json');
+            let backup = {};
+            if (resp.ok) {
+                backup = await resp.json();
+            }
+            if (!backup.settings) backup.settings = {};
+            backup.settings.googleMapsApiKey = googleMapsApiKey;
+            backup.settings.geminiApiKey = geminiApiKey;
+            backup.settings.geminiActiveModel = geminiActiveModel;
+            backup.settings.mapType = mapType;
+
+            await fetch('/api/save-backup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(backup)
+            });
+            console.log("Updated session_backup.json with active keys.");
+        } catch(e){}
+    };
+
     function saveBackupData() {
         try {
-            const catches = AppState.catches;
-            const tackle = AppState.tackle;
-            const rigs = AppState.rigs;
-            const licenses = AppState.licenses;
-            
-            // CRITICAL SAFEGUARD: Do not overwrite session backup if memory state is empty / uninitialized
-            if ((!catches || catches.length === 0) && (!tackle || tackle.length === 0) && (!licenses || licenses.length === 0)) {
-                return;
-            }
+            const catches = AppState.catches || [];
+            const tackle = AppState.tackle || [];
+            const rigs = AppState.rigs || [];
+            const licenses = AppState.licenses || [];
 
             const fishingSpots = JSON.parse(localStorage.getItem('fishingSpots') || '[]');
             const carCoords = JSON.parse(localStorage.getItem('carCoords') || 'null');
