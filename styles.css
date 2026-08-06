@@ -2085,20 +2085,42 @@ body.high-contrast-mode .badge {
     }
 
     .sidebar .nav-item {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 8px !important;
         white-space: nowrap !important;
-        padding: 8px 14px !important;
-        font-size: 13px !important;
-        border-radius: 20px !important;
+        padding: 8px 16px !important;
+        font-size: 13.5px !important;
+        border-radius: 24px !important;
         background: rgba(255, 255, 255, 0.06) !important;
         border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        color: var(--text-secondary) !important;
         flex-shrink: 0 !important;
+        transition: all 0.25s ease !important;
+    }
+
+    .sidebar .nav-item svg {
+        width: 18px !important;
+        height: 18px !important;
+        stroke: currentColor !important;
+        fill: none !important;
+        flex-shrink: 0 !important;
+        display: inline-block !important;
+        opacity: 0.9 !important;
     }
 
     .sidebar .nav-item.active {
         background: var(--accent-teal) !important;
-        color: #0d1424 !important;
+        color: #050e1d !important;
         border-color: var(--accent-teal) !important;
         font-weight: 700 !important;
+        box-shadow: 0 0 12px rgba(100, 255, 218, 0.4) !important;
+    }
+
+    .sidebar .nav-item.active svg {
+        stroke: #050e1d !important;
+        color: #050e1d !important;
+        opacity: 1 !important;
     }
 
     .sidebar-footer {
