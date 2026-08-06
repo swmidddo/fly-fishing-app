@@ -692,6 +692,23 @@ const AppMap = {
 
     // Render Catch Spots markers
     renderCatchSpots(catches) {
+        if (!this.map) return;
+
+        if (!catches || catches.length === 0) {
+            if (window.AppState && window.AppState.catches && window.AppState.catches.length > 0) {
+                catches = window.AppState.catches;
+            } else if (window.DB && typeof window.DB.getAllCatches === 'function') {
+                window.DB.getAllCatches().then(cList => {
+                    if (cList && cList.length > 0) {
+                        this.renderCatchSpots(cList);
+                    }
+                });
+                return;
+            }
+        }
+
+        if (!catches) catches = [];
+
         // Clear previous catches markers
         this.markers.catches.forEach(m => {
             if (this.isGoogleMaps) m.setMap(null);
@@ -741,15 +758,15 @@ const AppMap = {
                 const catchPinIcon = L.divIcon({
                     className: 'catch-pin-marker-wrapper',
                     html: `
-                        <div class="catch-pin-marker" style="position:relative; width:30px; height:30px; display:flex; align-items:center; justify-content:center;">
-                            <svg viewBox="0 0 24 24" width="30" height="30" style="filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));">
-                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#00d2ff" stroke="white" stroke-width="2"/>
+                        <div class="catch-pin-marker" style="position:relative; width:34px; height:34px; display:flex; align-items:center; justify-content:center;">
+                            <svg viewBox="0 0 24 24" width="34" height="34" style="filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));">
+                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#2ed573" stroke="white" stroke-width="2"/>
                             </svg>
-                            <span style="position:absolute; top:4px; font-size:12px;">🐟</span>
+                            <span style="position:absolute; top:5px; font-size:13px;">🐟</span>
                         </div>
                     `,
-                    iconSize: [30, 30],
-                    iconAnchor: [15, 30]
+                    iconSize: [34, 34],
+                    iconAnchor: [17, 34]
                 });
 
                 const marker = L.marker(pos, { icon: catchPinIcon })
@@ -774,6 +791,7 @@ const AppMap = {
         if (this.userCoords) {
             this.updateUserLocation(this.userCoords.lat, this.userCoords.lng);
         }
+        this.renderCatchSpots();
     },
 
     // Drop temporary coordinates pin

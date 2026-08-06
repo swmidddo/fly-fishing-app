@@ -44,8 +44,11 @@ window.switchTab = function(tabId) {
         } else if (tabId === 'map') {
             setTimeout(() => {
                 try {
-                    if (window.AppMap && window.AppMap.map && !window.AppMap.isGoogleMaps) {
-                        window.AppMap.map.invalidateSize();
+                    if (window.AppMap) {
+                        if (window.AppMap.map && !window.AppMap.isGoogleMaps) {
+                            window.AppMap.map.invalidateSize();
+                        }
+                        window.AppMap.renderCatchSpots();
                     }
                 } catch(e){}
             }, 100);
