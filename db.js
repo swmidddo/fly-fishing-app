@@ -153,8 +153,20 @@ const DB = {
             });
             
             const catchMap = new Map();
+            // If localStorage has catches, use it as baseline
             localCatches.forEach(c => catchMap.set(String(c.id), c));
+            // Add IDB catches
             idbCatches.forEach(c => catchMap.set(String(c.id), c));
+
+            // If localStorage was explicitly cleared or pruned, honor localStorage deletions
+            if (localStorage.getItem('demo_catches_cleared') === 'true' && localCatches.length === 0 && idbCatches.length > 0) {
+                // Clear lingering IDB catches
+                try {
+                    const rwStore = await getStore('catches', 'readwrite');
+                    rwStore.clear();
+                } catch(err){}
+                return [];
+            }
 
             const merged = Array.from(catchMap.values());
             try { localStorage.setItem('fly_catches_db', JSON.stringify(merged)); } catch(e){}
@@ -185,17 +197,22 @@ const DB = {
     },
 
     async deleteCatch(id) {
+        const idStr = String(id);
+        const idNum = Number(id);
+
         let localCatches = [];
         try { localCatches = JSON.parse(localStorage.getItem('fly_catches_db') || '[]'); } catch(e){}
-        localCatches = localCatches.filter(c => String(c.id) !== String(id));
+        localCatches = localCatches.filter(c => String(c.id) !== idStr);
         try { localStorage.setItem('fly_catches_db', JSON.stringify(localCatches)); } catch(e){}
 
         try {
             const store = await getStore('catches', 'readwrite');
             return new Promise((resolve) => {
-                const request = store.delete(Number(id));
-                request.onsuccess = () => resolve();
-                request.onerror = () => resolve();
+                store.delete(idStr);
+                if (!isNaN(idNum)) {
+                    store.delete(idNum);
+                }
+                setTimeout(resolve, 50);
             });
         } catch(e) {
             return Promise.resolve();
@@ -204,6 +221,7 @@ const DB = {
 
     async clearAllCatches() {
         try { localStorage.removeItem('fly_catches_db'); } catch(e){}
+        try { localStorage.setItem('demo_catches_cleared', 'true'); } catch(e){}
         try {
             const store = await getStore('catches', 'readwrite');
             return new Promise((resolve) => {

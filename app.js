@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100480';
+window.APP_VERSION = 'v100490';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -1711,22 +1711,6 @@ window.initMainApp = async function() {
     async function loadCatches() {
         try {
             let dbCatches = await window.DB.getAllCatches();
-            // Automatically purge any legacy demo catches from IndexedDB
-            if (dbCatches && dbCatches.length > 0) {
-                const demoIdsToPurge = dbCatches.filter(c => 
-                    (c.species === 'Rainbow Trout' && c.length === 48.5) || 
-                    (c.species === 'Dusky Flathead' && c.length === 64.0) ||
-                    (c.notes && c.notes.includes('bubble line pool')) ||
-                    (c.notes && c.notes.includes('Clouser Minnow'))
-                ).map(c => c.id);
-
-                if (demoIdsToPurge.length > 0) {
-                    for (const id of demoIdsToPurge) {
-                        await window.DB.deleteCatch(id);
-                    }
-                    dbCatches = await window.DB.getAllCatches();
-                }
-            }
             AppState.catches = dbCatches || [];
             renderCatches();
             renderDashboardRecent();
