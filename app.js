@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config
-window.APP_VERSION = 'v100320';
+window.APP_VERSION = 'v100330';
 window.DEFAULT_GOOGLE_MAPS_KEY = 'AIzaSyB5AJ4zj9Iht6g_ZMMTTcDGXyAAGyLfdpI';
 
 // Top-Level Global Navigation & Weather Entrypoints
@@ -1166,11 +1166,14 @@ window.initMainApp = async function() {
             if (data.bomWarnings && Array.isArray(data.bomWarnings) && data.bomWarnings.length > 0) {
                 data.bomWarnings.forEach(w => {
                     const wTitle = w.title || w.name || 'Official Weather Advisory';
-                    const wDesc = w.summary || w.description || (w.content ? w.content.text : '');
+                    let rawDesc = w.summary || w.description || (w.content ? w.content.text : '');
+                    let cleanDesc = rawDesc
+                        .replace(/[=\-_]{4,}/g, '<hr style="border: none; border-top: 1px dashed rgba(255,255,255,0.2); margin: 6px 0;">')
+                        .trim();
                     warnings.push(`
-                        <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); border-left: 4px solid #ef4444; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px;">
-                            <strong style="color: #fca5a5; font-size: 12px; display: block;">🚨 ${wTitle}</strong>
-                            ${wDesc ? `<div style="font-size: 10.5px; color: var(--text-primary); margin-top: 4px; line-height: 1.3;">${wDesc}</div>` : ''}
+                        <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); border-left: 4px solid #ef4444; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; word-break: break-word; overflow-wrap: anywhere; overflow-x: hidden;">
+                            <strong style="color: #fca5a5; font-size: 12px; display: block; word-break: break-word;">🚨 ${wTitle}</strong>
+                            ${cleanDesc ? `<div style="font-size: 10.5px; color: var(--text-primary); margin-top: 4px; line-height: 1.3; word-break: break-word; overflow-wrap: anywhere;">${cleanDesc}</div>` : ''}
                         </div>
                     `);
                 });
@@ -2948,14 +2951,17 @@ window.initMainApp = async function() {
             
             bomWarnings.forEach(w => {
                 const title = w.title || w.name || (w.warningType ? w.warningType.name : 'Official Weather Advisory');
-                const descText = w.summary || (w.content && w.content.text ? w.content.text.substring(0, 300) + '...' : '');
+                let rawDesc = w.summary || w.description || (w.content && w.content.text ? w.content.text : '');
+                let cleanDesc = rawDesc
+                    .replace(/[=\-_]{4,}/g, '<hr style="border: none; border-top: 1px dashed rgba(255,255,255,0.2); margin: 6px 0;">')
+                    .trim();
                 activeHTML += `
-                    <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.4); border-left: 4px solid #ef4444; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;">
+                    <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.4); border-left: 4px solid #ef4444; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; word-break: break-word; overflow-wrap: anywhere; overflow-x: hidden;">
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
-                            <strong style="color: #fca5a5; font-size: 13.5px;">🚨 ${title}</strong>
+                            <strong style="color: #fca5a5; font-size: 13.5px; word-break: break-word;">🚨 ${title}</strong>
                             <span class="badge" style="background: #ef4444; color: #fff; font-size: 10px; letter-spacing: 0.5px;">BOM &amp; PWS ACTIVE</span>
                         </div>
-                        ${descText ? `<div style="font-size: 11.5px; color: var(--text-primary); margin-top: 6px; line-height: 1.4;">${descText}</div>` : ''}
+                        ${cleanDesc ? `<div style="font-size: 11.5px; color: var(--text-primary); margin-top: 6px; line-height: 1.4; word-break: break-word; overflow-wrap: anywhere;">${cleanDesc}</div>` : ''}
                     </div>
                 `;
             });
