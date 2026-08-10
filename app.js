@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100500';
+window.APP_VERSION = 'v100510';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -1711,11 +1711,20 @@ window.initMainApp = async function() {
     async function loadCatches() {
         try {
             let dbCatches = await window.DB.getAllCatches();
+            if (dbCatches && dbCatches.length > 0) {
+                dbCatches.forEach(c => {
+                    if (!c.waterType) {
+                        c.waterType = 'freshwater';
+                    }
+                });
+            }
             AppState.catches = dbCatches || [];
             renderCatches();
             renderDashboardRecent();
             updateStats();
-            if (window.AppMap) window.AppMap.renderAllMarkers();
+            if (window.AppMap && window.AppMap.renderCatchSpots) {
+                window.AppMap.renderCatchSpots(AppState.catches);
+            }
             if (window.updateCatchAnalytics) window.updateCatchAnalytics();
             triggerBackgroundEnvironmentalFetch();
             saveBackupData();
@@ -1857,7 +1866,7 @@ window.initMainApp = async function() {
             const matchesSearch = (item.species || '').toLowerCase().includes(search) || 
                                   (item.notes && item.notes.toLowerCase().includes(search)) ||
                                   (item.fly && item.fly.toLowerCase().includes(search));
-            const matchesWater = waterFilter === 'all' || item.waterType === waterFilter;
+            const matchesWater = waterFilter === 'all' || !waterFilter || (item.waterType || 'freshwater') === waterFilter;
             return matchesSearch && matchesWater;
         });
 
@@ -2247,7 +2256,8 @@ window.initMainApp = async function() {
     elements.formLogCatch.addEventListener('submit', async (e) => {
         e.preventDefault();
         const species = document.getElementById('catch-species') ? document.getElementById('catch-species').value.trim() : '';
-        const waterType = document.getElementById('catch-water') ? document.getElementById('catch-water').value : 'freshwater';
+        const waterTypeRaw = document.getElementById('catch-water') ? document.getElementById('catch-water').value : '';
+        const waterType = waterTypeRaw || 'freshwater';
         const length = (document.getElementById('catch-length') && document.getElementById('catch-length').value) ? parseFloat(document.getElementById('catch-length').value) : null;
         const weight = (document.getElementById('catch-weight') && document.getElementById('catch-weight').value) ? parseFloat(document.getElementById('catch-weight').value) : null;
         const lat = (elements.catchLatInput && elements.catchLatInput.value) ? parseFloat(elements.catchLatInput.value) : null;
