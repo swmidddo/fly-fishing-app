@@ -185,9 +185,19 @@ const WEATHER = {
                 const pRes = await fetch(proxyUrl);
                 if (pRes.ok) return pRes;
             } catch (e) {
-                console.warn("[WillyWeather Proxy] Fallback to direct fetch:", e);
+                console.warn("[WillyWeather Local Proxy] Fallback:", e);
+            }
+        } else {
+            // Try Vercel & Netlify Serverless Proxy Route (/api/proxy?target=...)
+            try {
+                const vercelProxyUrl = `/api/proxy?target=${encodeURIComponent(targetUrl)}`;
+                const vRes = await fetch(vercelProxyUrl);
+                if (vRes.ok) return vRes;
+            } catch (e) {
+                console.warn("[Vercel Serverless Proxy] Fallback:", e);
             }
         }
+
         try {
             const dRes = await fetch(targetUrl);
             if (dRes.ok) return dRes;
@@ -196,13 +206,17 @@ const WEATHER = {
         }
 
         const corsProxies = [
-            `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`,
-            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
         ];
 
         for (const cProxy of corsProxies) {
             try {
-                const cRes = await fetch(cProxy);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3500);
+                const cRes = await fetch(cProxy, { signal: controller.signal });
+                clearTimeout(timeoutId);
                 if (cRes.ok) return cRes;
             } catch (err) {
                 console.warn("[WillyWeather Public Proxy] Failed:", err);
@@ -541,19 +555,23 @@ const WEATHER = {
         const warnings = [];
         const seenTitles = new Set();
 
-        const addWarn = (title, type) => {
+        const addWarn = (title, type, summary = '', issueDateTime = 'Recent') => {
             const clean = title.trim();
             if (clean && !seenTitles.has(clean.toLowerCase())) {
                 seenTitles.add(clean.toLowerCase());
                 warnings.push({
                     title: clean,
+                    name: clean,
                     type: type,
+                    summary: summary,
+                    description: summary,
+                    issueDateTime: issueDateTime,
                     id: 'BOM_' + Math.random().toString(36).substr(2, 6)
                 });
             }
         };
 
-        // 1. Try Direct WillyWeather Warning Endpoint if Proxy or Local Server is Active
+        // 1. Try Direct WillyWeather Warning Endpoint via willyFetch (Localhost, Vercel Serverless, or Proxy)
         try {
             const apiKey = localStorage.getItem('willyWeatherApiKey') || 'MjlkNjAwNWVjMzA4MTFlOGEwZjMyY2';
             const locationId = 6862; // Region lookup
@@ -563,8 +581,9 @@ const WEATHER = {
                 const wJson = await warnRes.json();
                 if (Array.isArray(wJson)) {
                     wJson.forEach(w => {
-                        const t = w.title || w.name || w.description || '';
-                        if (t) addWarn(t, w.type || 'Official BOM Weather Warning');
+                        const t = w.name || w.title || (w.warningType ? w.warningType.name : '') || '';
+                        const desc = w.description || (w.content ? w.content.text : '') || '';
+                        if (t) addWarn(t, 'BOM OFFICIAL WARNING', desc, w.issueDateTime || 'Recent');
                     });
                 }
             }
@@ -599,11 +618,27 @@ const WEATHER = {
                     if (res.ok) {
                         const xmlText = await res.text();
                         if (xmlText.includes('<item>') || xmlText.includes('<title>')) {
-                            const matches = xmlText.match(/<title>(.*?)<\/title>/gi) || [];
-                            for (const m of matches) {
-                                const title = m.replace(/<\/?title>/gi, '').trim();
-                                if (title && !title.toLowerCase().includes('weather warnings for') && !title.toLowerCase().includes('issued by') && !title.toLowerCase().includes('corsproxy')) {
-                                    addWarn(title, title.toLowerCase().includes('gale') || title.toLowerCase().includes('marine') ? 'Marine Wind Warning' : 'Official BOM Weather Advisory');
+                            const items = xmlText.match(/<item>(.*?)<\/item>/gis) || [];
+                            if (items.length > 0) {
+                                for (const item of items) {
+                                    const tMatch = item.match(/<title>(.*?)<\/title>/is);
+                                    const dMatch = item.match(/<description>(.*?)<\/description>/is);
+                                    if (tMatch) {
+                                        const rawTitle = tMatch[1].replace(/<\/?title>/gi, '').trim();
+                                        const cleanTitle = rawTitle.replace(/^\d+\/\d+:\d+\s+[A-Z]+\s*/i, '').trim();
+                                        const descText = dMatch ? dMatch[1].replace(/<[^>]+>/g, '').trim() : '';
+                                        if (cleanTitle && !cleanTitle.toLowerCase().includes('weather warnings for')) {
+                                            addWarn(cleanTitle, 'BOM OFFICIAL WARNING', descText);
+                                        }
+                                    }
+                                }
+                            } else {
+                                const matches = xmlText.match(/<title>(.*?)<\/title>/gi) || [];
+                                for (const m of matches) {
+                                    const title = m.replace(/<\/?title>/gi, '').trim();
+                                    if (title && !title.toLowerCase().includes('weather warnings for') && !title.toLowerCase().includes('issued by') && !title.toLowerCase().includes('corsproxy')) {
+                                        addWarn(title, title.toLowerCase().includes('gale') || title.toLowerCase().includes('marine') ? 'Marine Wind Warning' : 'Official BOM Weather Advisory');
+                                    }
                                 }
                             }
                             if (warnings.length > 0) break;
