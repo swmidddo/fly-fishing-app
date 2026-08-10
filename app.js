@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version
-window.APP_VERSION = 'v100230';
+window.APP_VERSION = 'v100240';
 
 // Top-Level Global Navigation & Weather Entrypoints
 window.switchTab = function(tabId) {
