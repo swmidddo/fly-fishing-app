@@ -79,8 +79,9 @@ window.toggleMobileMoreDrawer = function(forceState) {
     }
 };
 
-// Single Source of Truth for App Build Version
-window.APP_VERSION = 'v100280';
+// Single Source of Truth for App Build Version & Default Key Config
+window.APP_VERSION = 'v100290';
+window.DEFAULT_GOOGLE_MAPS_KEY = window.DEFAULT_GOOGLE_MAPS_KEY || '';
 
 // Top-Level Global Navigation & Weather Entrypoints
 window.switchTab = function(tabId) {
@@ -879,9 +880,9 @@ window.initMainApp = async function() {
     }
 
     async function initMapEngine() {
-        let key = (localStorage.getItem('googleMapsApiKey') || '').trim();
+        let key = (localStorage.getItem('googleMapsApiKey') || window.DEFAULT_GOOGLE_MAPS_KEY || '').trim();
         if (key.includes('AQ.Ab8RN6')) {
-            key = '';
+            key = window.DEFAULT_GOOGLE_MAPS_KEY || '';
             localStorage.removeItem('googleMapsApiKey');
         }
 
