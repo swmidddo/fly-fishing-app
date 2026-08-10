@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config
-window.APP_VERSION = 'v100340';
+window.APP_VERSION = 'v100350';
 window.DEFAULT_GOOGLE_MAPS_KEY = 'AIzaSyB5AJ4zj9Iht6g_ZMMTTcDGXyAAGyLfdpI';
 
 // Top-Level Global Navigation & Weather Entrypoints
@@ -4246,29 +4246,41 @@ window.initMainApp = async function() {
         if (statusLabel) statusLabel.textContent = "🔬 1/3 Extracting image contours & color profile...";
 
         let hasFinished = false;
+        let safetyTimer = null;
+
         const finish = (species, notes) => {
             if (hasFinished) return;
             hasFinished = true;
+            if (safetyTimer) clearTimeout(safetyTimer);
 
             if (species && species.toLowerCase() !== 'unidentified') {
                 if (document.getElementById('catch-species')) {
                     document.getElementById('catch-species').value = species;
                 }
                 displayRegulationBox(species, lat, lng, notes);
-                if (statusLabel) statusLabel.textContent = "✅ 3/3 Species identified & rules calculated!";
+                if (statusLabel) statusLabel.textContent = "✅ Species identified & rules calculated!";
             } else {
-                if (document.getElementById('catch-species')) {
-                    document.getElementById('catch-species').value = '';
+                const spInput = document.getElementById('catch-species');
+                const currVal = spInput ? spInput.value : '';
+                if (!currVal) {
+                    const regBox = document.getElementById('catch-regulation-box');
+                    if (regBox) regBox.style.display = 'none';
                 }
-                const regBox = document.getElementById('catch-regulation-box');
-                if (regBox) regBox.style.display = 'none';
-                if (statusLabel) statusLabel.textContent = "❓ Scan complete. Species not recognized — pick below.";
+                if (statusLabel) statusLabel.textContent = "✅ Scan complete. Pick or confirm species below.";
             }
 
             setTimeout(() => {
                 if (scanOverlay) scanOverlay.style.display = 'none';
-            }, 500);
+            }, 600);
         };
+
+        // Safety Timeout: Guarantee scan overlay hides within 2.8s even if network APIs hang
+        safetyTimer = setTimeout(() => {
+            if (!hasFinished) {
+                console.warn("Photo analysis safety timeout reached. Hiding scan overlay.");
+                finish(null, null);
+            }
+        }, 2800);
 
         const roboflowKey = (localStorage.getItem('roboflowApiKey') || '').trim();
         const geminiKey = (localStorage.getItem('geminiApiKey') || '').trim();
