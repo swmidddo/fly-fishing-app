@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config
-window.APP_VERSION = 'v100290';
+window.APP_VERSION = 'v100300';
 window.DEFAULT_GOOGLE_MAPS_KEY = window.DEFAULT_GOOGLE_MAPS_KEY || '';
 
 // Top-Level Global Navigation & Weather Entrypoints
@@ -880,10 +880,16 @@ window.initMainApp = async function() {
     }
 
     async function initMapEngine() {
-        let key = (localStorage.getItem('googleMapsApiKey') || window.DEFAULT_GOOGLE_MAPS_KEY || '').trim();
+        let storedKey = localStorage.getItem('googleMapsApiKey');
+        let key = (storedKey && storedKey.trim() !== '') ? storedKey.trim() : (window.DEFAULT_GOOGLE_MAPS_KEY || '').trim();
+        
         if (key.includes('AQ.Ab8RN6')) {
-            key = window.DEFAULT_GOOGLE_MAPS_KEY || '';
+            key = (window.DEFAULT_GOOGLE_MAPS_KEY || '').trim();
             localStorage.removeItem('googleMapsApiKey');
+        }
+
+        if (key) {
+            localStorage.setItem('googleMapsApiKey', key);
         }
 
         if (!key) {
@@ -3350,27 +3356,26 @@ window.initMainApp = async function() {
             });
         }
 
-        // Force Check for Updates Listener
+        // Force Check for Updates Listener (Mobile Cache Purge)
         const btnCheckUpdates = document.getElementById('btn-force-check-updates');
         if (btnCheckUpdates) {
             btnCheckUpdates.addEventListener('click', async () => {
-                if (!('serviceWorker' in navigator)) {
-                    alert("Service Worker is not supported on this browser.");
-                    return;
-                }
-                btnCheckUpdates.textContent = "⌛ Checking...";
+                btnCheckUpdates.textContent = "🔄 Refreshing App Cache...";
                 try {
-                    const reg = await navigator.serviceWorker.getRegistration();
-                    if (reg) {
-                        await reg.update();
-                        if (reg.waiting) {
-                            showUpdateNotificationToast(reg.waiting);
-                        } else {
-                            alert(`You are running the latest build of Middo's Fly Fishing (${window.APP_VERSION || 'v100150'})!`);
+                    if ('serviceWorker' in navigator) {
+                        const registrations = await navigator.serviceWorker.getRegistrations();
+                        for (const reg of registrations) {
+                            await reg.unregister();
                         }
-                    } else {
-                        window.location.reload();
                     }
+                    if ('caches' in window) {
+                        const keys = await caches.keys();
+                        for (const k of keys) {
+                            await caches.delete(k);
+                        }
+                    }
+                    alert(`🔄 Mobile app cache cleared! Reloading build ${window.APP_VERSION || ''}...`);
+                    window.location.reload(true);
                 } catch (err) {
                     console.error("Update check failed:", err);
                     window.location.reload();
