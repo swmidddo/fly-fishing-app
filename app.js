@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100420';
+window.APP_VERSION = 'v100430';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -4440,6 +4440,19 @@ window.initMainApp = async function() {
                                     }
 
                                     if (speciesName && speciesName.toLowerCase() !== 'unidentified') {
+                                        // Clean scientific names in parentheses (e.g. "Barramundi (Lates calcarifer)" -> "Barramundi")
+                                        speciesName = speciesName.replace(/\(.*?\)/g, '').trim();
+
+                                        if (window.FISH_DATABASE) {
+                                            const cleanLower = speciesName.toLowerCase();
+                                            const dbMatch = window.FISH_DATABASE.find(f => 
+                                                f.name.toLowerCase() === cleanLower ||
+                                                cleanLower.includes(f.name.toLowerCase()) ||
+                                                f.name.toLowerCase().includes(cleanLower)
+                                            );
+                                            if (dbMatch) speciesName = dbMatch.name;
+                                        }
+
                                         const candList = [{ name: speciesName, confidence: 98 }];
                                         renderCandidateChips(candList);
                                         finish(speciesName, `Identified via Gemini AI (${mName}): ${detailsText}`);
