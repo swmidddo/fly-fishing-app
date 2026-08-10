@@ -805,6 +805,8 @@ const AppMap = {
             const pos = this.isGoogleMaps ? new google.maps.LatLng(lat, lng) : [lat, lng];
 
             const imgHtml = catchItem.photo ? `<img src="${catchItem.photo}" style="width:100%; max-height:100px; object-fit:cover; border-radius:5px; margin-top:5px;"/>` : '';
+            const tackleSummary = [catchItem.fly, catchItem.rod, catchItem.reel, catchItem.flyline, catchItem.rigCombo].filter(Boolean).join(' | ') || 'N/A';
+            const safeId = String(catchItem.id).replace(/'/g, "\\'");
 
             if (this.isGoogleMaps) {
                 const marker = new google.maps.Marker({
@@ -827,12 +829,12 @@ const AppMap = {
                     content: `
                         <div style="color: #000; font-family: sans-serif; min-width: 170px; padding: 4px;">
                             <h4 style="margin:0 0 6px 0; color: #0f172a; font-size: 15px;">🐟 ${catchItem.species}</h4>
-                            <p style="margin:3px 0; font-size:12.5px; color: #334155;"><b>Length:</b> ${catchItem.length || 'N/A'} cm</p>
-                            <p style="margin:3px 0; font-size:12.5px; color: #334155;"><b>Tackle:</b> ${catchItem.fly || 'N/A'}</p>
+                            <p style="margin:3px 0; font-size:12.5px; color: #334155;"><b>Length:</b> ${catchItem.length || '--'} cm</p>
+                            <p style="margin:3px 0; font-size:12.5px; color: #334155;"><b>Tackle:</b> ${tackleSummary}</p>
                             ${imgHtml}
                             <div style="display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #cbd5e1; padding-top: 6px;">
-                                <button onclick="window.editCatchUI(${catchItem.id})" style="flex:1; background: #0284c7; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">✏️ Edit</button>
-                                <button onclick="window.deleteCatchUI(${catchItem.id})" style="flex:1; background: #ef4444; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">🗑️ Delete</button>
+                                <button onclick="window.editCatchUI('${safeId}')" style="flex:1; background: #0284c7; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">✏️ Edit</button>
+                                <button onclick="window.deleteCatchUI('${safeId}')" style="flex:1; background: #ef4444; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">🗑️ Delete</button>
                             </div>
                         </div>
                     `
@@ -872,12 +874,12 @@ const AppMap = {
                     .bindPopup(`
                         <div style="font-family: sans-serif; min-width: 170px; padding: 4px;">
                             <h4 style="margin:0 0 6px 0; color:#0f172a; font-size: 15px;">🐟 ${catchItem.species}</h4>
-                            <p style="margin:3px 0; font-size:12.5px; color:#334155;"><b>Length:</b> ${catchItem.length || 'N/A'} cm</p>
-                            <p style="margin:3px 0; font-size:12.5px; color:#334155;"><b>Tackle:</b> ${catchItem.fly || 'N/A'}</p>
+                            <p style="margin:3px 0; font-size:12.5px; color:#334155;"><b>Length:</b> ${catchItem.length || '--'} cm</p>
+                            <p style="margin:3px 0; font-size:12.5px; color:#334155;"><b>Tackle:</b> ${tackleSummary}</p>
                             ${imgHtml}
                             <div style="display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #cbd5e1; padding-top: 6px;">
-                                <button onclick="window.editCatchUI(${catchItem.id})" style="flex:1; background: #0284c7; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">✏️ Edit</button>
-                                <button onclick="window.deleteCatchUI(${catchItem.id})" style="flex:1; background: #ef4444; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">🗑️ Delete</button>
+                                <button onclick="window.editCatchUI('${safeId}')" style="flex:1; background: #0284c7; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">✏️ Edit</button>
+                                <button onclick="window.deleteCatchUI('${safeId}')" style="flex:1; background: #ef4444; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">🗑️ Delete</button>
                             </div>
                         </div>
                     `);

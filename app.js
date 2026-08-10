@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100520';
+window.APP_VERSION = 'v100530';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -1776,7 +1776,17 @@ window.initMainApp = async function() {
             card.style.cursor = 'pointer';
             
             const photoSrc = getFishPhoto(item);
-            const dateStr = item.date ? new Date(item.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+            let dateStr = item.date || '';
+            if (item.date) {
+                try {
+                    const parsedD = new Date(item.date);
+                    if (!isNaN(parsedD.getTime())) {
+                        dateStr = parsedD.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+                    }
+                } catch(e){}
+            }
+
+            const tackleText = [item.fly, item.rod, item.reel, item.flyline, item.rigCombo].filter(Boolean).join(' | ') || 'N/A';
 
             card.innerHTML = `
                 <div class="card-img-wrapper">
@@ -1791,7 +1801,7 @@ window.initMainApp = async function() {
                     <p style="font-size: 11px; color: var(--accent-teal); margin-top: 2px; margin-bottom: 0;">📅 ${dateStr} ${item.time || ''}</p>
                     <div class="card-specs mt-10">
                         <span>Weight: <strong>${item.weight ? item.weight + ' kg' : '--'}</strong></span>
-                        <span>Fly/Lure: <strong>${item.fly || 'N/A'}</strong></span>
+                        <span>Tackle: <strong>${tackleText}</strong></span>
                     </div>
                 </div>
             `;
@@ -1911,18 +1921,30 @@ window.initMainApp = async function() {
                 `;
             }
 
+            let dateDisplay = item.date || '';
+            if (item.date) {
+                try {
+                    const parsedD = new Date(item.date);
+                    if (!isNaN(parsedD.getTime())) {
+                        dateDisplay = parsedD.toLocaleDateString();
+                    }
+                } catch(e){}
+            }
+
+            const safeId = String(item.id).replace(/'/g, "\\'");
+
             card.innerHTML = `
                 <div class="card-img-wrapper">
                     <img src="${photoSrc}" alt="${item.species}" loading="lazy">
                     <span class="card-badge">${item.length || '--'} cm</span>
-                    <span class="card-badge-type">${item.waterType}</span>
+                    <span class="card-badge-type">${item.waterType || 'freshwater'}</span>
                 </div>
                 <div class="card-content-body" style="position: relative;">
                     <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; padding-right: 20px;">
                         <h4 style="margin: 0;">🐟 ${item.species}</h4>
                         <span class="expand-chevron">▼</span>
                     </div>
-                    <p style="font-size: 11px; color: var(--accent-teal); margin-top: 2px; margin-bottom: 0;">📅 ${new Date(item.date).toLocaleDateString()} ${item.time || ''}</p>
+                    <p style="font-size: 11px; color: var(--accent-teal); margin-top: 2px; margin-bottom: 0;">📅 ${dateDisplay} ${item.time || ''}</p>
                     
                     <div class="catch-card-details">
                         <div class="card-specs mt-10">
@@ -1930,13 +1952,15 @@ window.initMainApp = async function() {
                             <span>Location: <strong style="font-size:10px;">${locationText}</strong></span>
                             <span>Fly/Lure: <strong>${item.fly || 'N/A'}</strong></span>
                             <span>Rod Used: <strong>${item.rod || 'N/A'}</strong></span>
+                            ${item.reel ? `<span>Reel Used: <strong>${item.reel}</strong></span>` : ''}
+                            ${item.flyline ? `<span>Line Used: <strong>${item.flyline}</strong></span>` : ''}
                             ${displayCombo ? `<span style="grid-column: span 2;">Rig Combo: <strong style="color: var(--accent-teal);">${displayCombo}</strong></span>` : ''}
                         </div>
                         <p class="card-notes" style="display: block; -webkit-line-clamp: unset; overflow: visible; white-space: pre-wrap;">${item.notes || 'No notes recorded.'}</p>
                         ${environmentalStrip}
                         <div class="card-actions-row">
-                            <button class="btn btn-glass btn-sm" onclick="event.stopPropagation(); window.editCatchUI(${item.id})">Edit</button>
-                            <button class="btn btn-glass btn-danger btn-sm" onclick="event.stopPropagation(); window.deleteCatchUI(${item.id})">Delete</button>
+                            <button class="btn btn-glass btn-sm" onclick="event.stopPropagation(); window.editCatchUI('${safeId}')">✏️ Edit</button>
+                            <button class="btn btn-glass btn-danger btn-sm" onclick="event.stopPropagation(); window.deleteCatchUI('${safeId}')">🗑️ Delete</button>
                         </div>
                     </div>
                 </div>
@@ -2115,7 +2139,7 @@ window.initMainApp = async function() {
     };
 
     window.editCatchUI = (id) => {
-        const catchItem = AppState.catches.find(c => c.id === id);
+        const catchItem = AppState.catches.find(c => String(c.id) === String(id));
         if (!catchItem) return;
 
         AppState.editingCatchId = id;
