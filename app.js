@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100400';
+window.APP_VERSION = 'v100410';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -4283,8 +4283,8 @@ window.initMainApp = async function() {
             }
         }, 9000);
 
-        const roboflowKey = (localStorage.getItem('roboflowApiKey') || '').trim();
-        const geminiKey = (localStorage.getItem('geminiApiKey') || '').trim();
+        let roboflowKey = (localStorage.getItem('roboflowApiKey') || '').trim();
+        let geminiKey = (localStorage.getItem('geminiApiKey') || window.DEFAULT_GEMINI_KEY || '').trim();
 
         // Render interactive visual AI candidate chips
         function renderCandidateChips(candidates) {
@@ -4350,7 +4350,6 @@ window.initMainApp = async function() {
             console.warn("Training dataset match note:", e);
         }
 
-        geminiKey = (localStorage.getItem('geminiApiKey') || window.DEFAULT_GEMINI_KEY || window.DEFAULT_GOOGLE_MAPS_KEY || geminiKey || '').trim();
         if (!geminiKey) {
             try {
                 const resp = await fetch('session_backup.json');
