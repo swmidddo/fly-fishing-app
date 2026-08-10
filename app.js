@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100530';
+window.APP_VERSION = 'v100540';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -2427,8 +2427,14 @@ window.initMainApp = async function() {
         if (confirm("Are you sure you want to delete this catch log?")) {
             try {
                 await window.DB.deleteCatch(id);
-                localStorage.setItem('demo_catches_cleared', 'true');
-                await loadCatches();
+                AppState.catches = AppState.catches.filter(c => String(c.id) !== String(id));
+                renderCatches();
+                renderDashboardRecent();
+                updateStats();
+                if (window.AppMap && window.AppMap.renderCatchSpots) {
+                    window.AppMap.renderCatchSpots(AppState.catches);
+                }
+                if (window.updateCatchAnalytics) window.updateCatchAnalytics();
                 saveBackupData();
             } catch (err) {
                 alert("Error deleting catch: " + err.message);

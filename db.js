@@ -124,6 +124,8 @@ const DB = {
     async addCatch(item) {
         if (!item.id) item.id = Date.now();
         
+        try { localStorage.removeItem('demo_catches_cleared'); } catch(e){}
+
         // Strip large base64 photos from localStorage copy to prevent QuotaExceededError
         const storageCopy = { ...item };
         if (storageCopy.photo && storageCopy.photo.length > 200000) {
@@ -167,15 +169,6 @@ const DB = {
                     catchMap.set(String(c.id), c);
                 }
             });
-
-            // If localStorage was explicitly cleared, honor localStorage deletions
-            if (localStorage.getItem('demo_catches_cleared') === 'true' && localCatches.length === 0 && idbCatches.length > 0) {
-                try {
-                    const rwStore = await getStore('catches', 'readwrite');
-                    rwStore.clear();
-                } catch(err){}
-                return [];
-            }
 
             const merged = Array.from(catchMap.values());
             return merged;
