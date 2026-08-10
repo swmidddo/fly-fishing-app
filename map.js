@@ -191,6 +191,7 @@ const AppMap = {
             center: initialCenter,
             zoom: initialZoom,
             mapTypeId: mapType,
+            gestureHandling: 'greedy',
             disableDefaultUI: false,
             zoomControl: true,
             mapTypeControl: false,
