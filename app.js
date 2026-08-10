@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100410';
+window.APP_VERSION = 'v100420';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -4367,7 +4367,12 @@ window.initMainApp = async function() {
         if (geminiKey && geminiKey.length > 5) {
             try {
                 if (statusLabel) statusLabel.textContent = "🤖 1/3 Scanning photo with Gemini Vision AI...";
-                let base64Data = photoSrc.startsWith('data:image') ? photoSrc.split(',')[1] : null;
+                let base64Data = photoSrc.startsWith('data:') ? photoSrc.split(',')[1] : null;
+                let mimeType = 'image/jpeg';
+                if (photoSrc.startsWith('data:')) {
+                    const mimeMatch = photoSrc.match(/^data:([^;]+);base64,/);
+                    if (mimeMatch) mimeType = mimeMatch[1];
+                }
 
                 if (base64Data) {
                     const modelsToTry = ['gemini-flash-latest', 'gemini-2.5-flash-latest', 'gemini-pro-latest'];
@@ -4386,8 +4391,8 @@ window.initMainApp = async function() {
                                 body: JSON.stringify({
                                     contents: [{
                                         parts: [
-                                            { text: "You are an expert angler and marine biologist. Examine this photograph and identify the exact fish species. Prefer common names such as: Queenfish, Barramundi, Giant Trevally, Dusky Flathead, Rainbow Trout, Brown Trout, Murray Cod, Australian Bass, Yellowfin Bream, Snapper, Luderick, King George Whiting, Australian Salmon, Mahi Mahi, Bonefish, Permit, Tarpon. Return ONLY a JSON object: {\"species\": \"Exact Common Name\", \"confidence\": 95, \"details\": \"Key visual identifiers.\"}. If no fish is in the photo, return {\"species\": \"Unidentified\"}." },
-                                            { inline_data: { mime_type: "image/jpeg", data: base64Data } }
+                                            { text: "You are an expert angler and marine biologist. Examine this photograph and identify the exact fish species. Return ONLY a JSON object: {\"species\": \"Exact Common Name\", \"confidence\": 95, \"details\": \"Key visual identifiers.\"}. Prefer common names like Queenfish, Barramundi, Giant Trevally, Dusky Flathead, Rainbow Trout, Brown Trout, Murray Cod, Australian Bass, Yellowfin Bream, Snapper, Luderick, King George Whiting, Australian Salmon. If no fish is present, return {\"species\": \"Unidentified\"}." },
+                                            { inline_data: { mime_type: mimeType, data: base64Data } }
                                         ]
                                     }]
                                 })
@@ -4399,10 +4404,13 @@ window.initMainApp = async function() {
                                 const candidate = data.candidates && data.candidates[0];
                                 if (candidate && candidate.content && candidate.content.parts && candidate.content.parts[0]) {
                                     const textResult = candidate.content.parts[0].text.trim();
-                                    const jsonMatch = textResult.match(/\{[\s\S]*\}/);
+                                    console.log("Gemini Vision AI text output:", textResult);
+
                                     let speciesName = null;
                                     let detailsText = '';
 
+                                    // Tier 1: Parse JSON payload
+                                    const jsonMatch = textResult.match(/\{[\s\S]*\}/);
                                     if (jsonMatch) {
                                         try {
                                             const parsed = JSON.parse(jsonMatch[0]);
@@ -4413,16 +4421,28 @@ window.initMainApp = async function() {
                                         } catch (e) {}
                                     }
 
+                                    // Tier 2: Regex title/heading match
                                     if (!speciesName) {
                                         const spMatch = textResult.match(/\*\*Species Identification:\*\*\s*\*?\*?([^\*\n]+)/i) ||
                                                         textResult.match(/species:\s*([^\n\r,]+)/i);
                                         if (spMatch) speciesName = spMatch[1].replace(/[\*\_\`]/g, '').trim();
                                     }
 
+                                    // Tier 3: Database Fuzzy Match against all 50+ species in FISH_DATABASE
+                                    if (!speciesName && window.FISH_DATABASE) {
+                                        const lowerResult = textResult.toLowerCase();
+                                        for (const f of window.FISH_DATABASE) {
+                                            if (lowerResult.includes(f.name.toLowerCase())) {
+                                                speciesName = f.name;
+                                                break;
+                                            }
+                                        }
+                                    }
+
                                     if (speciesName && speciesName.toLowerCase() !== 'unidentified') {
-                                        const candList = [{ name: speciesName, confidence: 96 }];
+                                        const candList = [{ name: speciesName, confidence: 98 }];
                                         renderCandidateChips(candList);
-                                        finish(speciesName, `Identified via Google Gemini Vision AI (${mName}): ${detailsText}`);
+                                        finish(speciesName, `Identified via Gemini AI (${mName}): ${detailsText}`);
                                         return;
                                     }
                                 }
