@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version
-window.APP_VERSION = 'v100240';
+window.APP_VERSION = 'v100250';
 
 // Top-Level Global Navigation & Weather Entrypoints
 window.switchTab = function(tabId) {
@@ -2928,20 +2928,15 @@ window.initMainApp = async function() {
             let activeHTML = '';
             
             bomWarnings.forEach(w => {
-                const title = w.name || (w.warningType ? w.warningType.name : 'Severe Weather Warning');
-                const descText = w.content && w.content.text ? w.content.text.substring(0, 300) + '...' : '';
+                const title = w.title || w.name || (w.warningType ? w.warningType.name : 'Official Weather Advisory');
+                const descText = w.summary || (w.content && w.content.text ? w.content.text.substring(0, 300) + '...' : '');
                 activeHTML += `
                     <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.4); border-left: 4px solid #ef4444; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;">
-                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
-                            <strong style="color: #fca5a5; font-size: 14px;">🚨 ${title}</strong>
-                            <span class="badge" style="background: #ef4444; color: #fff; font-size: 10px;">BOM OFFICIAL</span>
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                            <strong style="color: #fca5a5; font-size: 13.5px;">🚨 ${title}</strong>
+                            <span class="badge" style="background: #ef4444; color: #fff; font-size: 10px; letter-spacing: 0.5px;">BOM &amp; PWS ACTIVE</span>
                         </div>
-                        <div style="font-size: 11.5px; color: var(--text-primary); margin-top: 6px; line-height: 1.4;">
-                            ${descText}
-                        </div>
-                        <div style="font-size: 10.5px; color: var(--text-secondary); margin-top: 6px;">
-                            Issued by Australian Bureau of Meteorology (${w.issueDateTime || 'Recent'})
-                        </div>
+                        ${descText ? `<div style="font-size: 11.5px; color: var(--text-primary); margin-top: 6px; line-height: 1.4;">${descText}</div>` : ''}
                     </div>
                 `;
             });
