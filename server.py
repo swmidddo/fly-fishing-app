@@ -1,5 +1,4 @@
 import http.server
-import socketserver
 import urllib.request
 import urllib.parse
 import json
@@ -20,11 +19,11 @@ class NoCacheHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
     def do_GET(self):
-        if self.path.startswith('/willyproxy?url='):
+        if '/willyproxy?url=' in self.path:
             try:
                 target_url = urllib.parse.unquote(self.path.split('/willyproxy?url=')[1])
                 req = urllib.request.Request(target_url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
-                with urllib.request.urlopen(req, context=ctx, timeout=10) as resp:
+                with urllib.request.urlopen(req, context=ctx, timeout=3) as resp:
                     content = resp.read()
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json')
@@ -40,10 +39,10 @@ class NoCacheHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
 if __name__ == '__main__':
-    socketserver.TCPServer.allow_reuse_address = True
+    server_address = ('', PORT)
+    httpd = http.server.ThreadingHTTPServer(server_address, NoCacheHTTPRequestHandler)
+    print(f"Serving Concurrent Threaded HTTP on 0.0.0.0 port {PORT}...")
     try:
-        with socketserver.TCPServer(("", PORT), NoCacheHTTPRequestHandler) as httpd:
-            print(f"Serving HTTP on 0.0.0.0 port {PORT} with WillyProxy & No-Cache headers...")
-            httpd.serve_forever()
-    except Exception as e:
-        print(f"Server start error: {e}")
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        pass

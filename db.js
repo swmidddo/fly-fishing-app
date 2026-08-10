@@ -216,6 +216,10 @@ const DB = {
         }
     },
 
+    clearCatches() {
+        return this.clearAllCatches();
+    },
+
     // Rig / Combo Operations
     addRig(item) {
         return getStore('rigs', 'readwrite').then((store) => {

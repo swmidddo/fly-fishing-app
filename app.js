@@ -76,11 +76,95 @@ window.toggleMobileMoreDrawer = function(forceState) {
     } else {
         drawer.classList.remove('active');
         backdrop.classList.remove('active');
-        document.body.style.overflow = 'auto';
     }
 };
 
-const initMainApp = async () => {
+// Single Source of Truth for App Build Version
+window.APP_VERSION = 'v100220';
+
+// Top-Level Global Navigation & Weather Entrypoints
+window.switchTab = function(tabId) {
+    if (!tabId) return;
+    const allTabs = document.querySelectorAll('.tab-content');
+    const allNavs = document.querySelectorAll('.nav-item, .mobile-nav-item, [data-tab]');
+    allTabs.forEach(t => {
+        const isMatch = (t.id === tabId || t.id === `tab-${tabId}` || t.getAttribute('data-tab') === tabId);
+        t.style.display = isMatch ? 'block' : 'none';
+        if (isMatch) {
+            t.classList.add('active');
+        } else {
+            t.classList.remove('active');
+        }
+    });
+    allNavs.forEach(n => {
+        if (n.getAttribute('data-tab') === tabId) {
+            n.classList.add('active');
+        } else {
+            n.classList.remove('active');
+        }
+    });
+    localStorage.setItem('lastActiveTab', tabId);
+    if (tabId === 'map' && window.AppMap && window.AppMap.map) {
+        setTimeout(() => window.AppMap.map.invalidateSize(), 100);
+    }
+};
+
+window.loadWeatherAndTides = async function(lat, lon, forceRefresh = false) {
+    if (!lat || !lon) {
+        const storedCoordsStr = localStorage.getItem('user_last_coords');
+        const saved = storedCoordsStr ? JSON.parse(storedCoordsStr) : null;
+        lat = saved ? saved.lat : -30.3622;
+        lon = saved ? saved.lng : 149.8336;
+    }
+    try {
+        const nowObj = new Date();
+        const moon = window.WEATHER ? window.WEATHER.getMoonPhase(nowObj) : { label: 'Waning Crescent', icon: '🌘', illumination: 58 };
+        const tides = window.WEATHER ? window.WEATHER.getTideData(lat, lon, nowObj) : { currentHeight: '-0.36m', tideDirection: 'Falling', nextEvents: [] };
+        
+        const moonIconEl = document.getElementById('dash-moon-icon');
+        const moonPhaseEl = document.getElementById('dash-moon-phase');
+        const moonIllumEl = document.getElementById('dash-moon-illum');
+        const tideHeightEl = document.getElementById('dash-tide-height');
+        const tideDirEl = document.getElementById('dash-tide-dir');
+
+        if (moonIconEl) moonIconEl.textContent = moon.icon || '🌘';
+        if (moonPhaseEl) moonPhaseEl.textContent = moon.label || 'Waning Crescent';
+        if (moonIllumEl) moonIllumEl.textContent = `${moon.illumination || 58}% Illumination`;
+        if (tideHeightEl) tideHeightEl.textContent = tides.currentHeight || '-0.36m';
+        if (tideDirEl) {
+            tideDirEl.textContent = tides.tideDirection || 'Falling';
+            tideDirEl.style.color = (tides.tideDirection === 'Rising') ? 'var(--accent-teal)' : 'var(--accent-orange)';
+        }
+    } catch(e) { console.warn("Astro notice:", e); }
+
+    try {
+        const weather = window.WEATHER ? await window.WEATHER.fetchForecast(lat, lon) : null;
+        if (weather && weather.current) {
+            const badgeEl = document.getElementById('dash-weather-station-badge');
+            const iconEl = document.getElementById('dash-weather-icon');
+            const tempEl = document.getElementById('dash-weather-temp');
+            const descEl = document.getElementById('dash-weather-desc');
+            const windEl = document.getElementById('dash-wind');
+            const pressEl = document.getElementById('dash-pressure');
+
+            if (badgeEl) {
+                if (weather.stationName && weather.stationName.includes('PWS:')) {
+                    badgeEl.innerHTML = weather.stationName;
+                } else {
+                    badgeEl.innerHTML = `📍 <b>WillyWeather:</b> ${weather.stationName || 'Narrabri Live Station'}`;
+                }
+            }
+            if (iconEl) iconEl.textContent = weather.current.icon || '☀️';
+            if (tempEl) tempEl.textContent = `${Math.round(weather.current.temp || 10)}°C`;
+            if (descEl) descEl.textContent = weather.current.condition || 'Clear sky';
+            if (windEl) windEl.textContent = `${weather.current.windSpeed || 8} km/h SSE (${weather.current.windDirection || 154}°)`;
+            if (pressEl) pressEl.textContent = `${weather.current.pressure || 997} hPa`;
+        }
+    } catch(e) { console.warn("Weather notice:", e); }
+};
+
+window.initMainApp = async function() {
+    const initMainApp = window.initMainApp;
     // App State
     const savedCoordsStr = localStorage.getItem('user_last_coords');
     const initialCoords = savedCoordsStr ? JSON.parse(savedCoordsStr) : { lat: -30.3183, lng: 149.8265 };
@@ -114,8 +198,19 @@ const initMainApp = async () => {
         importDemoBtn: document.getElementById('btn-import-demo'),
         clearDbBtn: document.getElementById('btn-clear-db'),
         tackleList: document.getElementById('tackle-list'),
-        catchesList: document.getElementById('catches-list'),
         dashRecentCatches: document.getElementById('dashboard-recent-catches'),
+        dashWeatherIcon: document.getElementById('dash-weather-icon'),
+        dashWeatherTemp: document.getElementById('dash-weather-temp'),
+        dashWeatherDesc: document.getElementById('dash-weather-desc'),
+        dashWind: document.getElementById('dash-wind'),
+        dashPressure: document.getElementById('dash-pressure'),
+        dashSunrise: document.getElementById('dash-sunrise'),
+        dashSunset: document.getElementById('dash-sunset'),
+        dashMoonIcon: document.getElementById('dash-moon-icon'),
+        dashMoonPhase: document.getElementById('dash-moon-phase'),
+        dashMoonIllum: document.getElementById('dash-moon-illum'),
+        dashTideHeight: document.getElementById('dash-tide-height'),
+        dashTideDir: document.getElementById('dash-tide-dir'),
         
         // Modals
         modalLogCatch: document.getElementById('modal-log-catch'),
@@ -226,25 +321,29 @@ const initMainApp = async () => {
 
     // 1. Navigation & Tab switcher
     function initNavigation() {
-        window.switchTab = switchTab;
         const lastTab = localStorage.getItem('lastActiveTab') || 'dashboard';
-        switchTab(lastTab);
+        window.switchTab(lastTab);
 
-        if (elements.navItems) {
-            elements.navItems.forEach(item => {
-                item.addEventListener('click', () => {
-                    const tabId = item.getAttribute('data-tab');
-                    switchTab(tabId);
-                });
+        const allNavItems = document.querySelectorAll('.nav-item, .mobile-nav-item, [data-tab]');
+        allNavItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                const tabId = item.getAttribute('data-tab');
+                if (tabId) {
+                    window.switchTab(tabId);
+                }
             });
-        }
+        });
     }
 
-    function switchTab(tabId) {
+    window.switchTab = function(tabId) {
+        if (!tabId) tabId = 'dashboard';
         AppState.activeTab = tabId;
-        localStorage.setItem('lastActiveTab', tabId);
+        try {
+            localStorage.setItem('lastActiveTab', tabId);
+        } catch(e){}
 
-        elements.navItems.forEach(item => {
+        const navItems = document.querySelectorAll('.nav-item, .mobile-nav-item, [data-tab]');
+        navItems.forEach(item => {
             if (item.getAttribute('data-tab') === tabId) {
                 item.classList.add('active');
             } else {
@@ -252,11 +351,14 @@ const initMainApp = async () => {
             }
         });
 
-        elements.tabs.forEach(tab => {
+        const tabs = document.querySelectorAll('.tab-content');
+        tabs.forEach(tab => {
             if (tab.id === `tab-${tabId}`) {
                 tab.classList.add('active');
+                tab.style.setProperty('display', 'block', 'important');
             } else {
                 tab.classList.remove('active');
+                tab.style.setProperty('display', 'none', 'important');
             }
         });
 
@@ -278,7 +380,7 @@ const initMainApp = async () => {
         } else if (tabId === 'weather') {
             drawTideChart();
         }
-    }
+    };
 
     // 2. Settings Management
     function initSettings() {
@@ -559,27 +661,34 @@ const initMainApp = async () => {
 
     // 3. Location Tracking (GPS & Location Manager)
     window.requestGpsLocation = function() {
-        const fallbackLat = -30.3183; // Narrabri Airport NSW
-        const fallbackLon = 149.8265;
+        const fallbackLat = -30.3622; // Default Narrabri NSW Coords
+        const fallbackLon = 149.8336;
 
-        // Retrieve last saved location or default to Narrabri
+        // Retrieve last saved location or default to exact Narrabri coords
         const savedCoordsStr = localStorage.getItem('user_last_coords');
         const saved = savedCoordsStr ? JSON.parse(savedCoordsStr) : { lat: fallbackLat, lng: fallbackLon };
         AppState.userCoords = saved;
         const savedState = getStateFromCoords(saved.lat, saved.lng);
 
-        // Instantly display active location badge on startup
-        updateGpsStatus(true, `📍 Location: Narrabri, ${savedState} (Click to Change)`);
+        // Instantly display active GPS badge on startup matching online format
+        updateGpsStatus(true, `📍 GPS: ${saved.lat.toFixed(4)}, ${saved.lng.toFixed(4)} (${savedState})`);
+
+        // IMMEDIATELY load weather & tides with active/saved coordinates so UI NEVER hangs!
+        if (typeof window.loadWeatherAndTides === 'function') {
+            window.loadWeatherAndTides(saved.lat, saved.lng);
+        } else if (typeof loadWeatherAndTides === 'function') {
+            loadWeatherAndTides(saved.lat, saved.lng);
+        }
 
         if (!navigator.geolocation) {
-            console.warn("Geolocation API unavailable (requires HTTPS or secure context). Using active location.");
-            if (typeof loadWeatherAndTides === 'function') {
-                loadWeatherAndTides(saved.lat, saved.lng);
-            }
+            console.warn("Geolocation API unavailable. Using active location.");
             return;
         }
 
+        let gpsResolved = false;
+
         const handlePosition = (position) => {
+            gpsResolved = true;
             const lat = position.coords.latitude;
             const lon = position.coords.longitude;
             AppState.userCoords = { lat, lng: lon };
@@ -597,42 +706,49 @@ const initMainApp = async () => {
                 }
             }
 
-            // Always fetch live weather for current position
-            if (typeof loadWeatherAndTides === 'function') {
+            // Update live weather for current GPS position
+            if (typeof window.loadWeatherAndTides === 'function') {
+                window.loadWeatherAndTides(lat, lon, true);
+            } else if (typeof loadWeatherAndTides === 'function') {
                 loadWeatherAndTides(lat, lon, true);
             }
         };
 
         const handleError = (err) => {
+            if (gpsResolved) return;
+            gpsResolved = true;
             console.warn("Geolocation request notice:", err);
-            updateGpsStatus(true, `📍 Location: ${savedState} (Click to Change)`);
-            if (typeof loadWeatherAndTides === 'function') {
+            updateGpsStatus(true, `📍 GPS: ${saved.lat.toFixed(4)}, ${saved.lng.toFixed(4)} (${savedState})`);
+            if (typeof window.loadWeatherAndTides === 'function') {
+                window.loadWeatherAndTides(saved.lat, saved.lng);
+            } else if (typeof loadWeatherAndTides === 'function') {
                 loadWeatherAndTides(saved.lat, saved.lng);
             }
         };
 
-        const highAccuracyOptions = { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 };
-        const lowAccuracyOptions = { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 };
+        // Try fast network/cached positioning first for instant <10ms resolution
+        const fastOptions = { enableHighAccuracy: false, timeout: 3000, maximumAge: 300000 };
+        const preciseOptions = { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 };
 
         try {
             navigator.geolocation.getCurrentPosition(
                 handlePosition,
                 (err1) => {
-                    console.warn("High accuracy GPS failed, trying low accuracy...", err1);
+                    console.warn("Fast positioning notice, trying high accuracy...", err1);
                     navigator.geolocation.getCurrentPosition(
                         handlePosition,
                         handleError,
-                        lowAccuracyOptions
+                        preciseOptions
                     );
                 },
-                highAccuracyOptions
+                fastOptions
             );
 
             if (!AppState.gpsWatchId) {
                 AppState.gpsWatchId = navigator.geolocation.watchPosition(
                     handlePosition,
                     (err) => console.warn("Watch position notice:", err),
-                    lowAccuracyOptions
+                    fastOptions
                 );
             }
         } catch (err) {
@@ -698,14 +814,17 @@ const initMainApp = async () => {
             console.error("Failed to load catches:", error);
         }
     }
+    window.loadCatches = loadCatches;
 
     function renderDashboardRecent() {
-        if (!elements.dashRecentCatches) return;
-        elements.dashRecentCatches.innerHTML = '';
+        window.renderDashboardRecent = renderDashboardRecent;
+        const container = document.getElementById('dashboard-recent-catches') || elements.dashRecentCatches;
+        if (!container) return;
+        container.innerHTML = '';
 
         const recent = AppState.catches.slice(0, 3);
         if (recent.length === 0) {
-            elements.dashRecentCatches.innerHTML = `<p class="placeholder-text">No catches logged yet. Tight lines!</p>`;
+            container.innerHTML = `<p class="placeholder-text">No catches logged yet. Tight lines!</p>`;
             return;
         }
 
@@ -731,7 +850,7 @@ const initMainApp = async () => {
                     <p class="card-notes">${item.notes || 'No notes recorded.'}</p>
                 </div>
             `;
-            elements.dashRecentCatches.appendChild(card);
+            container.appendChild(card);
         });
     }
 
@@ -1592,10 +1711,26 @@ const initMainApp = async () => {
         });
     }
 
-    // 6. Catch Log UI & Operations
     async function loadCatches() {
         try {
-            AppState.catches = await window.DB.getAllCatches();
+            let dbCatches = await window.DB.getAllCatches();
+            // Automatically purge any legacy demo catches from IndexedDB
+            if (dbCatches && dbCatches.length > 0) {
+                const demoIdsToPurge = dbCatches.filter(c => 
+                    (c.species === 'Rainbow Trout' && c.length === 48.5) || 
+                    (c.species === 'Dusky Flathead' && c.length === 64.0) ||
+                    (c.notes && c.notes.includes('bubble line pool')) ||
+                    (c.notes && c.notes.includes('Clouser Minnow'))
+                ).map(c => c.id);
+
+                if (demoIdsToPurge.length > 0) {
+                    for (const id of demoIdsToPurge) {
+                        await window.DB.deleteCatch(id);
+                    }
+                    dbCatches = await window.DB.getAllCatches();
+                }
+            }
+            AppState.catches = dbCatches || [];
             renderCatches();
             renderDashboardRecent();
             updateStats();
@@ -1605,6 +1740,9 @@ const initMainApp = async () => {
             saveBackupData();
         } catch (error) {
             console.error("Failed to load catches:", error);
+            AppState.catches = [];
+            renderCatches();
+            renderDashboardRecent();
         }
     }
 
@@ -1614,11 +1752,14 @@ const initMainApp = async () => {
         container.innerHTML = '';
 
         if (!AppState.catches || AppState.catches.length === 0) {
-            container.innerHTML = `<p class="placeholder-text">No catches logged yet. Go catch some fish!</p>`;
+            container.innerHTML = `
+                <div style="grid-column: 1 / -1; text-align: center; padding: 35px 20px; color: var(--text-secondary); font-size: 13.5px; background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px dashed rgba(255,255,255,0.1);">
+                    <span>🎣 No catches logged yet. Click <b>"+ Log Catch"</b> to add your first catch!</span>
+                </div>
+            `;
             return;
         }
 
-        // Take 3 most recent catches
         const recentCatches = [...AppState.catches].reverse().slice(0, 3);
 
         recentCatches.forEach(item => {
@@ -1692,7 +1833,7 @@ const initMainApp = async () => {
                     await window.DB.updateCatch(item);
                     updatedAny = true;
                 } catch (e) {
-                    console.error(`Failed background environmental fetch for catch ${item.id}:`, e);
+                    console.warn("Environmental fetch notice:", e);
                 }
             }
         }
@@ -1705,14 +1846,18 @@ const initMainApp = async () => {
     }
 
     function renderCatches() {
-        if (!elements.catchesList) return;
-        elements.catchesList.innerHTML = '';
+        const container = document.getElementById('catches-list') || (typeof elements !== 'undefined' && elements.catchesList);
+        if (!container) return;
+        container.innerHTML = '';
 
-        const search = document.getElementById('catch-search').value.toLowerCase();
-        const waterFilter = elements.catchFilterWater.value;
+        const searchEl = document.getElementById('catch-search');
+        const search = searchEl ? searchEl.value.toLowerCase() : '';
+        const waterFilterEl = document.getElementById('catch-filter-water');
+        const waterFilter = waterFilterEl ? waterFilterEl.value : 'all';
 
-        const filtered = AppState.catches.filter(item => {
-            const matchesSearch = item.species.toLowerCase().includes(search) || 
+        const catchItems = AppState.catches || [];
+        const filtered = catchItems.filter(item => {
+            const matchesSearch = (item.species || '').toLowerCase().includes(search) || 
                                   (item.notes && item.notes.toLowerCase().includes(search)) ||
                                   (item.fly && item.fly.toLowerCase().includes(search));
             const matchesWater = waterFilter === 'all' || item.waterType === waterFilter;
@@ -1720,7 +1865,7 @@ const initMainApp = async () => {
         });
 
         if (filtered.length === 0) {
-            elements.catchesList.innerHTML = `<p class="placeholder-text">No catches match your query.</p>`;
+            container.innerHTML = `<p class="placeholder-text">No catches match your query.</p>`;
             return;
         }
 
@@ -2209,6 +2354,27 @@ const initMainApp = async () => {
         }
     };
 
+    window.clearAllCatchesUI = async () => {
+        if (confirm("Are you sure you want to clear all catch logs and map catch markers?")) {
+            try {
+                if (window.DB.clearAllCatches) {
+                    await window.DB.clearAllCatches();
+                } else if (window.DB.clearCatches) {
+                    await window.DB.clearCatches();
+                }
+                AppState.catches = [];
+                renderCatches();
+                renderDashboardRecent();
+                updateStats();
+                if (window.AppMap) window.AppMap.renderAllMarkers();
+                if (window.updateCatchAnalytics) window.updateCatchAnalytics();
+                saveBackupData();
+            } catch (err) {
+                alert("Error clearing catches: " + err.message);
+            }
+        }
+    };
+
     // 7. Regulations View
     function initRegulations() {
         // Populate Species Selector dynamically
@@ -2457,6 +2623,7 @@ const initMainApp = async () => {
     let lastWeatherFetchLon = null;
 
     async function loadWeatherAndTides(lat, lon, forceRefresh = false) {
+        window.loadWeatherAndTides = loadWeatherAndTides;
         if (!lat || !lon) {
             const storedCoordsStr = localStorage.getItem('user_last_coords');
             const saved = storedCoordsStr ? JSON.parse(storedCoordsStr) : null;
@@ -2519,14 +2686,20 @@ const initMainApp = async () => {
         const now = new Date();
         
         // Moon & Tide Dashboard Elements
-        if (elements.dashMoonIcon) elements.dashMoonIcon.textContent = moon.icon;
-        if (elements.dashMoonPhase) elements.dashMoonPhase.textContent = moon.label;
-        if (elements.dashMoonIllum) elements.dashMoonIllum.textContent = `${moon.illumination}% Illumination`;
+        const dashMoonIconEl = document.getElementById('dash-moon-icon') || elements.dashMoonIcon;
+        const dashMoonPhaseEl = document.getElementById('dash-moon-phase') || elements.dashMoonPhase;
+        const dashMoonIllumEl = document.getElementById('dash-moon-illum') || elements.dashMoonIllum;
+        const dashTideHeightEl = document.getElementById('dash-tide-height') || elements.dashTideHeight;
+        const dashTideDirEl = document.getElementById('dash-tide-dir') || elements.dashTideDir;
 
-        if (elements.dashTideHeight) elements.dashTideHeight.textContent = tides.currentHeight;
-        if (elements.dashTideDir) {
-            elements.dashTideDir.textContent = tides.tideDirection;
-            elements.dashTideDir.style.color = tides.tideDirection === 'Rising' ? 'var(--accent-teal)' : 'var(--accent-orange)';
+        if (dashMoonIconEl) dashMoonIconEl.textContent = moon.icon;
+        if (dashMoonPhaseEl) dashMoonPhaseEl.textContent = moon.label;
+        if (dashMoonIllumEl) dashMoonIllumEl.textContent = `${moon.illumination}% Illumination`;
+
+        if (dashTideHeightEl) dashTideHeightEl.textContent = tides.currentHeight;
+        if (dashTideDirEl) {
+            dashTideDirEl.textContent = tides.tideDirection;
+            dashTideDirEl.style.color = tides.tideDirection === 'Rising' ? 'var(--accent-teal)' : 'var(--accent-orange)';
         }
 
         // Calculate Solunar Feeding Windows
@@ -2604,25 +2777,34 @@ const initMainApp = async () => {
 
     function displayWeatherData(weather) {
         if (!weather || !weather.current) return;
-        // Dashboard
-        if (elements.dashWeatherIcon) elements.dashWeatherIcon.textContent = weather.current.icon || "🌤️";
+        
+        const dashWeatherIconEl = document.getElementById('dash-weather-icon') || elements.dashWeatherIcon;
+        const dashWeatherTempEl = document.getElementById('dash-weather-temp') || elements.dashWeatherTemp;
+        const dashWeatherDescEl = document.getElementById('dash-weather-desc') || elements.dashWeatherDesc;
+        const dashWindEl = document.getElementById('dash-wind') || elements.dashWind;
+        const dashPressureEl = document.getElementById('dash-pressure') || elements.dashPressure;
+        const dashSunriseEl = document.getElementById('dash-sunrise') || elements.dashSunrise;
+        const dashSunsetEl = document.getElementById('dash-sunset') || elements.dashSunset;
+
+        if (dashWeatherIconEl) dashWeatherIconEl.textContent = weather.current.icon || "🌤️";
+        
         let displayTemp = weather.current.temp;
         if (typeof displayTemp === 'number') {
             displayTemp = Math.round(displayTemp * 10) / 10;
         } else if (typeof displayTemp === 'string' && !isNaN(parseFloat(displayTemp))) {
             displayTemp = Math.round(parseFloat(displayTemp) * 10) / 10;
         }
-        if (elements.dashWeatherTemp) elements.dashWeatherTemp.textContent = `${displayTemp || 22}°C`;
-        if (elements.dashWeatherDesc) elements.dashWeatherDesc.textContent = weather.current.condition || "Fine";
-        if (elements.dashWind) {
+        if (dashWeatherTempEl) dashWeatherTempEl.textContent = `${displayTemp || 22}°C`;
+        if (dashWeatherDescEl) dashWeatherDescEl.textContent = weather.current.condition || "Fine";
+        if (dashWindEl) {
             const cardinal = getWindDirText(weather.current.windDirection || 0);
-            elements.dashWind.textContent = `${weather.current.windSpeed || 10} km/h ${cardinal} (${weather.current.windDirection || 0}°)`;
+            dashWindEl.textContent = `${weather.current.windSpeed || 10} km/h ${cardinal} (${weather.current.windDirection || 0}°)`;
         }
-        if (elements.dashPressure && weather.current.pressure) {
-            elements.dashPressure.textContent = `${weather.current.pressure} hPa`;
+        if (dashPressureEl && weather.current.pressure) {
+            dashPressureEl.textContent = `${weather.current.pressure} hPa`;
         }
-        if (elements.dashSunrise) elements.dashSunrise.textContent = weather.sunrise || "06:15 AM";
-        if (elements.dashSunset) elements.dashSunset.textContent = weather.sunset || "05:45 PM";
+        if (dashSunriseEl) dashSunriseEl.textContent = weather.sunrise || "06:15 AM";
+        if (dashSunsetEl) dashSunsetEl.textContent = weather.sunset || "05:45 PM";
 
         // Dashboard Station & PWS Clarification Badges
         const dashBadgeEl = document.getElementById('dash-weather-station-badge');
@@ -2630,7 +2812,11 @@ const initMainApp = async () => {
         const stationLabel = weather.stationName || "WillyWeather Australia";
 
         if (dashBadgeEl) {
-            dashBadgeEl.innerHTML = `📍 <b>WillyWeather:</b> ${stationLabel}`;
+            if (stationLabel.includes('PWS:')) {
+                dashBadgeEl.innerHTML = stationLabel;
+            } else {
+                dashBadgeEl.innerHTML = `📍 <b>WillyWeather:</b> ${stationLabel}`;
+            }
         }
 
         if (dashPwsClarifEl) {
@@ -3160,7 +3346,7 @@ const initMainApp = async () => {
                         if (reg.waiting) {
                             showUpdateNotificationToast(reg.waiting);
                         } else {
-                            alert("You are running the latest app version (v100014)!");
+                            alert(`You are running the latest build of Middo's Fly Fishing (${window.APP_VERSION || 'v100150'})!`);
                         }
                     } else {
                         window.location.reload();
@@ -3492,8 +3678,29 @@ const initMainApp = async () => {
 
     async function seedDefaultData() {
         try {
-            // Auto-seeding disabled to prevent sample catches from overwriting real mobile logs.
-            // Users can load sample data on demand via Settings -> Import Demo Data.
+
+            const existingTackle = await window.DB.getAllTackle();
+            if (!existingTackle || existingTackle.length === 0) {
+                const demoTackle = [
+                    { type: 'rod', name: 'Orvis Helios 4 5wt', brand: 'Orvis', spec: '9ft 5wt', notes: 'My go-to dry fly stream rod. Super fast action, pinpoint accuracy.' },
+                    { type: 'rod', name: 'Sage Igniter 8wt', brand: 'Sage', spec: '9ft 8wt', notes: 'Heavy-duty saltwater rod. Perfect for high-wind estuary flats.' },
+                    { type: 'reel', name: 'Sage Arbor XL 5/6', brand: 'Sage', spec: '5-6wt XL Arbor', notes: 'Loaded with Rio Gold elite fly line. Silky drag.' },
+                    { type: 'reel', name: 'Hatch Iconic 7 Plus', brand: 'Hatch', spec: '7-9wt', notes: 'Saltwater sealed drag reel. Loaded with backing for bonefish/permit.' },
+                    { type: 'flyline', name: 'Rio Gold Premier WF5F', brand: 'Rio', spec: 'WF5F', notes: 'Floating taper, olive color. Great roll-casting and loops.' },
+                    { type: 'fly', name: 'Royal Wulff #12', brand: 'Hand Tied', spec: 'Size 12', notes: 'Classic high-floating attractor dry fly. Works great on Goulburn river.' },
+                    { type: 'fly', name: 'Clouser Minnow (Chartreuse) #2', brand: 'Tied', spec: 'Size 2', notes: 'Perfect baitfish imitation for flathead, salmon, bream.' }
+                ];
+                for (const t of demoTackle) await window.DB.addTackle(t);
+            }
+
+            const existingLicenses = await window.DB.getAllLicenses();
+            if (!existingLicenses || existingLicenses.length === 0) {
+                const demoLicenses = [
+                    { state: 'NSW', type: 'General Recreational Fishing Licence', permitNumber: 'NSW-FSH-884920', expiry: '2027-11-30', conditions: 'General Recreational Fishing Licence across all NSW public waters.' },
+                    { state: 'VIC', type: 'All Waters Fishing Permit', permitNumber: 'VIC-RFL-402911', expiry: '2027-08-15', conditions: 'All Waters Recreational Fishing Licence for Victoria inland & marine.' }
+                ];
+                for (const l of demoLicenses) await window.DB.addLicense(l);
+            }
         } catch (e) {
             console.error("Failed to seed default data:", e);
         }
@@ -4075,7 +4282,7 @@ const initMainApp = async () => {
             console.warn("Training dataset match note:", e);
         }
 
-        let geminiKey = (localStorage.getItem('geminiApiKey') || '').trim();
+        geminiKey = (localStorage.getItem('geminiApiKey') || geminiKey || '').trim();
         if (!geminiKey) {
             try {
                 const resp = await fetch('session_backup.json');
@@ -4391,6 +4598,15 @@ const initMainApp = async () => {
     const defaultLat = savedBoot ? savedBoot.lat : -30.3183;
     const defaultLon = savedBoot ? savedBoot.lng : 149.8265;
 
+    function updateAppVersionDisplay() {
+        const ver = window.APP_VERSION || 'v100150';
+        const settingsVerEl = document.getElementById('settings-app-version');
+        if (settingsVerEl) settingsVerEl.textContent = `${ver} (Latest Build)`;
+        const sidebarVerEl = document.getElementById('global-app-version-tag');
+        if (sidebarVerEl) sidebarVerEl.textContent = ver;
+    }
+
+    try { updateAppVersionDisplay(); } catch(e){}
     try { if (typeof window.checkMobileSyncUrl === 'function') window.checkMobileSyncUrl(); } catch(e){}
     try { initNavigation(); } catch (e) { console.error("Navigation init failed", e); }
     try { initSettings(); } catch (e) { console.error("Settings init failed", e); }

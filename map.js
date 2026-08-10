@@ -448,15 +448,35 @@ const AppMap = {
         const op = (opacity !== undefined) ? opacity : 0.5;
         this.radarOpacity = op;
 
+        if (!this.radarTileCache) this.radarTileCache = {};
+
         if (this.isGoogleMaps) {
+            const self = this;
             const getTileUrlFn = function(coord, zoom) {
-                return `https://tilecache.rainviewer.com${path}/256/${zoom}/${coord.x}/${coord.y}/2/1_1.png`;
+                if (zoom < 1) return null;
+                if (zoom <= 7) {
+                    return `https://tilecache.rainviewer.com${path}/256/${zoom}/${coord.x}/${coord.y}/2/1_1.png`;
+                }
+
+                // Sub-tile cropping for zoom levels 8 to 20
+                const scale = Math.pow(2, zoom - 7);
+                const parentX = Math.floor(coord.x / scale);
+                const parentY = Math.floor(coord.y / scale);
+                const subX = coord.x % scale;
+                const subY = coord.y % scale;
+                
+                const parentUrl = `https://tilecache.rainviewer.com${path}/256/7/${parentX}/${parentY}/2/1_1.png`;
+                
+                // Return cropped tile from parent radar image
+                return self.getRadarCroppedTileCanvasUrl(parentUrl, subX, subY, scale);
             };
+
             this.googleRadarMapType = new google.maps.ImageMapType({
                 getTileUrl: getTileUrlFn,
                 tileSize: new google.maps.Size(256, 256),
                 opacity: op,
-                name: 'Radar'
+                name: 'Radar',
+                maxZoom: 20
             });
             this.map.overlayMapTypes.push(this.googleRadarMapType);
         } else {
@@ -468,6 +488,47 @@ const AppMap = {
             }).addTo(this.map);
         }
         return true;
+    },
+
+    getRadarCroppedTileCanvasUrl(parentUrl, subX, subY, scale) {
+        const key = `${parentUrl}_${subX}_${subY}_${scale}`;
+        if (this.radarTileCache[key]) {
+            return this.radarTileCache[key];
+        }
+
+        const img = this.radarTileCache[parentUrl];
+        if (img && img.complete && img.naturalWidth > 0) {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = 256;
+                canvas.height = 256;
+                const ctx = canvas.getContext('2d');
+                ctx.imageSmoothingEnabled = true;
+
+                const cropSize = 256 / scale;
+                const cropX = subX * cropSize;
+                const cropY = subY * cropSize;
+
+                ctx.drawImage(img, cropX, cropY, cropSize, cropSize, 0, 0, 256, 256);
+                const dataUrl = canvas.toDataURL();
+                this.radarTileCache[key] = dataUrl;
+                return dataUrl;
+            } catch(e) {
+                return parentUrl;
+            }
+        }
+
+        if (!img) {
+            const newImg = new Image();
+            newImg.crossOrigin = 'anonymous';
+            newImg.onload = () => {
+                this.radarTileCache[parentUrl] = newImg;
+            };
+            newImg.src = parentUrl;
+            this.radarTileCache[parentUrl] = newImg;
+        }
+
+        return parentUrl;
     },
 
     // Set Radar opacity dynamically
@@ -752,11 +813,15 @@ const AppMap = {
 
                 const infoWindow = new google.maps.InfoWindow({
                     content: `
-                        <div style="color: #000; font-family: sans-serif; min-width: 160px; padding: 4px;">
+                        <div style="color: #000; font-family: sans-serif; min-width: 170px; padding: 4px;">
                             <h4 style="margin:0 0 6px 0; color: #0f172a; font-size: 15px;">🐟 ${catchItem.species}</h4>
                             <p style="margin:3px 0; font-size:12.5px; color: #334155;"><b>Length:</b> ${catchItem.length || 'N/A'} cm</p>
                             <p style="margin:3px 0; font-size:12.5px; color: #334155;"><b>Tackle:</b> ${catchItem.fly || 'N/A'}</p>
                             ${imgHtml}
+                            <div style="display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #cbd5e1; padding-top: 6px;">
+                                <button onclick="window.editCatchUI(${catchItem.id})" style="flex:1; background: #0284c7; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">✏️ Edit</button>
+                                <button onclick="window.deleteCatchUI(${catchItem.id})" style="flex:1; background: #ef4444; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">🗑️ Delete</button>
+                            </div>
                         </div>
                     `
                 });
@@ -793,11 +858,15 @@ const AppMap = {
                 const marker = L.marker(pos, { icon: catchPinIcon })
                     .addTo(this.map)
                     .bindPopup(`
-                        <div style="font-family: sans-serif; min-width: 160px; padding: 4px;">
+                        <div style="font-family: sans-serif; min-width: 170px; padding: 4px;">
                             <h4 style="margin:0 0 6px 0; color:#0f172a; font-size: 15px;">🐟 ${catchItem.species}</h4>
                             <p style="margin:3px 0; font-size:12.5px; color:#334155;"><b>Length:</b> ${catchItem.length || 'N/A'} cm</p>
                             <p style="margin:3px 0; font-size:12.5px; color:#334155;"><b>Tackle:</b> ${catchItem.fly || 'N/A'}</p>
                             ${imgHtml}
+                            <div style="display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #cbd5e1; padding-top: 6px;">
+                                <button onclick="window.editCatchUI(${catchItem.id})" style="flex:1; background: #0284c7; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">✏️ Edit</button>
+                                <button onclick="window.deleteCatchUI(${catchItem.id})" style="flex:1; background: #ef4444; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">🗑️ Delete</button>
+                            </div>
                         </div>
                     `);
                 this.markers.catches.push(marker);

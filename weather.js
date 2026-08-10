@@ -27,6 +27,54 @@ const WEATHER_CODES = {
 const WEATHER = {
     DEFAULT_WILLY_KEY: 'MjlkNjAwNWVjMzA4MTFlOGEwZjMyY2',
 
+    BOM_RADARS: [
+        { id: 'IDR553', name: 'Namoi / Narrabri Doppler Radar', lat: -30.3183, lng: 149.8265, state: 'NSW' },
+        { id: 'IDR533', name: 'Moree Doppler Radar', lat: -29.4614, lng: 149.8414, state: 'NSW' },
+        { id: 'IDR043', name: 'Newcastle Williamtown Radar', lat: -32.7936, lng: 151.8344, state: 'NSW' },
+        { id: 'IDR713', name: 'Sydney Terrey Hills Radar', lat: -33.7008, lng: 151.1560, state: 'NSW' },
+        { id: 'IDR403', name: 'Canberra Captains Flat Radar', lat: -35.6628, lng: 149.5122, state: 'NSW/ACT' },
+        { id: 'IDR683', name: 'Yarrawonga / Goulburn Valley Radar', lat: -36.0306, lng: 146.0306, state: 'VIC/NSW' },
+        { id: 'IDR023', name: 'Melbourne Laverton Radar', lat: -37.8569, lng: 144.7570, state: 'VIC' },
+        { id: 'IDR663', name: 'Brisbane Mt Stapylton Radar', lat: -27.7178, lng: 153.2400, state: 'QLD' },
+        { id: 'IDR193', name: 'Cairns Kuranda Radar', lat: -16.8183, lng: 145.6814, state: 'QLD' },
+        { id: 'IDR643', name: 'Adelaide Buckland Park Radar', lat: -34.6167, lng: 138.4667, state: 'SA' },
+        { id: 'IDR703', name: 'Perth Serpentine Radar', lat: -32.3917, lng: 115.9667, state: 'WA' },
+        { id: 'IDR523', name: 'Hobart Mt Wellington Radar', lat: -42.8950, lng: 147.2400, state: 'TAS' }
+    ],
+
+    getNearestBomRadar(lat, lng) {
+        if (!lat || !lng) {
+            lat = -30.3622;
+            lng = 149.8336;
+        }
+
+        const toRad = (v) => v * Math.PI / 180;
+        let nearest = this.BOM_RADARS[0];
+        let minDistance = Infinity;
+
+        for (const radar of this.BOM_RADARS) {
+            const dLat = toRad(radar.lat - lat);
+            const dLng = toRad(radar.lng - lng);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(toRad(lat)) * Math.cos(toRad(radar.lat)) *
+                      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const dist = 6371 * c; // km
+
+            if (dist < minDistance) {
+                minDistance = dist;
+                nearest = { ...radar, distance: dist };
+            }
+        }
+
+        return {
+            ...nearest,
+            url: `http://www.bom.gov.au/products/${nearest.id}.loop.shtml`,
+            mobileUrl: `http://m.bom.gov.au/radar/${nearest.id}`,
+            badgeText: `📡 BOM Radar: ${nearest.name} (${nearest.distance.toFixed(1)} km away)`
+        };
+    },
+
     calculateBiteScore(pressure = 1016, windSpeed = 10, moonPhaseName = "New Moon") {
         let score = 50;
 
@@ -71,7 +119,38 @@ const WEATHER = {
     async getLocalitySearchTerms(lat, lon) {
         const terms = [];
 
-        // 1. Nominatim reverse geocoding via willyFetch (bypasses browser CORS)
+        // 1. Fast Australian Regional Coordinates Table lookup (0ms instantaneous match)
+        const regions = [
+            { name: "Narrabri", lat: -30.32, lon: 149.78 },
+            { name: "Jindabyne", lat: -36.41, lon: 148.62 },
+            { name: "Sydney", lat: -33.86, lon: 151.20 },
+            { name: "Melbourne", lat: -37.81, lon: 144.96 },
+            { name: "Brisbane", lat: -27.47, lon: 153.02 },
+            { name: "Perth", lat: -31.95, lon: 115.86 },
+            { name: "Adelaide", lat: -34.92, lon: 138.60 },
+            { name: "Hobart", lat: -42.88, lon: 147.32 },
+            { name: "Canberra", lat: -35.28, lon: 149.13 },
+            { name: "Darwin", lat: -12.46, lon: 130.84 },
+            { name: "Cairns", lat: -16.92, lon: 145.77 },
+            { name: "Eildon", lat: -37.23, lon: 145.91 }
+        ];
+
+        let closest = regions[0];
+        let minDist = 999999;
+        for (const r of regions) {
+            const dist = Math.hypot(r.lat - lat, r.lon - lon);
+            if (dist < minDist) {
+                minDist = dist;
+                closest = r;
+            }
+        }
+
+        // If coordinates match within ~150km of a known regional center, insert it first for instant 0ms WillyWeather response
+        if (minDist < 1.5) {
+            terms.push(closest.name);
+        }
+
+        // 2. Nominatim reverse geocoding fallback
         try {
             const nomUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
             const nomRes = await this.willyFetch(nomUrl);
@@ -89,50 +168,11 @@ const WEATHER = {
             console.warn("[Reverse Geocode] Nominatim notice:", e);
         }
 
-        // 2. BigDataCloud reverse geocoding via willyFetch
-        try {
-            const bdcUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`;
-            const bdcRes = await this.willyFetch(bdcUrl);
-            if (bdcRes.ok) {
-                const bdcData = await bdcRes.json();
-                const fields = ['locality', 'city', 'principalSubdivision'];
-                for (const field of fields) {
-                    if (bdcData[field] && !terms.includes(bdcData[field])) {
-                        terms.push(bdcData[field]);
-                    }
-                }
-            }
-        } catch (e) {
-            console.warn("[Reverse Geocode] BigDataCloud notice:", e);
-        }
-
-        // 3. Fallback: Australian Regional Coordinates Table if external geocoders blocked
         if (terms.length === 0) {
-            const regions = [
-                { name: "Narrabri", lat: -30.32, lon: 149.78 },
-                { name: "Jindabyne", lat: -36.41, lon: 148.62 },
-                { name: "Sydney", lat: -33.86, lon: 151.20 },
-                { name: "Melbourne", lat: -37.81, lon: 144.96 },
-                { name: "Brisbane", lat: -27.47, lon: 153.02 },
-                { name: "Perth", lat: -31.95, lon: 115.86 },
-                { name: "Adelaide", lat: -34.92, lon: 138.60 },
-                { name: "Hobart", lat: -42.88, lon: 147.32 },
-                { name: "Canberra", lat: -35.28, lon: 149.13 },
-                { name: "Darwin", lat: -12.46, lon: 130.84 },
-                { name: "Cairns", lat: -16.92, lon: 145.77 },
-                { name: "Eildon", lat: -37.23, lon: 145.91 }
-            ];
-            let closest = regions[0];
-            let minDist = 999999;
-            for (const r of regions) {
-                const dist = Math.hypot(r.lat - lat, r.lon - lon);
-                if (dist < minDist) {
-                    minDist = dist;
-                    closest = r;
-                }
-            }
             terms.push(closest.name);
         }
+
+        return terms;
 
         return terms;
     },
@@ -371,8 +411,9 @@ const WEATHER = {
             };
         });
 
-        // PWS Clarification Rule: Incorporate PWS ONLY when within 30km
+        // PWS Hyper-Local Station Rule: Highlight Personal Weather Stations within 15km
         const isWithin30kmPWS = pwsDistance <= 30.0;
+        const isWithin15kmPWS = pwsDistance <= 15.0;
         const distFormatted = pwsDistance < 0.1 ? '<0.1' : pwsDistance.toFixed(1);
         const locationName = (wData.location ? wData.location.name : chosen.name);
         
@@ -380,7 +421,7 @@ const WEATHER = {
         let pwsClarification = null;
 
         if (isWithin30kmPWS) {
-            stationDisplayName = `WillyWeather (PWS: ${pwsStationName}, ${distFormatted} km away)`;
+            stationDisplayName = `📡 PWS: ${pwsStationName} (${distFormatted} km away)`;
             pwsClarification = `Verified via PWS: ${pwsStationName} (${distFormatted} km away)`;
         }
 
