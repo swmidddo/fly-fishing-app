@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100560';
+window.APP_VERSION = 'v100570';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -1945,7 +1945,7 @@ window.initMainApp = async function() {
                 card.classList.toggle('expanded');
             });
 
-            elements.catchesList.appendChild(card);
+            container.appendChild(card);
         });
 
         renderCatchesGallery(filtered);
@@ -2450,15 +2450,32 @@ window.initMainApp = async function() {
     window.deleteCatchUI = async (id) => {
         if (confirm("Are you sure you want to delete this catch log?")) {
             try {
+                // 1. Delete from database and local memory
                 await window.DB.deleteCatch(id);
                 AppState.catches = AppState.catches.filter(c => String(c.id) !== String(id));
-                renderCatches();
-                renderDashboardRecent();
-                updateStats();
-                if (window.AppMap && window.AppMap.renderCatchSpots) {
-                    window.AppMap.renderCatchSpots(AppState.catches);
+
+                // 2. Close active map popups & remove map marker immediately
+                if (window.AppMap) {
+                    try {
+                        if (window.AppMap.map && typeof window.AppMap.map.closePopup === 'function') {
+                            window.AppMap.map.closePopup();
+                        }
+                    } catch(e){}
+                    try {
+                        if (window.AppMap.googleMapPopup && typeof window.AppMap.googleMapPopup.close === 'function') {
+                            window.AppMap.googleMapPopup.close();
+                        }
+                    } catch(e){}
+                    if (typeof window.AppMap.renderCatchSpots === 'function') {
+                        window.AppMap.renderCatchSpots(AppState.catches);
+                    }
                 }
-                if (window.updateCatchAnalytics) window.updateCatchAnalytics();
+
+                // 3. Update all UI views safely
+                try { renderCatches(); } catch(e){ console.warn("renderCatches error:", e); }
+                try { renderDashboardRecent(); } catch(e){ console.warn("renderDashboardRecent error:", e); }
+                try { updateStats(); } catch(e){}
+                try { if (window.updateCatchAnalytics) window.updateCatchAnalytics(); } catch(e){}
                 saveBackupData();
             } catch (err) {
                 alert("Error deleting catch: " + err.message);
