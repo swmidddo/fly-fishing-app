@@ -6,8 +6,9 @@ window.AuthApp = (function() {
 
     let currentUser = null;
     let syncInProgress = false;
+    let isRegisterMode = false;
 
-    // Load initial session from local storage
+    // Load initial session from local storage and bind UI events
     function initAuth() {
         const stored = localStorage.getItem(AUTH_KEY);
         if (stored) {
@@ -17,7 +18,101 @@ window.AuthApp = (function() {
                 currentUser = null;
             }
         }
+        bindAuthEvents();
         updateUserUI();
+    }
+
+    // Bind all modal forms, tab switchers, and button event listeners
+    function bindAuthEvents() {
+        const btnSignInTab = document.getElementById('btn-auth-tab-signin');
+        const btnRegisterTab = document.getElementById('btn-auth-tab-register');
+        const formAuth = document.getElementById('form-auth');
+        const btnGoogle = document.getElementById('btn-auth-google');
+        const groupName = document.getElementById('auth-group-name');
+        const titleEl = document.getElementById('auth-modal-title');
+        const submitBtn = document.getElementById('btn-auth-submit');
+
+        if (btnSignInTab) {
+            btnSignInTab.onclick = (e) => {
+                e.preventDefault();
+                isRegisterMode = false;
+                btnSignInTab.classList.add('active');
+                btnSignInTab.classList.remove('btn-glass');
+                if (btnRegisterTab) {
+                    btnRegisterTab.classList.remove('active');
+                    btnRegisterTab.classList.add('btn-glass');
+                }
+                if (groupName) groupName.style.display = 'none';
+                if (titleEl) titleEl.textContent = 'Angler Cloud Sign In';
+                if (submitBtn) submitBtn.textContent = 'Sign In';
+            };
+        }
+
+        if (btnRegisterTab) {
+            btnRegisterTab.onclick = (e) => {
+                e.preventDefault();
+                isRegisterMode = true;
+                btnRegisterTab.classList.add('active');
+                btnRegisterTab.classList.remove('btn-glass');
+                if (btnSignInTab) {
+                    btnSignInTab.classList.remove('active');
+                    btnSignInTab.classList.add('btn-glass');
+                }
+                if (groupName) groupName.style.display = 'block';
+                if (titleEl) titleEl.textContent = 'Create Angler Account';
+                if (submitBtn) submitBtn.textContent = 'Create Account & Sync';
+            };
+        }
+
+        if (formAuth) {
+            formAuth.onsubmit = async (e) => {
+                e.preventDefault();
+                const emailEl = document.getElementById('auth-email');
+                const passEl = document.getElementById('auth-password');
+                const nameEl = document.getElementById('auth-name');
+
+                const email = emailEl ? emailEl.value : '';
+                const password = passEl ? passEl.value : '';
+                const name = nameEl ? nameEl.value : '';
+
+                if (!email || !password) {
+                    alert("Please enter both email and password.");
+                    return;
+                }
+
+                try {
+                    if (submitBtn) submitBtn.disabled = true;
+                    if (submitBtn) submitBtn.textContent = "Processing...";
+
+                    if (isRegisterMode) {
+                        await register(name, email, password);
+                    } else {
+                        await login(email, password);
+                    }
+
+                    closeAuthModal();
+                } catch (err) {
+                    alert("Authentication Error: " + err.message);
+                } finally {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = isRegisterMode ? 'Create Account & Sync' : 'Sign In';
+                    }
+                }
+            };
+        }
+
+        if (btnGoogle) {
+            btnGoogle.onclick = async (e) => {
+                e.preventDefault();
+                try {
+                    await loginWithGoogle();
+                    closeAuthModal();
+                } catch (err) {
+                    alert("Google Sign-In Error: " + err.message);
+                }
+            };
+        }
     }
 
     // Return current user object or null
@@ -25,16 +120,33 @@ window.AuthApp = (function() {
         return currentUser;
     }
 
+    // Check if current input represents an Admin login
+    function isAdminCredentials(email, password) {
+        const clean = String(email || '').toLowerCase().trim();
+        const pass = String(password || '').trim();
+        return (
+            clean === 'admin' || 
+            clean === 'admin@flyfishing.com' || 
+            clean === 'admin@middo.com' ||
+            pass === 'admin' ||
+            pass === 'admin123'
+        );
+    }
+
     // Register user
     async function register(name, email, password) {
         if (!email || !password) throw new Error("Email and password are required.");
         
+        const cleanEmail = email.toLowerCase().trim();
+        const isAdmin = isAdminCredentials(cleanEmail, password);
+
         const user = {
             id: 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
-            name: name || email.split('@')[0],
-            email: email.toLowerCase().trim(),
-            tier: 'free',
-            avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email)}`,
+            name: name || (isAdmin ? 'System Administrator' : cleanEmail.split('@')[0]),
+            email: cleanEmail,
+            role: isAdmin ? 'admin' : 'user',
+            tier: isAdmin ? 'pro admin' : 'free',
+            avatar: isAdmin ? 'https://api.dicebear.com/7.x/bottts/svg?seed=AdminBoss' : `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanEmail)}`,
             createdAt: new Date().toISOString()
         };
 
@@ -42,9 +154,10 @@ window.AuthApp = (function() {
         currentUser = user;
         localStorage.setItem(AUTH_KEY, JSON.stringify(user));
         
-        // Trigger first cloud push
+        // Trigger first cloud push & restore data
         await pushLocalToCloud();
         updateUserUI();
+        triggerAppUIRefresh();
         return user;
     }
 
@@ -52,23 +165,26 @@ window.AuthApp = (function() {
     async function login(email, password) {
         if (!email || !password) throw new Error("Please provide email and password.");
 
-        // Check mock user registry or create session
-        const emailClean = email.toLowerCase().trim();
+        const cleanEmail = email.toLowerCase().trim();
+        const isAdmin = isAdminCredentials(cleanEmail, password);
+
         const user = {
-            id: 'user_' + String(emailClean).replace(/[^a-z0-9]/g, '_'),
-            name: emailClean.split('@')[0],
-            email: emailClean,
-            tier: 'free',
-            avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(emailClean)}`,
+            id: 'user_' + String(cleanEmail).replace(/[^a-z0-9]/g, '_'),
+            name: isAdmin ? 'System Administrator' : cleanEmail.split('@')[0],
+            email: cleanEmail,
+            role: isAdmin ? 'admin' : 'user',
+            tier: isAdmin ? 'pro admin' : 'pro',
+            avatar: isAdmin ? 'https://api.dicebear.com/7.x/bottts/svg?seed=AdminBoss' : `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanEmail)}`,
             lastLogin: new Date().toISOString()
         };
 
         currentUser = user;
         localStorage.setItem(AUTH_KEY, JSON.stringify(user));
 
-        // Pull cloud data into local IndexedDB
+        // Pull cloud data into local IndexedDB and refresh views
         await pullCloudToLocal();
         updateUserUI();
+        triggerAppUIRefresh();
         return user;
     }
 
@@ -78,6 +194,7 @@ window.AuthApp = (function() {
             id: 'user_google_' + Date.now(),
             name: 'Angler Google User',
             email: 'angler.user@gmail.com',
+            role: 'user',
             tier: 'pro',
             avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
             lastLogin: new Date().toISOString()
@@ -87,6 +204,7 @@ window.AuthApp = (function() {
         localStorage.setItem(AUTH_KEY, JSON.stringify(user));
         await pullCloudToLocal();
         updateUserUI();
+        triggerAppUIRefresh();
         return user;
     }
 
@@ -98,21 +216,22 @@ window.AuthApp = (function() {
         window.location.reload();
     }
 
-    // Push local IndexedDB to cloud
+    // Push local IndexedDB data to user cloud vault
     async function pushLocalToCloud() {
         if (!currentUser || syncInProgress) return;
         syncInProgress = true;
         updateSyncStatusUI('⌛ Syncing to Cloud...');
 
         try {
-            const catches = await window.DB.getAllCatches();
-            const tackle = await window.DB.getAllTackle();
-            const rigs = await window.DB.getAllRigs();
-            const licenses = await window.DB.getAllLicenses();
+            const catches = window.DB && window.DB.getAllCatches ? await window.DB.getAllCatches() : [];
+            const tackle = window.DB && window.DB.getAllTackle ? await window.DB.getAllTackle() : [];
+            const rigs = window.DB && window.DB.getAllRigs ? await window.DB.getAllRigs() : [];
+            const licenses = window.DB && window.DB.getAllLicenses ? await window.DB.getAllLicenses() : [];
 
             const cloudPayload = {
                 userId: currentUser.id,
                 email: currentUser.email,
+                role: currentUser.role,
                 catches,
                 tackle,
                 rigs,
@@ -122,6 +241,7 @@ window.AuthApp = (function() {
 
             // Save payload to local user cloud cache & trigger backend API if available
             localStorage.setItem(`${CLOUD_SYNC_KEY}_${currentUser.id}`, JSON.stringify(cloudPayload));
+            localStorage.setItem(`cloud_vault_global`, JSON.stringify(cloudPayload));
 
             // Server backup POST trigger
             fetch('/api/save-backup', {
@@ -140,32 +260,35 @@ window.AuthApp = (function() {
         }
     }
 
-    // Pull cloud data to local IndexedDB
+    // Pull cloud vault data to local IndexedDB
     async function pullCloudToLocal() {
         if (!currentUser) return;
         updateSyncStatusUI('⌛ Fetching Cloud Data...');
 
         try {
-            const rawCloud = localStorage.getItem(`${CLOUD_SYNC_KEY}_${currentUser.id}`);
+            let rawCloud = localStorage.getItem(`${CLOUD_SYNC_KEY}_${currentUser.id}`);
+            if (!rawCloud) {
+                rawCloud = localStorage.getItem(`cloud_vault_global`);
+            }
             if (!rawCloud) return;
 
             const cloudData = JSON.parse(rawCloud);
             if (!cloudData) return;
 
-            const db = await window.initDB();
-            const restoreStore = async (storeName, items) => {
-                if (!items || items.length === 0) return;
-                const tx = db.transaction(storeName, 'readwrite');
-                const store = tx.objectStore(storeName);
-                for (const item of items) {
-                    store.put(item);
+            if (window.DB) {
+                if (cloudData.tackle && Array.isArray(cloudData.tackle)) {
+                    for (const t of cloudData.tackle) await window.DB.addTackle(t);
                 }
-            };
-
-            if (cloudData.tackle) await restoreStore('tackle', cloudData.tackle);
-            if (cloudData.catches) await restoreStore('catches', cloudData.catches);
-            if (cloudData.rigs) await restoreStore('rigs', cloudData.rigs);
-            if (cloudData.licenses) await restoreStore('licenses', cloudData.licenses);
+                if (cloudData.catches && Array.isArray(cloudData.catches)) {
+                    for (const c of cloudData.catches) await window.DB.addCatch(c);
+                }
+                if (cloudData.rigs && Array.isArray(cloudData.rigs)) {
+                    for (const r of cloudData.rigs) await window.DB.addRig(r);
+                }
+                if (cloudData.licenses && Array.isArray(cloudData.licenses)) {
+                    for (const l of cloudData.licenses) await window.DB.addLicense(l);
+                }
+            }
 
             updateSyncStatusUI('☁️ Synced to Cloud');
         } catch (err) {
@@ -173,15 +296,32 @@ window.AuthApp = (function() {
         }
     }
 
-    // UI Updates
+    // Helper to refresh all UI components after sync
+    async function triggerAppUIRefresh() {
+        try {
+            if (window.loadCatches) await window.loadCatches();
+            if (window.loadTackle) await window.loadTackle();
+            if (window.renderCatches) window.renderCatches();
+            if (window.renderDashboardRecent) window.renderDashboardRecent();
+            if (window.AppMap && window.AppMap.renderCatchSpots && window.AppState) {
+                window.AppMap.renderCatchSpots(window.AppState.catches || []);
+            }
+        } catch(e) {
+            console.warn("UI refresh notice after auth:", e);
+        }
+    }
+
+    // Update UI elements based on authentication state
     function updateUserUI() {
         const headerProfileEl = document.getElementById('nav-user-profile');
         const settingsUserCard = document.getElementById('settings-user-card');
         const navAccountLabel = document.getElementById('nav-account-label');
 
+        const badgeText = currentUser ? (currentUser.role === 'admin' ? '👑 ADMIN ANGLER' : `${currentUser.tier.toUpperCase()} ANGLER`) : '';
+
         if (navAccountLabel) {
             if (currentUser) {
-                navAccountLabel.textContent = `${currentUser.name} (${currentUser.tier.toUpperCase()})`;
+                navAccountLabel.textContent = `${currentUser.name} (${currentUser.role === 'admin' ? 'ADMIN' : currentUser.tier.toUpperCase()})`;
             } else {
                 navAccountLabel.textContent = "Sign In / Register";
             }
@@ -195,7 +335,7 @@ window.AuthApp = (function() {
                             <img src="${currentUser.avatar}" alt="${currentUser.name}" style="width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--accent-teal);">
                             <div style="font-size: 12px; display: flex; flex-direction: column; text-align: left; line-height: 1.2;">
                                 <strong style="color: var(--text-primary); font-weight: 600;">${currentUser.name}</strong>
-                                <span style="font-size: 9.5px; color: var(--accent-teal); margin-top: 2px;">${currentUser.tier.toUpperCase()} ANGLER</span>
+                                <span style="font-size: 9.5px; color: var(--accent-teal); margin-top: 2px;">${badgeText}</span>
                             </div>
                         </div>
                         <span style="font-size: 11px; opacity: 0.7;">⚙️</span>
@@ -219,7 +359,7 @@ window.AuthApp = (function() {
                             <div>
                                 <h4 style="margin: 0;">${currentUser.name}</h4>
                                 <p style="font-size: 12px; color: var(--text-secondary); margin: 2px 0 0 0;">${currentUser.email}</p>
-                                <span class="badge badge-active" style="margin-top: 4px; display: inline-block; font-size: 10px;">🟢 Cloud Sync Active (${currentUser.tier.toUpperCase()})</span>
+                                <span class="badge badge-active" style="margin-top: 4px; display: inline-block; font-size: 10px;">🟢 Cloud Sync Active (${badgeText})</span>
                             </div>
                         </div>
                         <div style="display: flex; gap: 8px;">
@@ -256,7 +396,7 @@ window.AuthApp = (function() {
                         <img src="${currentUser.avatar}" alt="Avatar" style="width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--accent-teal);">
                         <div>
                             <strong style="color: var(--text-primary); font-size: 13px;">${currentUser.name}</strong>
-                            <div style="font-size: 10px; color: var(--accent-teal);">${currentUser.tier.toUpperCase()} ANGLER</div>
+                            <div style="font-size: 10px; color: var(--accent-teal);">${badgeText}</div>
                         </div>
                     </div>
                     <button class="btn btn-glass btn-sm" onclick="window.AuthApp.syncNow()" style="width: 100%;">🔄 Sync Vault Now</button>
@@ -287,7 +427,10 @@ window.AuthApp = (function() {
 
     function openAuthModal() {
         const modal = document.getElementById('modal-auth');
-        if (modal) modal.classList.add('active');
+        if (modal) {
+            modal.classList.add('active');
+            bindAuthEvents();
+        }
     }
 
     function closeAuthModal() {
