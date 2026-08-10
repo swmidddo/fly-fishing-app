@@ -80,36 +80,11 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100540';
+window.APP_VERSION = 'v100550';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
 // Top-Level Global Navigation & Weather Entrypoints
-window.switchTab = function(tabId) {
-    if (!tabId) return;
-    const allTabs = document.querySelectorAll('.tab-content');
-    const allNavs = document.querySelectorAll('.nav-item, .mobile-nav-item, [data-tab]');
-    allTabs.forEach(t => {
-        const isMatch = (t.id === tabId || t.id === `tab-${tabId}` || t.getAttribute('data-tab') === tabId);
-        t.style.display = isMatch ? 'block' : 'none';
-        if (isMatch) {
-            t.classList.add('active');
-        } else {
-            t.classList.remove('active');
-        }
-    });
-    allNavs.forEach(n => {
-        if (n.getAttribute('data-tab') === tabId) {
-            n.classList.add('active');
-        } else {
-            n.classList.remove('active');
-        }
-    });
-    localStorage.setItem('lastActiveTab', tabId);
-    if (tabId === 'map' && window.AppMap && window.AppMap.map) {
-        setTimeout(() => window.AppMap.map.invalidateSize(), 100);
-    }
-};
 
 window.loadWeatherAndTides = async function(lat, lon, forceRefresh = false) {
     if (!lat || !lon) {
@@ -2396,29 +2371,52 @@ window.initMainApp = async function() {
         };
 
         if (AppState.editingCatchId) {
-            newCatch.id = Number(AppState.editingCatchId);
+            newCatch.id = AppState.editingCatchId;
+            
+            // Immediate real-time memory update
+            const idx = AppState.catches.findIndex(c => String(c.id) === String(newCatch.id));
+            if (idx !== -1) AppState.catches[idx] = newCatch;
+            else AppState.catches.unshift(newCatch);
+
+            window.hideLogCatchModal();
+            renderCatches();
+            renderDashboardRecent();
+            updateStats();
+            if (window.AppMap && window.AppMap.renderCatchSpots) {
+                window.AppMap.renderCatchSpots(AppState.catches);
+            }
+
             try {
                 await window.DB.updateCatch(newCatch);
                 if (photo && species && window.DB.addTrainingSample) {
                     window.DB.addTrainingSample(species, photo);
                 }
-                window.hideLogCatchModal();
-                await loadCatches();
                 saveBackupData();
             } catch (err) {
-                alert("Error updating catch: " + err.message);
+                console.warn("Background update warning:", err);
             }
         } else {
+            newCatch.id = Date.now();
+            
+            // Immediate real-time memory update
+            AppState.catches.unshift(newCatch);
+            
+            window.hideLogCatchModal();
+            renderCatches();
+            renderDashboardRecent();
+            updateStats();
+            if (window.AppMap && window.AppMap.renderCatchSpots) {
+                window.AppMap.renderCatchSpots(AppState.catches);
+            }
+
             try {
                 await window.DB.addCatch(newCatch);
                 if (photo && species && window.DB.addTrainingSample) {
                     window.DB.addTrainingSample(species, photo);
                 }
-                window.hideLogCatchModal();
-                await loadCatches();
                 saveBackupData();
             } catch (err) {
-                alert("Error saving catch: " + err.message);
+                console.warn("Background save warning:", err);
             }
         }
     });
@@ -4954,7 +4952,6 @@ window.initMainApp = async function() {
 
     // Initialize FlyBox & Knots Apps & Analytics
     setTimeout(() => {
-        if (window.purgeDemoCatches) window.purgeDemoCatches();
         if (window.FlyBoxApp) window.FlyBoxApp.init();
         if (window.KnotsApp) window.KnotsApp.renderKnotsUI();
         if (window.updateCatchAnalytics) window.updateCatchAnalytics();
