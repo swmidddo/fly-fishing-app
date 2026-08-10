@@ -107,13 +107,24 @@ const AppMap = {
         this.initLeafletMap(containerId);
     },
 
-    // Dynamic Script Loader for Google Maps with 2.5s Timeout Guard
+    // Dynamic Script Loader for Google Maps with 8s Timeout Guard & Domain Auth Handler
     loadGoogleMapsScript(key) {
         return new Promise((resolve, reject) => {
             if (window.google && window.google.maps) {
                 resolve();
                 return;
             }
+
+            // Register Google Auth Failure handler for domain referrer debugging
+            window.gm_authFailure = function() {
+                console.error("[Google Maps Auth] Key rejected for domain:", window.location.origin);
+                const badgeEl = document.getElementById('gmaps-status-badge');
+                if (badgeEl) {
+                    badgeEl.textContent = `❌ Domain Blocked: Add ${window.location.origin}/* in Google Cloud Console`;
+                    badgeEl.style.color = "#ff5252";
+                }
+            };
+
             const timer = setTimeout(() => {
                 reject(new Error("Google Maps script load timed out. Falling back to Leaflet."));
             }, 8000);

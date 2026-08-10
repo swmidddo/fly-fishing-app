@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version
-window.APP_VERSION = 'v100260';
+window.APP_VERSION = 'v100280';
 
 // Top-Level Global Navigation & Weather Entrypoints
 window.switchTab = function(tabId) {
@@ -488,47 +488,35 @@ window.initMainApp = async function() {
         }
 
         if (badgeEl) {
-            badgeEl.textContent = "⏳ Testing Key with Google Maps API...";
+            badgeEl.textContent = "⏳ Testing Key with Google Maps JavaScript API...";
             badgeEl.style.color = "var(--accent-teal)";
         }
 
         try {
-            const testUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=Sydney+NSW+Australia&key=${encodeURIComponent(key)}`;
-            const response = await fetch(testUrl);
-            const data = await response.json();
+            localStorage.setItem('googleMapsApiKey', key);
+            saveBackupData();
+            if (typeof window.syncWebConfigToBackupFile === 'function') window.syncWebConfigToBackupFile();
 
-            if (data.status === "OK" || data.status === "ZERO_RESULTS") {
-                localStorage.setItem('googleMapsApiKey', key);
-                saveBackupData();
-                if (typeof window.syncWebConfigToBackupFile === 'function') window.syncWebConfigToBackupFile();
-                if (badgeEl) {
-                    badgeEl.textContent = "✅ Google Maps API Verified & Connected!";
-                    badgeEl.style.color = "#2ed573";
-                }
-                alert("✅ Success! Your Google Maps API key is valid and connected.");
-                if (typeof initMapEngine === 'function') {
-                    initMapEngine();
-                }
-            } else if (data.status === "REQUEST_DENIED") {
-                const errorMsg = data.error_message || "API key not authorized for Google Maps services.";
-                if (badgeEl) {
-                    badgeEl.textContent = `❌ Request Denied: ${errorMsg}`;
-                    badgeEl.style.color = "#ff5252";
-                }
-                alert(`❌ Google Maps Error (REQUEST_DENIED): ${errorMsg}\n\nTip: Ensure "Maps JavaScript API" and "Geocoding API" are enabled in your Google Cloud Console.`);
-            } else {
-                if (badgeEl) {
-                    badgeEl.textContent = `⚠️ Response: ${data.status}`;
-                    badgeEl.style.color = "var(--accent-gold)";
-                }
-                alert(`Notice from Google Maps API (${data.status}): ${data.error_message || 'Key submitted'}`);
+            // Test via Maps JavaScript API loader (compatible with HTTP Referrer Restrictions)
+            if (window.AppMap && typeof window.AppMap.loadGoogleMapsScript === 'function') {
+                await window.AppMap.loadGoogleMapsScript(key);
+            }
+
+            if (badgeEl) {
+                badgeEl.textContent = "✅ Google Maps API Verified & Connected!";
+                badgeEl.style.color = "#2ed573";
+            }
+            alert(`✅ Success! Your Google Maps API key is valid and active for ${window.location.origin}`);
+            
+            if (typeof initMapEngine === 'function') {
+                initMapEngine();
             }
         } catch (err) {
             if (badgeEl) {
-                badgeEl.textContent = `❌ Connection Error: ${err.message}`;
+                badgeEl.textContent = `❌ Load Error: ${err.message}`;
                 badgeEl.style.color = "#ff5252";
             }
-            alert("❌ Network Error testing Google Maps key: " + err.message);
+            alert("Notice testing Google Maps key: " + err.message + "\n\nTip: Ensure 'Maps JavaScript API' is enabled in your Google Cloud Console.");
         }
     };
 
