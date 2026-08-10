@@ -260,7 +260,7 @@ window.AuthApp = (function() {
         }
     }
 
-    // Pull cloud vault data to local IndexedDB
+    // Pull cloud vault data to local IndexedDB with Smart Non-Destructive Deduplication
     async function pullCloudToLocal() {
         if (!currentUser) return;
         updateSyncStatusUI('⌛ Fetching Cloud Data...');
@@ -276,17 +276,64 @@ window.AuthApp = (function() {
             if (!cloudData) return;
 
             if (window.DB) {
-                if (cloudData.tackle && Array.isArray(cloudData.tackle)) {
-                    for (const t of cloudData.tackle) await window.DB.addTackle(t);
-                }
+                // 1. Deduplicated Catch Merging
                 if (cloudData.catches && Array.isArray(cloudData.catches)) {
-                    for (const c of cloudData.catches) await window.DB.addCatch(c);
+                    const existingCatches = await window.DB.getAllCatches();
+                    const catchMap = new Map();
+                    existingCatches.forEach(item => {
+                        catchMap.set(String(item.id), true);
+                        if (item.species && item.date && item.length) {
+                            catchMap.set(`${item.species}_${item.length}_${item.date}`, true);
+                        }
+                    });
+
+                    for (const c of cloudData.catches) {
+                        const idKey = String(c.id);
+                        const contentKey = (c.species && c.date && c.length) ? `${c.species}_${c.length}_${c.date}` : null;
+                        
+                        // Only insert if record does NOT already exist locally (Zero overwriting of existing local catches)
+                        if (!catchMap.has(idKey) && (!contentKey || !catchMap.has(contentKey))) {
+                            await window.DB.addCatch(c);
+                        }
+                    }
                 }
+
+                // 2. Deduplicated Tackle Merging
+                if (cloudData.tackle && Array.isArray(cloudData.tackle)) {
+                    const existingTackle = await window.DB.getAllTackle();
+                    const tackleMap = new Map();
+                    existingTackle.forEach(t => {
+                        tackleMap.set(String(t.id), true);
+                        if (t.name) tackleMap.set(t.name.toLowerCase().trim(), true);
+                    });
+
+                    for (const t of cloudData.tackle) {
+                        const idKey = String(t.id);
+                        const nameKey = t.name ? t.name.toLowerCase().trim() : null;
+                        if (!tackleMap.has(idKey) && (!nameKey || !tackleMap.has(nameKey))) {
+                            await window.DB.addTackle(t);
+                        }
+                    }
+                }
+
+                // 3. Deduplicated Rig & License Merging
                 if (cloudData.rigs && Array.isArray(cloudData.rigs)) {
-                    for (const r of cloudData.rigs) await window.DB.addRig(r);
+                    const existingRigs = await window.DB.getAllRigs();
+                    const rigMap = new Map();
+                    existingRigs.forEach(r => rigMap.set(String(r.id), true));
+                    for (const r of cloudData.rigs) {
+                        if (!rigMap.has(String(r.id))) await window.DB.addRig(r);
+                    }
                 }
+
                 if (cloudData.licenses && Array.isArray(cloudData.licenses)) {
-                    for (const l of cloudData.licenses) await window.DB.addLicense(l);
+                    const existingLic = await window.DB.getAllLicenses();
+                    const licMap = new Map();
+                    existingLic.forEach(l => licMap.set(String(l.id || l.permitNumber), true));
+                    for (const l of cloudData.licenses) {
+                        const lKey = String(l.id || l.permitNumber);
+                        if (!licMap.has(lKey)) await window.DB.addLicense(l);
+                    }
                 }
             }
 
