@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100460';
+window.APP_VERSION = 'v100470';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -816,69 +816,7 @@ window.initMainApp = async function() {
     window.requestGpsLocation();
 
     // 4. Map Interface Actions
-    async function loadCatches() {
-        try {
-            AppState.catches = await window.DB.getAllCatches();
-            // Sort by exact date and time descending
-            AppState.catches.sort((a, b) => {
-                const timeA = a.date ? new Date(`${a.date}T${a.time || '00:00'}:00`).getTime() : 0;
-                const timeB = b.date ? new Date(`${b.date}T${b.time || '00:00'}:00`).getTime() : 0;
-                return (timeB - timeA) || ((b.id || 0) - (a.id || 0));
-            });
-            
-            renderCatches();
-            renderDashboardRecent();
-            updateStats();
-            
-            if (window.AppMap && window.AppMap.map) {
-                window.AppMap.renderCatchSpots(AppState.catches);
-            }
-            
-            // Scan and backfill environmental tags for older logs in background
-            triggerBackgroundEnvironmentalFetch();
-        } catch (error) {
-            console.error("Failed to load catches:", error);
-        }
-    }
-    window.loadCatches = loadCatches;
-
-    function renderDashboardRecent() {
-        window.renderDashboardRecent = renderDashboardRecent;
-        const container = document.getElementById('dashboard-recent-catches') || elements.dashRecentCatches;
-        if (!container) return;
-        container.innerHTML = '';
-
-        const recent = AppState.catches.slice(0, 3);
-        if (recent.length === 0) {
-            container.innerHTML = `<p class="placeholder-text">No catches logged yet. Tight lines!</p>`;
-            return;
-        }
-
-        recent.forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'card glass catch-card';
-            const photoSrc = item.photo || 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=400&q=80';
-            const locStr = item.lat && item.lng ? `📍 ${item.lat.toFixed(4)}, ${item.lng.toFixed(4)}` : '📍 Location untagged';
-
-            card.innerHTML = `
-                <div class="card-img-wrapper">
-                    <img src="${photoSrc}" alt="${item.species}" loading="lazy">
-                    <span class="card-badge">${item.length ? item.length + ' cm' : '--'}</span>
-                    <span class="card-badge-type">${item.waterType || 'freshwater'}</span>
-                </div>
-                <div class="card-content-body">
-                    <h4>🐟 ${item.species}</h4>
-                    <p style="font-size: 11px; color: var(--accent-teal); margin-top: -2px; margin-bottom: 4px;">📅 ${new Date(item.date).toLocaleDateString()} ${item.time || ''}</p>
-                    <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">
-                        <span>${locStr}</span> ${item.weight ? `| ⚖️ <b>${item.weight} kg</b>` : ''}
-                    </div>
-                    ${item.fly || item.rod ? `<div style="font-size: 11px; color: var(--accent-blue); margin-bottom: 4px;">🪰 Fly: <b>${item.fly || 'N/A'}</b> | 🎣 Rod: <b>${item.rod || 'N/A'}</b></div>` : ''}
-                    <p class="card-notes">${item.notes || 'No notes recorded.'}</p>
-                </div>
-            `;
-            container.appendChild(card);
-        });
-    }
+    // (loadCatches and renderDashboardRecent defined in Section 11 & 12 below)
 
     async function initMapEngine() {
         let storedKey = localStorage.getItem('googleMapsApiKey');
@@ -1823,17 +1761,17 @@ window.initMainApp = async function() {
 
         recentCatches.forEach(item => {
             const card = document.createElement('div');
-            card.className = 'card glass catch-card';
+            card.className = 'card glass catch-card expanded';
             card.style.cursor = 'pointer';
             
-            const photoSrc = item.photo || 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=400&q=80';
+            const photoSrc = getFishPhoto(item);
             const dateStr = item.date ? new Date(item.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 
             card.innerHTML = `
                 <div class="card-img-wrapper">
                     <img src="${photoSrc}" alt="${item.species}" loading="lazy">
-                    <span class="card-badge">${item.length || '--'} cm</span>
-                    <span class="card-badge-type">${item.waterType}</span>
+                    <span class="card-badge">${item.length ? item.length + ' cm' : '--'}</span>
+                    <span class="card-badge-type">${item.waterType || 'freshwater'}</span>
                 </div>
                 <div class="card-content-body">
                     <div class="card-header-row">
@@ -1841,7 +1779,7 @@ window.initMainApp = async function() {
                     </div>
                     <p style="font-size: 11px; color: var(--accent-teal); margin-top: 2px; margin-bottom: 0;">📅 ${dateStr} ${item.time || ''}</p>
                     <div class="card-specs mt-10">
-                        <span>Weight: <strong>${item.weight || '--'} kg</strong></span>
+                        <span>Weight: <strong>${item.weight ? item.weight + ' kg' : '--'}</strong></span>
                         <span>Fly/Lure: <strong>${item.fly || 'N/A'}</strong></span>
                     </div>
                 </div>
@@ -1860,39 +1798,37 @@ window.initMainApp = async function() {
     async function triggerBackgroundEnvironmentalFetch() {
         let updatedAny = false;
         
-        for (const item of AppState.catches) {
-            // Check if we have coordinate coordinates + date/time, but missing weather data
-            if (item.lat && item.lng && item.date && item.time && 
-                (!item.weatherCondition || !item.pressure || !item.moonPhase || !item.tideHeight)) {
-                
-                try {
-                    // Fetch weather and barometer
-                    const histWeather = await window.WEATHER.fetchHistoricalWeather(
-                        item.lat, item.lng, item.date, item.time
-                    );
-                    
-                    // Calculate moon phase
-                    const dateTimeStr = `${item.date}T${item.time}:00`;
-                    const moonPhaseObj = window.WEATHER.getMoonPhase(new Date(dateTimeStr));
-                    
-                    // Calculate tide data
-                    const tideObj = window.WEATHER.getTideData(
-                        item.lat, item.lng, new Date(dateTimeStr)
-                    );
-                    
-                    // Assign environmental tags
-                    item.weatherCondition = histWeather.condition;
-                    item.weatherTemp = histWeather.temp;
-                    item.pressure = histWeather.pressure;
-                    item.moonPhase = moonPhaseObj.label;
-                    item.tideHeight = tideObj.currentHeight;
-                    item.tideDirection = tideObj.tideDirection;
-                    
-                    // Save update to DB
-                    await window.DB.updateCatch(item);
-                    updatedAny = true;
-                } catch (e) {
-                    console.warn("Environmental fetch notice:", e);
+        if (AppState.catches && AppState.catches.length > 0) {
+            for (let item of AppState.catches) {
+                if (item.lat && item.lng && item.date && (!item.weatherCondition || !item.pressure)) {
+                    try {
+                        if (window.WEATHER) {
+                            const hist = await window.WEATHER.fetchHistoricalWeather(item.lat, item.lng, item.date, item.time || '12:00');
+                            if (hist && (hist.condition || hist.pressure)) {
+                                item.weatherCondition = hist.condition || item.weatherCondition;
+                                item.weatherTemp = hist.temp !== undefined ? hist.temp : item.weatherTemp;
+                                item.pressure = hist.pressure || item.pressure;
+
+                                const parsedDt = new Date(`${item.date}T${item.time || '12:00'}:00`);
+                                if (!isNaN(parsedDt.getTime())) {
+                                    const mObj = window.WEATHER.getMoonPhase ? window.WEATHER.getMoonPhase(parsedDt) : null;
+                                    const tObj = window.WEATHER.getTideData ? window.WEATHER.getTideData(item.lat, item.lng, parsedDt) : null;
+                                    if (mObj) item.moonPhase = mObj.label;
+                                    if (tObj) {
+                                        item.tideHeight = tObj.currentHeight;
+                                        item.tideDirection = tObj.tideDirection;
+                                    }
+                                }
+
+                                if (window.DB && window.DB.updateCatch) {
+                                    await window.DB.updateCatch(item);
+                                }
+                                updatedAny = true;
+                            }
+                        }
+                    } catch (err) {
+                        console.warn("Background env fetch non-fatal skip:", err);
+                    }
                 }
             }
         }
@@ -1930,9 +1866,9 @@ window.initMainApp = async function() {
 
         filtered.forEach(item => {
             const card = document.createElement('div');
-            card.className = 'card glass catch-card';
+            card.className = 'card glass catch-card expanded';
             
-            const photoSrc = item.photo || 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=400&q=80';
+            const photoSrc = getFishPhoto(item);
             const locationText = item.lat && item.lng ? `Lat: ${item.lat.toFixed(4)}, Lng: ${item.lng.toFixed(4)}` : 'No location tagged';
 
             // Look up matching combo if not explicitly set

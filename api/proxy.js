@@ -1,4 +1,4 @@
-// api/proxy.js - Vercel & Netlify Serverless Proxy Function for WillyWeather and BOM APIs
+// api/proxy.js - Vercel & Netlify Serverless Proxy Function for WillyWeather, BOM & Config APIs
 export default async function handler(req, res) {
     // Set CORS headers so client browser on Vercel can access cleanly
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,7 +10,16 @@ export default async function handler(req, res) {
         return;
     }
 
-    const { target } = req.query;
+    const { target, action } = req.query;
+
+    if (action === 'config') {
+        res.status(200).json({
+            googleMapsKey: process.env.GOOGLE_MAPS_API_KEY || '',
+            geminiKey: process.env.GEMINI_API_KEY || ''
+        });
+        return;
+    }
+
     if (!target) {
         res.status(400).json({ error: 'Missing target URL parameter' });
         return;
