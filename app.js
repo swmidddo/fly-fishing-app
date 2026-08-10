@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config
-window.APP_VERSION = 'v100310';
+window.APP_VERSION = 'v100320';
 window.DEFAULT_GOOGLE_MAPS_KEY = 'AIzaSyB5AJ4zj9Iht6g_ZMMTTcDGXyAAGyLfdpI';
 
 // Top-Level Global Navigation & Weather Entrypoints
@@ -1159,38 +1159,62 @@ window.initMainApp = async function() {
                 pressureEl.textContent = `${data.current.pressure} hPa`;
             }
 
-            // Populate Warnings & Badge
-            const windSpeed = data.current.windSpeed;
-            const cond = data.current.condition.toLowerCase();
+            // Populate BOM & Environmental Warnings & Badge
             const warnings = [];
+            
+            // 1. Add Official BOM & Station Advisories from data.bomWarnings
+            if (data.bomWarnings && Array.isArray(data.bomWarnings) && data.bomWarnings.length > 0) {
+                data.bomWarnings.forEach(w => {
+                    const wTitle = w.title || w.name || 'Official Weather Advisory';
+                    const wDesc = w.summary || w.description || (w.content ? w.content.text : '');
+                    warnings.push(`
+                        <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); border-left: 4px solid #ef4444; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px;">
+                            <strong style="color: #fca5a5; font-size: 12px; display: block;">🚨 ${wTitle}</strong>
+                            ${wDesc ? `<div style="font-size: 10.5px; color: var(--text-primary); margin-top: 4px; line-height: 1.3;">${wDesc}</div>` : ''}
+                        </div>
+                    `);
+                });
+            }
 
-            if (windSpeed > 30) {
-                warnings.push(`⚠️ <b>High Wind Alert:</b> Winds of ${windSpeed} km/h can make fly casting dangerous. Expect strong gusts!`);
+            // 2. Add Live Condition & Wind Threshold Alerts
+            const windSpeed = data.current.windSpeed;
+            const windGusts = data.current.windGusts || 0;
+            const cond = (data.current.condition || '').toLowerCase();
+
+            if (windSpeed > 30 || windGusts > 40) {
+                warnings.push(`
+                    <div style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.4); border-left: 4px solid #f59e0b; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px;">
+                        <strong style="color: #fcd34d; font-size: 12px; display: block;">⚠️ High Wind Advisory (${windSpeed} km/h)</strong>
+                        <div style="font-size: 10.5px; color: var(--text-secondary); margin-top: 4px;">Strong wind gusts up to ${windGusts || windSpeed} km/h detected. Exercise extreme caution near open water and high trees!</div>
+                    </div>
+                `);
             }
             
             if (cond.includes('thunderstorm') || cond.includes('violent') || cond.includes('heavy rain')) {
-                warnings.push(`⚠️ <b>Severe Storm Alert:</b> Heavy thunderstorms detected. Risk of flash flooding in creeks and local streams! Seek shelter.`);
-            } else if (cond.includes('rain') || cond.includes('drizzle')) {
-                warnings.push(`⚠️ <b>Rain Warning:</b> Wet weather conditions. Rocks near streams may be slippery.`);
+                warnings.push(`
+                    <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); border-left: 4px solid #ef4444; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px;">
+                        <strong style="color: #fca5a5; font-size: 12px; display: block;">⛈️ Severe Storm Alert</strong>
+                        <div style="font-size: 10.5px; color: var(--text-primary); margin-top: 4px;">Heavy thunderstorms detected. Risk of flash flooding in creeks and local streams! Seek shelter.</div>
+                    </div>
+                `);
             }
 
             if (warningsEl) {
                 warningsEl.innerHTML = '';
                 if (warnings.length > 0) {
-                    warnings.forEach(warning => {
-                        warningsEl.insertAdjacentHTML('beforeend', `
-                            <div class="warning-banner warning-active mb-5">${warning}</div>
-                        `);
+                    warnings.forEach(warningHtml => {
+                        warningsEl.insertAdjacentHTML('beforeend', warningHtml);
                     });
                 } else {
-                    warningsEl.insertAdjacentHTML('beforeend', `
-                        <div class="warning-banner warning-ok">✅ No active weather warnings for this area.</div>
-                    `);
+                    warningsEl.innerHTML = `
+                        <div class="warning-banner warning-ok" style="font-size: 11px; padding: 10px;">✅ No active weather warnings for this area.</div>
+                    `;
                 }
             }
 
             if (warningBadge) {
-                warningBadge.style.display = warnings.length > 0 ? 'block' : 'none';
+                warningBadge.style.display = warnings.length > 0 ? 'inline-block' : 'none';
+                warningBadge.textContent = warnings.length > 0 ? warnings.length : '';
             }
 
             // Populate mini 3-day forecast
