@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100470';
+window.APP_VERSION = 'v100480';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -1743,6 +1743,24 @@ window.initMainApp = async function() {
         }
     }
 
+    function getFishPhoto(item) {
+        if (item && item.photo && item.photo.length > 20) {
+            return item.photo;
+        }
+        if (item && item.species && window.FISH_DATABASE) {
+            const cleanSp = item.species.toLowerCase().trim();
+            const dbMatch = window.FISH_DATABASE.find(f => 
+                f.name.toLowerCase() === cleanSp || 
+                cleanSp.includes(f.name.toLowerCase()) || 
+                f.name.toLowerCase().includes(cleanSp)
+            );
+            if (dbMatch && dbMatch.image) {
+                return dbMatch.image;
+            }
+        }
+        return 'images/dpi_illustrations/rainbow_trout.jpg';
+    }
+
     function renderDashboardRecent() {
         const container = document.getElementById('dashboard-recent-catches');
         if (!container) return;
@@ -1969,19 +1987,20 @@ window.initMainApp = async function() {
         if (!catchesGalleryEl) return;
         catchesGalleryEl.innerHTML = '';
 
-        const photoCatches = (catches || []).filter(c => c.photo);
-        if (photoCatches.length === 0) {
+        const allCatches = catches || [];
+        if (allCatches.length === 0) {
             catchesGalleryEl.innerHTML = `
                 <div class="card glass text-center" style="grid-column: 1 / -1; padding: 40px 20px;">
                     <span style="font-size: 48px; display: block; margin-bottom: 15px;">📸</span>
-                    <h3>No Photo Catches Yet</h3>
-                    <p class="text-secondary mb-20">Log catches with photos to view your visual photo gallery!</p>
+                    <h3>No Catches Logged Yet</h3>
+                    <p class="text-secondary mb-20">Click "+ Log Catch" to add your first catch!</p>
                 </div>
             `;
             return;
         }
 
-        photoCatches.forEach(c => {
+        allCatches.forEach(c => {
+            const photoSrc = getFishPhoto(c);
             const dateFormatted = c.date ? new Date(c.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
             const sizeStr = c.length ? `${c.length} cm` : (c.weight ? `${c.weight} kg` : 'Logged Catch');
             const clarityBadge = c.waterClarity ? `<span style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); font-size: 9.5px; padding: 2px 6px; border-radius: 8px;">💧 ${c.waterClarity}</span>` : '';
@@ -1989,11 +2008,11 @@ window.initMainApp = async function() {
 
             catchesGalleryEl.insertAdjacentHTML('beforeend', `
                 <div class="card glass shadow-lg photo-gallery-item" style="padding: 0; overflow: hidden; border-radius: 12px; position: relative; cursor: pointer;" onclick="window.editCatchUI(${c.id})">
-                    <img src="${c.photo}" alt="${c.species}" style="width: 100%; height: 210px; object-fit: cover; display: block;">
+                    <img src="${photoSrc}" alt="${c.species}" style="width: 100%; height: 210px; object-fit: cover; display: block;">
                     <div style="padding: 12px; background: rgba(15, 23, 42, 0.95);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <strong style="font-size: 15px; color: var(--accent-teal);">${c.species}</strong>
-                            <span class="water-badge ${c.waterType}">${(c.waterType || 'fresh').toUpperCase()}</span>
+                            <span class="water-badge ${c.waterType || 'fresh'}">${(c.waterType || 'fresh').toUpperCase()}</span>
                         </div>
                         <div style="font-size: 11.5px; margin-top: 4px; color: var(--text-secondary);">
                             📏 <b>${sizeStr}</b> &bull; 📅 ${dateFormatted}
