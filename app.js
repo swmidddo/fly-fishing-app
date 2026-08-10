@@ -80,8 +80,9 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config
-window.APP_VERSION = 'v100350';
+window.APP_VERSION = 'v100360';
 window.DEFAULT_GOOGLE_MAPS_KEY = 'AIzaSyB5AJ4zj9Iht6g_ZMMTTcDGXyAAGyLfdpI';
+window.DEFAULT_GEMINI_KEY = window.DEFAULT_GEMINI_KEY || 'AIzaSyB5AJ4zj9Iht6g_ZMMTTcDGXyAAGyLfdpI';
 
 // Top-Level Global Navigation & Weather Entrypoints
 window.switchTab = function(tabId) {
@@ -4349,7 +4350,7 @@ window.initMainApp = async function() {
             console.warn("Training dataset match note:", e);
         }
 
-        geminiKey = (localStorage.getItem('geminiApiKey') || geminiKey || '').trim();
+        geminiKey = (localStorage.getItem('geminiApiKey') || window.DEFAULT_GEMINI_KEY || window.DEFAULT_GOOGLE_MAPS_KEY || geminiKey || '').trim();
         if (!geminiKey) {
             try {
                 const resp = await fetch('session_backup.json');
@@ -4370,47 +4371,50 @@ window.initMainApp = async function() {
                 let base64Data = photoSrc.startsWith('data:image') ? photoSrc.split(',')[1] : null;
 
                 if (base64Data) {
-                    const headers = {
-                        'Content-Type': 'application/json',
-                        'x-goog-api-key': geminiKey
-                    };
-
                     const activeModel = localStorage.getItem('geminiActiveModel') || 'gemini-1.5-flash';
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${encodeURIComponent(geminiKey)}`;
+                    const modelsToTry = [activeModel, 'gemini-1.5-flash', 'gemini-2.0-flash'];
 
-                    const controller = new AbortController();
-                    const fetchTimeout = setTimeout(() => controller.abort(), 6000);
+                    for (const mName of modelsToTry) {
+                        try {
+                            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${encodeURIComponent(geminiKey)}`;
 
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: headers,
-                        signal: controller.signal,
-                        body: JSON.stringify({
-                            contents: [{
-                                parts: [
-                                    { text: "You are a master marine biologist and angler. Examine this photograph and identify all fish species present. Return ONLY a valid JSON object: {\"species\": \"Common Name\", \"details\": \"Angling notes.\"}. If no fish is present, return {\"species\": \"Unidentified\"}." },
-                                    { inline_data: { mime_type: "image/jpeg", data: base64Data } }
-                                ]
-                            }]
-                        })
-                    });
-                    clearTimeout(fetchTimeout);
+                            const controller = new AbortController();
+                            const fetchTimeout = setTimeout(() => controller.abort(), 4000);
 
-                    if (response.ok) {
-                        const data = await response.json();
-                        const candidate = data.candidates && data.candidates[0];
-                        if (candidate && candidate.content && candidate.content.parts && candidate.content.parts[0]) {
-                            const textResult = candidate.content.parts[0].text.trim();
-                            const jsonClean = textResult.replace(/```json/g, '').replace(/```/g, '').trim();
-                            try {
-                                const parsed = JSON.parse(jsonClean);
-                                if (parsed.species && parsed.species.toLowerCase() !== 'unidentified') {
-                                    finish(parsed.species, `Identified via Google ${activeModel} Vision AI: ${parsed.details || ''}`);
-                                    return;
+                            const response = await fetch(apiUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                signal: controller.signal,
+                                body: JSON.stringify({
+                                    contents: [{
+                                        parts: [
+                                            { text: "You are an expert angler and marine biologist. Examine this photograph and identify the exact fish species. Prefer common names such as: Queenfish, Barramundi, Giant Trevally, Dusky Flathead, Rainbow Trout, Brown Trout, Murray Cod, Australian Bass, Yellowfin Bream, Snapper, Luderick, King George Whiting, Australian Salmon, Mahi Mahi, Bonefish, Permit, Tarpon. Return ONLY a JSON object: {\"species\": \"Exact Common Name\", \"confidence\": 95, \"details\": \"Key visual identifiers.\"}. If no fish is in the photo, return {\"species\": \"Unidentified\"}." },
+                                            { inline_data: { mime_type: "image/jpeg", data: base64Data } }
+                                        ]
+                                    }]
+                                })
+                            });
+                            clearTimeout(fetchTimeout);
+
+                            if (response.ok) {
+                                const data = await response.json();
+                                const candidate = data.candidates && data.candidates[0];
+                                if (candidate && candidate.content && candidate.content.parts && candidate.content.parts[0]) {
+                                    const textResult = candidate.content.parts[0].text.trim();
+                                    const jsonMatch = textResult.match(/\{[\s\S]*\}/);
+                                    if (jsonMatch) {
+                                        const parsed = JSON.parse(jsonMatch[0]);
+                                        if (parsed.species && parsed.species.toLowerCase() !== 'unidentified') {
+                                            const candList = [{ name: parsed.species, confidence: parsed.confidence || 95 }];
+                                            renderCandidateChips(candList);
+                                            finish(parsed.species, `Identified via Gemini ${mName} Vision AI: ${parsed.details || ''}`);
+                                            return;
+                                        }
+                                    }
                                 }
-                            } catch (e) {
-                                console.warn("Failed to parse Gemini output:", e);
                             }
+                        } catch (mErr) {
+                            console.warn(`Gemini model ${mName} query note:`, mErr);
                         }
                     }
                 }
