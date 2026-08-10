@@ -1,5 +1,5 @@
 // sw.js - Service Worker auto-clearing and unregister script
-const CACHE_NAME = 'fly-fishing-v100550';
+const CACHE_NAME = 'fly-fishing-v100560';
 
 self.addEventListener('install', (event) => {
     self.skipWaiting();

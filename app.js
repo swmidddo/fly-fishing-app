@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100550';
+window.APP_VERSION = 'v100560';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -1975,6 +1975,31 @@ window.initMainApp = async function() {
         });
     }
 
+    function formatDateSafe(dateStr) {
+        if (!dateStr) return '';
+        try {
+            if (typeof dateStr === 'string' && dateStr.includes('/')) {
+                const parts = dateStr.split('/');
+                if (parts.length === 3) {
+                    if (parseInt(parts[0]) > 12) {
+                        return dateStr;
+                    }
+                    const isoStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                    const d = new Date(isoStr);
+                    if (!isNaN(d.getTime())) return d.toLocaleDateString();
+                }
+                return dateStr;
+            }
+            const d = new Date(dateStr);
+            if (!isNaN(d.getTime())) {
+                return d.toLocaleDateString();
+            }
+            return String(dateStr);
+        } catch(e) {
+            return String(dateStr);
+        }
+    }
+
     function renderCatchesGallery(catches) {
         if (!catchesGalleryEl) return;
         catchesGalleryEl.innerHTML = '';
@@ -1993,13 +2018,14 @@ window.initMainApp = async function() {
 
         allCatches.forEach(c => {
             const photoSrc = getFishPhoto(c);
-            const dateFormatted = c.date ? new Date(c.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+            const dateFormatted = formatDateSafe(c.date);
             const sizeStr = c.length ? `${c.length} cm` : (c.weight ? `${c.weight} kg` : 'Logged Catch');
             const clarityBadge = c.waterClarity ? `<span style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); font-size: 9.5px; padding: 2px 6px; border-radius: 8px;">💧 ${c.waterClarity}</span>` : '';
             const hatchBadge = c.activeHatch ? `<span style="background: rgba(0,210,255,0.15); border: 1px solid var(--accent-teal); color: var(--accent-teal); font-size: 9.5px; padding: 2px 6px; border-radius: 8px;">🪰 ${c.activeHatch}</span>` : '';
+            const safeId = String(c.id).replace(/'/g, "\\'");
 
             catchesGalleryEl.insertAdjacentHTML('beforeend', `
-                <div class="card glass shadow-lg photo-gallery-item" style="padding: 0; overflow: hidden; border-radius: 12px; position: relative; cursor: pointer;" onclick="window.editCatchUI(${c.id})">
+                <div class="card glass shadow-lg photo-gallery-item" style="padding: 0; overflow: hidden; border-radius: 12px; position: relative; cursor: pointer;" onclick="window.editCatchUI('${safeId}')">
                     <img src="${photoSrc}" alt="${c.species}" style="width: 100%; height: 210px; object-fit: cover; display: block;">
                     <div style="padding: 12px; background: rgba(15, 23, 42, 0.95);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
