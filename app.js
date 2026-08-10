@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100490';
+window.APP_VERSION = 'v100500';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -2246,20 +2246,20 @@ window.initMainApp = async function() {
 
     elements.formLogCatch.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const species = document.getElementById('catch-species').value.trim();
-        const waterType = document.getElementById('catch-water').value;
-        const length = document.getElementById('catch-length').value ? parseFloat(document.getElementById('catch-length').value) : null;
-        const weight = document.getElementById('catch-weight').value ? parseFloat(document.getElementById('catch-weight').value) : null;
-        const lat = elements.catchLatInput.value ? parseFloat(elements.catchLatInput.value) : null;
-        const lng = elements.catchLngInput.value ? parseFloat(elements.catchLngInput.value) : null;
-        const photo = elements.catchPhotoPreview.src || null;
-        const notes = document.getElementById('catch-notes').value.trim();
+        const species = document.getElementById('catch-species') ? document.getElementById('catch-species').value.trim() : '';
+        const waterType = document.getElementById('catch-water') ? document.getElementById('catch-water').value : 'freshwater';
+        const length = (document.getElementById('catch-length') && document.getElementById('catch-length').value) ? parseFloat(document.getElementById('catch-length').value) : null;
+        const weight = (document.getElementById('catch-weight') && document.getElementById('catch-weight').value) ? parseFloat(document.getElementById('catch-weight').value) : null;
+        const lat = (elements.catchLatInput && elements.catchLatInput.value) ? parseFloat(elements.catchLatInput.value) : null;
+        const lng = (elements.catchLngInput && elements.catchLngInput.value) ? parseFloat(elements.catchLngInput.value) : null;
+        const photo = elements.catchPhotoPreview ? (elements.catchPhotoPreview.src || null) : null;
+        const notes = document.getElementById('catch-notes') ? document.getElementById('catch-notes').value.trim() : '';
 
-        // Gear rig selections
-        const rod = elements.rigRod.value;
-        const reel = elements.rigReel.value;
-        const flyline = elements.rigFlyline.value;
-        const fly = elements.rigFly.value;
+        // Gear rig selections with safe null checks
+        const rod = elements.rigRod ? elements.rigRod.value : '';
+        const reel = elements.rigReel ? elements.rigReel.value : '';
+        const flyline = elements.rigFlyline ? elements.rigFlyline.value : '';
+        const fly = elements.rigFly ? elements.rigFly.value : '';
 
         const rawDate = elements.catchDate && elements.catchDate.value ? elements.catchDate.value : new Date().toISOString().split('T')[0];
         let rawTime = elements.catchTime && elements.catchTime.value ? elements.catchTime.value : '12:00';

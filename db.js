@@ -123,9 +123,16 @@ const DB = {
     // Catch Operations
     async addCatch(item) {
         if (!item.id) item.id = Date.now();
+        
+        // Strip large base64 photos from localStorage copy to prevent QuotaExceededError
+        const storageCopy = { ...item };
+        if (storageCopy.photo && storageCopy.photo.length > 200000) {
+            storageCopy.photo = '';
+        }
+
         let localCatches = [];
         try { localCatches = JSON.parse(localStorage.getItem('fly_catches_db') || '[]'); } catch(e){}
-        localCatches.push(item);
+        localCatches.push(storageCopy);
         try { localStorage.setItem('fly_catches_db', JSON.stringify(localCatches)); } catch(e){}
 
         try {
@@ -153,14 +160,16 @@ const DB = {
             });
             
             const catchMap = new Map();
-            // If localStorage has catches, use it as baseline
-            localCatches.forEach(c => catchMap.set(String(c.id), c));
-            // Add IDB catches
+            // IDB catches take precedence because they contain full photo base64 data
             idbCatches.forEach(c => catchMap.set(String(c.id), c));
+            localCatches.forEach(c => {
+                if (!catchMap.has(String(c.id))) {
+                    catchMap.set(String(c.id), c);
+                }
+            });
 
-            // If localStorage was explicitly cleared or pruned, honor localStorage deletions
+            // If localStorage was explicitly cleared, honor localStorage deletions
             if (localStorage.getItem('demo_catches_cleared') === 'true' && localCatches.length === 0 && idbCatches.length > 0) {
-                // Clear lingering IDB catches
                 try {
                     const rwStore = await getStore('catches', 'readwrite');
                     rwStore.clear();
@@ -169,7 +178,6 @@ const DB = {
             }
 
             const merged = Array.from(catchMap.values());
-            try { localStorage.setItem('fly_catches_db', JSON.stringify(merged)); } catch(e){}
             return merged;
         } catch(e) {
             return localCatches;
@@ -177,11 +185,16 @@ const DB = {
     },
 
     async updateCatch(item) {
+        const storageCopy = { ...item };
+        if (storageCopy.photo && storageCopy.photo.length > 200000) {
+            storageCopy.photo = '';
+        }
+
         let localCatches = [];
         try { localCatches = JSON.parse(localStorage.getItem('fly_catches_db') || '[]'); } catch(e){}
         const idx = localCatches.findIndex(c => String(c.id) === String(item.id));
-        if (idx !== -1) localCatches[idx] = item;
-        else localCatches.push(item);
+        if (idx !== -1) localCatches[idx] = storageCopy;
+        else localCatches.push(storageCopy);
         try { localStorage.setItem('fly_catches_db', JSON.stringify(localCatches)); } catch(e){}
 
         try {
