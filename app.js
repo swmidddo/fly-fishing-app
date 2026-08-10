@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100510';
+window.APP_VERSION = 'v100520';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -2255,7 +2255,7 @@ window.initMainApp = async function() {
 
     elements.formLogCatch.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const species = document.getElementById('catch-species') ? document.getElementById('catch-species').value.trim() : '';
+        const speciesInput = document.getElementById('catch-species') ? document.getElementById('catch-species').value.trim() : '';
         const waterTypeRaw = document.getElementById('catch-water') ? document.getElementById('catch-water').value : '';
         const waterType = waterTypeRaw || 'freshwater';
         const length = (document.getElementById('catch-length') && document.getElementById('catch-length').value) ? parseFloat(document.getElementById('catch-length').value) : null;
@@ -2291,7 +2291,19 @@ window.initMainApp = async function() {
         const date = rawDate;
         const time = rawTime;
 
-        if (!species) return;
+        // Auto-resolve missing species input from candidate chips or default fallback
+        let species = speciesInput;
+        if (!species) {
+            const firstChip = document.querySelector('.candidate-chip');
+            if (firstChip && firstChip.dataset && firstChip.dataset.species) {
+                species = firstChip.dataset.species;
+            } else if (firstChip && firstChip.textContent) {
+                species = firstChip.textContent.replace(/[\d%🎯]/g, '').trim();
+            } else {
+                species = 'Unidentified Fish';
+            }
+            if (document.getElementById('catch-species')) document.getElementById('catch-species').value = species;
+        }
 
         const existing = AppState.editingCatchId ? AppState.catches.find(c => c.id === AppState.editingCatchId) : null;
 
