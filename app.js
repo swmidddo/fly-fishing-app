@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100440';
+window.APP_VERSION = 'v100460';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -2276,15 +2276,29 @@ window.initMainApp = async function() {
     const catchCameraInput = document.getElementById('catch-camera');
     if (catchCameraInput) catchCameraInput.addEventListener('change', handlePhotoSelect);
 
+    const triggerRegUpdateOnCoordChange = () => {
+        const sp = document.getElementById('catch-species') ? document.getElementById('catch-species').value : '';
+        const lat = elements.catchLatInput && elements.catchLatInput.value ? parseFloat(elements.catchLatInput.value) : null;
+        const lng = elements.catchLngInput && elements.catchLngInput.value ? parseFloat(elements.catchLngInput.value) : null;
+        if (sp) displayRegulationBox(sp, lat, lng);
+    };
+
+    if (elements.catchLatInput) elements.catchLatInput.addEventListener('change', triggerRegUpdateOnCoordChange);
+    if (elements.catchLngInput) elements.catchLngInput.addEventListener('change', triggerRegUpdateOnCoordChange);
+    if (elements.catchLatInput) elements.catchLatInput.addEventListener('input', triggerRegUpdateOnCoordChange);
+    if (elements.catchLngInput) elements.catchLngInput.addEventListener('input', triggerRegUpdateOnCoordChange);
+
     elements.useGpsBtn.addEventListener('click', () => {
         if (AppState.userCoords) {
             elements.catchLatInput.value = AppState.userCoords.lat.toFixed(6);
             elements.catchLngInput.value = AppState.userCoords.lng.toFixed(6);
+            triggerRegUpdateOnCoordChange();
         } else {
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     elements.catchLatInput.value = pos.coords.latitude.toFixed(6);
                     elements.catchLngInput.value = pos.coords.longitude.toFixed(6);
+                    triggerRegUpdateOnCoordChange();
                 },
                 (err) => alert("GPS lock failed: " + err.message)
             );
@@ -2308,8 +2322,25 @@ window.initMainApp = async function() {
         const flyline = elements.rigFlyline.value;
         const fly = elements.rigFly.value;
 
-        const date = elements.catchDate.value || new Date().toISOString().split('T')[0];
-        const time = elements.catchTime.value || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const rawDate = elements.catchDate && elements.catchDate.value ? elements.catchDate.value : new Date().toISOString().split('T')[0];
+        let rawTime = elements.catchTime && elements.catchTime.value ? elements.catchTime.value : '12:00';
+        
+        // Normalize time to 24-hour HH:mm
+        if (rawTime.includes('AM') || rawTime.includes('PM')) {
+            try {
+                const dummyDt = new Date(`2000-01-01 ${rawTime}`);
+                if (!isNaN(dummyDt.getTime())) {
+                    rawTime = dummyDt.toTimeString().slice(0, 5);
+                } else {
+                    rawTime = '12:00';
+                }
+            } catch(e) {
+                rawTime = '12:00';
+            }
+        }
+        
+        const date = rawDate;
+        const time = rawTime;
 
         if (!species) return;
 
@@ -2322,22 +2353,29 @@ window.initMainApp = async function() {
         let tideHeight = (AppState.photoMetadata && AppState.photoMetadata.tideHeight) || (existing ? existing.tideHeight : null);
         let tideDirection = (AppState.photoMetadata && AppState.photoMetadata.tideDirection) || (existing ? existing.tideDirection : null);
 
-        // Fetch on-the-fly if GPS coordinates and Date/Time are present but weatherCondition/pressure are missing
+        // Fetch on-the-fly safely if GPS coordinates and Date/Time are present but weatherCondition/pressure are missing
         if (lat && lng && date && time && (!weatherCondition || !pressure)) {
             try {
-                const histWeather = await window.WEATHER.fetchHistoricalWeather(lat, lng, date, time);
-                const dateTimeStr = `${date}T${time}:00`;
-                const moonPhaseObj = window.WEATHER.getMoonPhase(new Date(dateTimeStr));
-                const tideObj = window.WEATHER.getTideData(lat, lng, new Date(dateTimeStr));
+                if (window.WEATHER) {
+                    const histWeather = await window.WEATHER.fetchHistoricalWeather(lat, lng, date, time);
+                    if (histWeather) {
+                        weatherCondition = histWeather.condition || weatherCondition;
+                        weatherTemp = histWeather.temp !== undefined ? histWeather.temp : weatherTemp;
+                        pressure = histWeather.pressure || pressure;
+                    }
+                    const dateTimeStr = `${date}T${time}:00`;
+                    const parsedDt = new Date(dateTimeStr);
+                    if (!isNaN(parsedDt.getTime())) {
+                        const moonPhaseObj = window.WEATHER.getMoonPhase ? window.WEATHER.getMoonPhase(parsedDt) : null;
+                        const tideObj = window.WEATHER.getTideData ? window.WEATHER.getTideData(lat, lng, parsedDt) : null;
 
-                weatherCondition = histWeather.condition;
-                weatherTemp = histWeather.temp;
-                pressure = histWeather.pressure;
-                moonPhase = moonPhaseObj.label;
-                tideHeight = tideObj.currentHeight;
-                tideDirection = tideObj.tideDirection;
+                        moonPhase = moonPhaseObj?.label || moonPhase;
+                        tideHeight = tideObj?.currentHeight || tideHeight;
+                        tideDirection = tideObj?.tideDirection || tideDirection;
+                    }
+                }
             } catch (e) {
-                console.error("On-the-fly environmental fetch failed:", e);
+                console.warn("Non-fatal environmental fetch note:", e);
             }
         }
 
@@ -4100,16 +4138,33 @@ window.initMainApp = async function() {
     // 13. AI Fish Identification & Regulations Scanner
     // ==========================================
     function getStateFromCoords(lat, lng) {
-        if (lat === null || lat === undefined || lng === null || lng === undefined) return 'VIC';
-        if (lat >= -39 && lat <= -34 && lng >= 141 && lng <= 150) return 'VIC';
-        if (lat >= -37 && lat <= -28 && lng >= 141 && lng <= 153) return 'NSW';
-        if (lat >= -29 && lat <= -10 && lng >= 138 && lng <= 153) return 'QLD';
-        if (lat >= -35 && lat <= -13 && lng >= 113 && lng <= 129) return 'WA';
-        if (lat >= -38 && lat <= -26 && lng >= 129 && lng <= 141) return 'SA';
-        if (lat >= -44 && lat <= -40 && lng >= 144 && lng <= 149) return 'TAS';
-        if (lat >= -26 && lat <= -11 && lng >= 129 && lng <= 138) return 'NT';
-        if (lat >= -36 && lat <= -35 && lng >= 148 && lng <= 149) return 'ACT';
-        return 'VIC';
+        if (lat === null || lat === undefined || lng === null || lng === undefined) return null;
+        
+        // 1. Queensland (-29.0 to -10.0, 138.0 to 154.0)
+        if (lat >= -29.0 && lat <= -10.0 && lng >= 138.0 && lng <= 154.0) return 'QLD';
+
+        // 2. Northern Territory (-26.0 to -10.0, 129.0 to 138.0)
+        if (lat >= -26.0 && lat <= -10.0 && lng >= 129.0 && lng <= 138.0) return 'NT';
+
+        // 3. Western Australia (-35.5 to -13.5, 112.5 to 129.0)
+        if (lat >= -35.5 && lat <= -13.5 && lng >= 112.5 && lng <= 129.0) return 'WA';
+
+        // 4. South Australia (-38.0 to -26.0, 129.0 to 141.0)
+        if (lat >= -38.0 && lat <= -26.0 && lng >= 129.0 && lng <= 141.0) return 'SA';
+
+        // 5. Tasmania (-44.0 to -40.5, 144.0 to 149.0)
+        if (lat >= -44.0 && lat <= -40.5 && lng >= 144.0 && lng <= 149.0) return 'TAS';
+
+        // 6. ACT (-35.9 to -35.1, 148.7 to 149.4)
+        if (lat >= -35.9 && lat <= -35.1 && lng >= 148.7 && lng <= 149.4) return 'ACT';
+
+        // 7. New South Wales (-37.5 to -28.1, 141.0 to 153.6)
+        if (lat >= -37.5 && lat <= -28.1 && lng >= 141.0 && lng <= 153.6) return 'NSW';
+
+        // 8. Victoria (-39.2 to -35.8, 140.9 to 150.0)
+        if (lat >= -39.2 && lat <= -35.8 && lng >= 140.9 && lng <= 150.0) return 'VIC';
+
+        return null;
     }
 
     const GLOBAL_SPORTFISH_PROFILES = {
@@ -4140,11 +4195,23 @@ window.initMainApp = async function() {
             return;
         }
 
-        // STEP 2: Determine location if one is available
-        const hasLocation = lat !== null && lat !== undefined && lng !== null && lng !== undefined;
-        const stateCode = hasLocation ? getStateFromCoords(lat, lng) : null;
+        // STEP 2: Resolve Location (from parameters, form inputs, or AppState user GPS)
+        let resolvedLat = lat;
+        let resolvedLng = lng;
+        if ((resolvedLat === null || resolvedLat === undefined) && elements.catchLatInput && elements.catchLatInput.value) {
+            resolvedLat = parseFloat(elements.catchLatInput.value);
+        }
+        if ((resolvedLng === null || resolvedLng === undefined) && elements.catchLngInput && elements.catchLngInput.value) {
+            resolvedLng = parseFloat(elements.catchLngInput.value);
+        }
+        if ((resolvedLat === null || resolvedLat === undefined) && AppState.userCoords) {
+            resolvedLat = AppState.userCoords.lat;
+            resolvedLng = AppState.userCoords.lng;
+        }
+
+        const stateCode = (resolvedLat !== null && resolvedLng !== null) ? getStateFromCoords(resolvedLat, resolvedLng) : null;
         
-        // STEP 3: Lastly apply Australian rules IF fish species matches Australian rules; if not, don't!
+        // STEP 3: Apply State-Specific Rules matching GPS location
         let matchedRule = null;
         let matchedStateName = '';
 
