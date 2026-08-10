@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100390';
+window.APP_VERSION = 'v100400';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -4275,13 +4275,13 @@ window.initMainApp = async function() {
             }, 600);
         };
 
-        // Safety Timeout: Guarantee scan overlay hides within 2.8s even if network APIs hang
+        // Safety Timeout: Guarantee scan overlay hides within 9.0s even if network APIs hang
         safetyTimer = setTimeout(() => {
             if (!hasFinished) {
-                console.warn("Photo analysis safety timeout reached. Hiding scan overlay.");
+                console.warn("Photo analysis safety timeout reached (9s). Hiding scan overlay.");
                 finish(null, null);
             }
-        }, 2800);
+        }, 9000);
 
         const roboflowKey = (localStorage.getItem('roboflowApiKey') || '').trim();
         const geminiKey = (localStorage.getItem('geminiApiKey') || '').trim();
@@ -4378,7 +4378,7 @@ window.initMainApp = async function() {
                             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${encodeURIComponent(geminiKey)}`;
 
                             const controller = new AbortController();
-                            const fetchTimeout = setTimeout(() => controller.abort(), 4500);
+                            const fetchTimeout = setTimeout(() => controller.abort(), 8000);
 
                             const response = await fetch(apiUrl, {
                                 method: 'POST',
