@@ -80,8 +80,8 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config
-window.APP_VERSION = 'v100300';
-window.DEFAULT_GOOGLE_MAPS_KEY = window.DEFAULT_GOOGLE_MAPS_KEY || '';
+window.APP_VERSION = 'v100310';
+window.DEFAULT_GOOGLE_MAPS_KEY = 'AIzaSyB5AJ4zj9Iht6g_ZMMTTcDGXyAAGyLfdpI';
 
 // Top-Level Global Navigation & Weather Entrypoints
 window.switchTab = function(tabId) {
