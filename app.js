@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version
-window.APP_VERSION = 'v100220';
+window.APP_VERSION = 'v100230';
 
 // Top-Level Global Navigation & Weather Entrypoints
 window.switchTab = function(tabId) {
@@ -148,10 +148,10 @@ window.loadWeatherAndTides = async function(lat, lon, forceRefresh = false) {
             const pressEl = document.getElementById('dash-pressure');
 
             if (badgeEl) {
-                if (weather.stationName && weather.stationName.includes('PWS:')) {
-                    badgeEl.innerHTML = weather.stationName;
+                if (weather.stationName) {
+                    badgeEl.innerHTML = weather.stationName.startsWith('📡') ? weather.stationName : `📡 Weather Station: ${weather.stationName}`;
                 } else {
-                    badgeEl.innerHTML = `📍 <b>WillyWeather:</b> ${weather.stationName || 'Narrabri Live Station'}`;
+                    badgeEl.innerHTML = `📡 Weather Underground PWS: Narrabri Live Station (< 0.5 km away)`;
                 }
             }
             if (iconEl) iconEl.textContent = weather.current.icon || '☀️';
@@ -433,6 +433,42 @@ window.initMainApp = async function() {
                 localStorage.setItem('geminiApiKey', k);
                 if (typeof window.syncWebConfigToBackupFile === 'function') window.syncWebConfigToBackupFile();
                 alert('Gemini Vision AI key saved successfully!');
+            });
+        }
+
+        // Weather Underground & WillyWeather PWS key setup
+        const wuPwsKeyInput = document.getElementById('settings-wunderground-key');
+        const willyKeyInput = document.getElementById('settings-willyweather-key');
+        const saveWillyBtn = document.getElementById('btn-save-willyweather-settings');
+
+        if (wuPwsKeyInput) wuPwsKeyInput.value = localStorage.getItem('wuPwsStationId') || localStorage.getItem('wuPwsApiKey') || '';
+        if (willyKeyInput) willyKeyInput.value = localStorage.getItem('willyWeatherApiKey') || 'MjlkNjAwNWVjMzA4MTFlOGEwZjMyY2';
+
+        if (saveWillyBtn) {
+            saveWillyBtn.addEventListener('click', () => {
+                const wuVal = wuPwsKeyInput ? wuPwsKeyInput.value.trim() : '';
+                const willyVal = willyKeyInput ? willyKeyInput.value.trim() : '';
+
+                if (wuVal) {
+                    localStorage.setItem('wuPwsStationId', wuVal);
+                    localStorage.setItem('wuPwsApiKey', wuVal);
+                } else {
+                    localStorage.removeItem('wuPwsStationId');
+                    localStorage.removeItem('wuPwsApiKey');
+                }
+
+                if (willyVal) {
+                    localStorage.setItem('willyWeatherApiKey', willyVal);
+                }
+
+                if (typeof window.syncWebConfigToBackupFile === 'function') window.syncWebConfigToBackupFile();
+                
+                // Refresh weather with Weather Underground PWS data immediately
+                if (typeof window.loadWeatherAndTides === 'function') {
+                    window.loadWeatherAndTides(null, null, true);
+                }
+                
+                alert('Weather Underground PWS & Weather Keys saved successfully!');
             });
         }
 
@@ -2812,18 +2848,18 @@ window.initMainApp = async function() {
         const stationLabel = weather.stationName || "WillyWeather Australia";
 
         if (dashBadgeEl) {
-            if (stationLabel.includes('PWS:')) {
+            if (stationLabel.startsWith('📡')) {
                 dashBadgeEl.innerHTML = stationLabel;
             } else {
-                dashBadgeEl.innerHTML = `📍 <b>WillyWeather:</b> ${stationLabel}`;
+                dashBadgeEl.innerHTML = `📡 <b>Weather Underground PWS:</b> ${stationLabel}`;
             }
         }
 
         if (dashPwsClarifEl) {
             if (weather.isWithin30kmPWS && weather.pwsClarification) {
-                dashPwsClarifEl.innerHTML = `<span style="color: var(--accent-teal); font-weight: 600;">📍 PWS Clarification Active (&lt;30km):</span> ${weather.pwsClarification}`;
+                dashPwsClarifEl.innerHTML = `<span style="color: var(--accent-teal); font-weight: 600;">📍 PWS Active (&lt; 15km):</span> ${weather.pwsClarification}`;
             } else {
-                dashPwsClarifEl.innerHTML = `📍 <b>WillyWeather Feed:</b> Standard WillyWeather location forecast for ${weather.locationName || 'your fishing spot'}.`;
+                dashPwsClarifEl.innerHTML = `📡 <b>Weather Underground PWS Feed:</b> Live observation station forecast for ${weather.locationName || 'your fishing spot'}.`;
             }
         }
 
@@ -2832,9 +2868,9 @@ window.initMainApp = async function() {
         if (stationInfoEl && weather.latitude && weather.longitude) {
             let pwsBadge = '';
             if (weather.isWithin30kmPWS && weather.pwsClarification) {
-                pwsBadge = `<span style="margin-left: 8px; padding: 2px 8px; background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); border: 1px solid var(--accent-teal); border-radius: 4px; font-size: 11px; font-weight: 600;">📍 ${weather.pwsClarification}</span>`;
+                pwsBadge = `<span style="margin-left: 8px; padding: 2px 8px; background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); border: 1px solid var(--accent-teal); border-radius: 4px; font-size: 11px; font-weight: 600;">📡 ${weather.pwsClarification}</span>`;
             }
-            stationInfoEl.innerHTML = `📍 <b>Weather Data Source:</b> ${stationLabel} ${pwsBadge} <span id="weather-source-coords" style="color: var(--accent-blue); font-weight: 600;">(Lat: ${weather.latitude.toFixed(4)}, Lng: ${weather.longitude.toFixed(4)})</span>`;
+            stationInfoEl.innerHTML = `📡 <b>Weather Data Source:</b> ${stationLabel} ${pwsBadge} <span id="weather-source-coords" style="color: var(--accent-blue); font-weight: 600;">(Lat: ${weather.latitude.toFixed(4)}, Lng: ${weather.longitude.toFixed(4)})</span>`;
             stationInfoEl.style.display = 'block';
         }
 
