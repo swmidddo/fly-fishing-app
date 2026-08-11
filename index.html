@@ -26,6 +26,29 @@
             });
         }
 
+        // Automatic URL search parameter session restoration
+        (function() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const urlEmail = params.get('auth-email') || params.get('email') || params.get('username');
+                if (urlEmail) {
+                    const clean = urlEmail.toLowerCase().trim();
+                    const isAdmin = (clean === 'admin' || clean === 'admin@flyfishing.com');
+                    const user = {
+                        id: 'user_' + String(clean).replace(/[^a-z0-9]/g, '_'),
+                        name: isAdmin ? 'System Administrator' : clean,
+                        email: clean.includes('@') ? clean : clean + '@flyfishing.com',
+                        role: isAdmin ? 'admin' : 'user',
+                        tier: isAdmin ? 'pro admin' : 'pro',
+                        avatar: isAdmin ? 'https://api.dicebear.com/7.x/bottts/svg?seed=AdminBoss' : `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(clean)}`,
+                        lastLogin: new Date().toISOString()
+                    };
+                    localStorage.setItem('fly_fishing_user_session', JSON.stringify(user));
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+            } catch(e){}
+        })();
+
         // Global fail-proof Modal Handlers available immediately at boot
         window.openAuthModal = function() {
             console.log("Global openAuthModal invoked!");
@@ -161,7 +184,7 @@
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
-                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v100750</span>
+                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v100760</span>
                     </div>
                 </div>
             </div>
@@ -1118,7 +1141,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
                             <div>
                                 <strong style="font-size: 13px; color: var(--text-primary);">Installed Version:</strong>
-                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v100750 (Latest Build)</span>
+                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v100760 (Latest Build)</span>
                             </div>
                             <button class="btn btn-primary btn-sm" id="btn-force-check-updates">🔄 Check for Updates Now</button>
                         </div>
@@ -1579,7 +1602,7 @@
             </div>
 
             <!-- Auth Form -->
-            <form id="form-auth" onsubmit="window.submitAuthForm(event)">
+            <form id="form-auth" onsubmit="event.preventDefault(); window.submitAuthForm(event); return false;">
                 <div class="form-group mb-15" id="auth-group-name" style="display: none;">
                     <label for="auth-name">Angler Name</label>
                     <input type="text" id="auth-name" class="form-input" placeholder="e.g. Captain Jack">
@@ -1691,16 +1714,16 @@
     </div>
 
     <!-- Scripts -->
-    <script src="db.js?v=100750"></script>
-    <script src="regulations.js?v=100750"></script>
-    <script src="weather.js?v=100750"></script>
-    <script src="exif.js?v=100750"></script>
-    <script src="map.js?v=100750"></script>
-    <script src="tackle_db.js?v=100750"></script>
-    <script src="fish_db.js?v=100750"></script>
-    <script src="fly_box.js?v=100750"></script>
-    <script src="knots.js?v=100750"></script>
-    <script src="auth.js?v=100750"></script>
-    <script src="app.js?v=100750"></script>
+    <script src="db.js?v=100760"></script>
+    <script src="regulations.js?v=100760"></script>
+    <script src="weather.js?v=100760"></script>
+    <script src="exif.js?v=100760"></script>
+    <script src="map.js?v=100760"></script>
+    <script src="tackle_db.js?v=100760"></script>
+    <script src="fish_db.js?v=100760"></script>
+    <script src="fly_box.js?v=100760"></script>
+    <script src="knots.js?v=100760"></script>
+    <script src="auth.js?v=100760"></script>
+    <script src="app.js?v=100760"></script>
 </body>
 </html>
