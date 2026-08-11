@@ -167,11 +167,12 @@ window.AuthApp = (function() {
 
         const cleanEmail = email.toLowerCase().trim();
         const isAdmin = isAdminCredentials(cleanEmail, password);
+        const userEmail = cleanEmail.includes('@') ? cleanEmail : cleanEmail + '@flyfishing.com';
 
         const user = {
             id: 'user_' + String(cleanEmail).replace(/[^a-z0-9]/g, '_'),
             name: isAdmin ? 'System Administrator' : cleanEmail.split('@')[0],
-            email: cleanEmail,
+            email: userEmail,
             role: isAdmin ? 'admin' : 'user',
             tier: isAdmin ? 'pro admin' : 'pro',
             avatar: isAdmin ? 'https://api.dicebear.com/7.x/bottts/svg?seed=AdminBoss' : `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanEmail)}`,
@@ -181,10 +182,11 @@ window.AuthApp = (function() {
         currentUser = user;
         localStorage.setItem(AUTH_KEY, JSON.stringify(user));
 
-        // Pull cloud data into local IndexedDB and refresh views
+        // Push local vault and pull cloud data into local IndexedDB
+        await pushLocalToCloud();
         await pullCloudToLocal();
         updateUserUI();
-        triggerAppUIRefresh();
+        await triggerAppUIRefresh();
         return user;
     }
 
@@ -649,6 +651,13 @@ window.AuthApp = (function() {
     window.closeAuthModal = closeAuthModal;
     window.syncNow = pushLocalToCloud;
     window.logout = logout;
+
+    // Automatically initialize Auth session & UI on script load
+    try {
+        initAuth();
+    } catch(e) {
+        console.error("Auto initAuth notice:", e);
+    }
 
     return {
         initAuth,
