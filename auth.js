@@ -295,43 +295,42 @@ window.AuthApp = (function() {
             let syncSuccess = false;
             let currentBlobId = localStorage.getItem('fly_fishing_shared_blob_id') || '';
 
-            // Direct persistent JSONBlob push
+            // 1. Primary Sync: Vercel Serverless Sync Proxy
             try {
-                const blobUrl = currentBlobId ? `https://jsonblob.com/api/jsonBlob/${currentBlobId}` : 'https://jsonblob.com/api/jsonBlob';
-                const blobMethod = currentBlobId ? 'PUT' : 'POST';
-                const blobRes = await fetch(blobUrl, {
-                    method: blobMethod,
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({ email: currentUser.email, payload: cloudPayload, updatedAt: new Date().toISOString() })
-                });
-
-                if (blobRes.ok || blobRes.status === 201) {
-                    const loc = blobRes.headers.get('Location') || blobRes.headers.get('location');
-                    if (loc) {
-                        const parts = loc.split('/');
-                        currentBlobId = parts[parts.length - 1];
-                        try { localStorage.setItem('fly_fishing_shared_blob_id', currentBlobId); } catch(e){}
-                    }
-                    syncSuccess = true;
-                }
-            } catch(e){}
-
-            // Server backup POST trigger to /api/sync
-            try {
-                const res = await fetch(`/api/sync?blobId=${encodeURIComponent(currentBlobId)}`, {
+                const syncRes = await fetch(`/api/sync?email=${encodeURIComponent(currentUser.email)}&blobId=${encodeURIComponent(currentBlobId)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: currentUser.email, payload: cloudPayload }),
-                    keepalive: true
+                    body: JSON.stringify({ email: currentUser.email, payload: cloudPayload, blobId: currentBlobId })
                 });
-                if (res.ok) {
-                    const json = await res.json();
-                    if (json && json.blobId) {
-                        try { localStorage.setItem('fly_fishing_shared_blob_id', json.blobId); } catch(e){}
+
+                if (syncRes.ok) {
+                    const json = await syncRes.json();
+                    if (json && json.success) {
+                        if (json.blobId) {
+                            currentBlobId = json.blobId;
+                            try { localStorage.setItem('fly_fishing_shared_blob_id', currentBlobId); } catch(e){}
+                        }
+                        syncSuccess = true;
                     }
-                    syncSuccess = true;
                 }
             } catch(e){}
+
+            // 2. Secondary Sync Fallback: Direct JSONBlob if API proxy unreachable
+            if (!syncSuccess) {
+                try {
+                    const blobUrl = currentBlobId ? `https://jsonblob.com/api/jsonBlob/${currentBlobId}` : 'https://jsonblob.com/api/jsonBlob';
+                    const blobMethod = currentBlobId ? 'PUT' : 'POST';
+                    const blobRes = await fetch(blobUrl, {
+                        method: blobMethod,
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify({ email: currentUser.email, payload: cloudPayload, updatedAt: new Date().toISOString() })
+                    });
+
+                    if (blobRes.ok || blobRes.status === 201) {
+                        syncSuccess = true;
+                    }
+                } catch(e){}
+            }
 
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             if (syncSuccess) {
@@ -360,8 +359,20 @@ window.AuthApp = (function() {
             let cloudData = null;
             let currentBlobId = localStorage.getItem('fly_fishing_shared_blob_id') || '';
 
-            // 1. Fetch direct from JSONBlob cloud vault if blob ID is stored
-            if (currentBlobId) {
+            // 1. Fetch live cloud vault from serverless API first
+            try {
+                const res = await fetch(`/api/sync?email=${encodeURIComponent(targetEmail)}&blobId=${encodeURIComponent(currentBlobId)}`);
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json && json.success && json.vault) {
+                        cloudData = json.vault;
+                        if (json.blobId) try { localStorage.setItem('fly_fishing_shared_blob_id', json.blobId); } catch(e){}
+                    }
+                }
+            } catch(e){}
+
+            // 2. Fetch direct from JSONBlob cloud vault if blob ID is stored & API returned null
+            if (!cloudData && currentBlobId) {
                 try {
                     const res = await fetch(`https://jsonblob.com/api/jsonBlob/${currentBlobId}`, {
                         headers: { 'Accept': 'application/json' }
@@ -374,10 +385,6 @@ window.AuthApp = (function() {
                     }
                 } catch(e){}
             }
-
-            // 2. Fetch live cloud vault from serverless API
-            if (!cloudData) {
-                try {
                     const res = await fetch(`/api/sync?email=${encodeURIComponent(targetEmail)}&blobId=${encodeURIComponent(currentBlobId)}`);
                     if (res.ok) {
                         const json = await res.json();
