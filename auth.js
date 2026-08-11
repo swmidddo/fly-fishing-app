@@ -664,13 +664,15 @@ window.AuthApp = (function() {
     window.closeAuthModal = closeAuthModal;
     window.syncNow = pushLocalToCloud;
     window.logout = logout;
+    window.updateUserUI = updateUserUI;
 
-    // Automatically initialize Auth session & UI on script load
-    try {
+    // Automatically initialize Auth session & UI on script load and DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initAuth);
+    } else {
         initAuth();
-    } catch(e) {
-        console.error("Auto initAuth notice:", e);
     }
+    window.addEventListener('load', initAuth);
 
     return {
         initAuth,
