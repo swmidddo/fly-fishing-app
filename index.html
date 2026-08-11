@@ -81,6 +81,57 @@
             }
         };
 
+        window.updateUserUI = function() {
+            try {
+                const str = localStorage.getItem('fly_fishing_user_session') || sessionStorage.getItem('fly_fishing_user_session');
+                let user = window.__GLOBAL_USER_SESSION__;
+                if (!user && str) {
+                    try { user = JSON.parse(str); } catch(e){}
+                }
+                if (user) window.__GLOBAL_USER_SESSION__ = user;
+
+                const navProfile = document.getElementById('nav-user-profile');
+                const settingsCard = document.getElementById('settings-user-card');
+                const dashCloudCard = document.getElementById('dash-cloud-card');
+
+                if (user) {
+                    if (navProfile) {
+                        navProfile.innerHTML = `
+                            <div class="user-avatar-badge" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(0, 210, 255, 0.15); border: 1.5px solid var(--accent-teal); border-radius: 10px; cursor: pointer;" onclick="window.openAuthModal()">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <img src="${user.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=AdminBoss'}" style="width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--accent-teal);">
+                                    <div style="font-size: 12px; display: flex; flex-direction: column; text-align: left; line-height: 1.2;">
+                                        <strong style="color: var(--text-primary); font-weight: 700;">${user.name}</strong>
+                                        <span style="font-size: 9.5px; color: var(--accent-teal); margin-top: 2px; font-weight: 700;">👑 ADMIN ANGLER (🟢 Synced)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    if (dashCloudCard) {
+                        dashCloudCard.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                                    <span>☁️ Angler Cloud Vault</span>
+                                </h3>
+                                <span class="badge-active" style="background: rgba(46, 213, 115, 0.15); color: var(--success); border: 1px solid var(--success);">🟢 Synced</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                                <img src="${user.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=AdminBoss'}" style="width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--accent-teal);">
+                                <div>
+                                    <strong style="color: var(--text-primary); font-size: 13px;">${user.name}</strong>
+                                    <div style="font-size: 10px; color: var(--accent-teal); font-weight: 700;">👑 ADMIN ANGLER</div>
+                                </div>
+                            </div>
+                            <button class="btn btn-glass btn-sm" onclick="window.syncNow()" style="width: 100%;">🔄 Sync Vault Now</button>
+                        `;
+                    }
+                }
+            } catch(e) {
+                console.error("Standalone updateUserUI notice:", e);
+            }
+        };
+
         window.fastAdminLogin = function() {
             console.log("fastAdminLogin triggered");
             const adminUser = {
@@ -211,7 +262,7 @@
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
-                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v100780</span>
+                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v100790</span>
                     </div>
                 </div>
             </div>
@@ -1168,7 +1219,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
                             <div>
                                 <strong style="font-size: 13px; color: var(--text-primary);">Installed Version:</strong>
-                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v100780 (Latest Build)</span>
+                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v100790 (Latest Build)</span>
                             </div>
                             <button class="btn btn-primary btn-sm" id="btn-force-check-updates">🔄 Check for Updates Now</button>
                         </div>
@@ -1746,16 +1797,16 @@
     </div>
 
     <!-- Scripts -->
-    <script src="db.js?v=100780"></script>
-    <script src="regulations.js?v=100780"></script>
-    <script src="weather.js?v=100780"></script>
-    <script src="exif.js?v=100780"></script>
-    <script src="map.js?v=100780"></script>
-    <script src="tackle_db.js?v=100780"></script>
-    <script src="fish_db.js?v=100780"></script>
-    <script src="fly_box.js?v=100780"></script>
-    <script src="knots.js?v=100780"></script>
-    <script src="auth.js?v=100780"></script>
-    <script src="app.js?v=100780"></script>
+    <script src="db.js?v=100790"></script>
+    <script src="regulations.js?v=100790"></script>
+    <script src="weather.js?v=100790"></script>
+    <script src="exif.js?v=100790"></script>
+    <script src="map.js?v=100790"></script>
+    <script src="tackle_db.js?v=100790"></script>
+    <script src="fish_db.js?v=100790"></script>
+    <script src="fly_box.js?v=100790"></script>
+    <script src="knots.js?v=100790"></script>
+    <script src="auth.js?v=100790"></script>
+    <script src="app.js?v=100790"></script>
 </body>
 </html>
