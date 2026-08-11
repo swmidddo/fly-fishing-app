@@ -619,16 +619,26 @@ window.AuthApp = (function() {
     }
 
     function openAuthModal() {
-        const modal = document.getElementById('modal-auth');
-        if (modal) {
-            modal.classList.add('active');
+        try {
+            const modal = document.getElementById('modal-auth');
+            if (modal) {
+                modal.style.display = 'flex';
+                modal.classList.add('active');
+            }
             bindAuthEvents();
+        } catch(e) {
+            console.error("openAuthModal notice:", e);
         }
     }
 
     function closeAuthModal() {
-        const modal = document.getElementById('modal-auth');
-        if (modal) modal.classList.remove('active');
+        try {
+            const modal = document.getElementById('modal-auth');
+            if (modal) {
+                modal.style.display = 'none';
+                modal.classList.remove('active');
+            }
+        } catch(e){}
     }
 
     return {
