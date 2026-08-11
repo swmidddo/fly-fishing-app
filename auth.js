@@ -180,13 +180,26 @@ window.AuthApp = (function() {
         };
 
         currentUser = user;
-        localStorage.setItem(AUTH_KEY, JSON.stringify(user));
+        try {
+            localStorage.setItem(AUTH_KEY, JSON.stringify(user));
+        } catch(e){}
 
-        // Push local vault and pull cloud data into local IndexedDB
-        await pushLocalToCloud();
-        await pullCloudToLocal();
+        // INSTANT UI UPDATE & MODAL CLOSE BEFORE BACKGROUND NETWORK SYNC
         updateUserUI();
-        await triggerAppUIRefresh();
+        try { closeAuthModal(); } catch(e){}
+
+        // Background asynchronous network cloud sync (non-blocking)
+        (async () => {
+            try {
+                await pushLocalToCloud();
+                await pullCloudToLocal();
+                updateUserUI();
+                await triggerAppUIRefresh();
+            } catch(e) {
+                console.warn("Background sync after login notice:", e);
+            }
+        })();
+
         return user;
     }
 
