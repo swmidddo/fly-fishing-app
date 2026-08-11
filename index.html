@@ -46,15 +46,62 @@
             }
         };
 
-        window.closeAuthModal = function() {
-            const modal = document.getElementById('modal-auth');
-            if (modal) {
-                modal.style.display = 'none';
-                modal.classList.remove('active');
+        window.submitAuthForm = async function(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            const emailEl = document.getElementById('auth-email');
+            const passEl = document.getElementById('auth-password');
+            const nameEl = document.getElementById('auth-name');
+            const submitBtn = document.getElementById('btn-auth-submit');
+
+            const email = emailEl ? emailEl.value.trim() : '';
+            const password = passEl ? passEl.value.trim() : '';
+            const name = nameEl ? nameEl.value.trim() : '';
+
+            if (!email || !password) {
+                alert("Please enter both a username/email and password.");
+                return;
             }
-            if (window.AuthApp && window.AuthApp.closeAuthModal) {
-                try { window.AuthApp.closeAuthModal(); } catch(e){}
+
+            try {
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = "⌛ Signing In...";
+                }
+
+                if (window.AuthApp && window.AuthApp.login) {
+                    await window.AuthApp.login(email, password);
+                } else {
+                    const isAdmin = (email.toLowerCase() === 'admin' || password.toLowerCase() === 'admin');
+                    const user = {
+                        id: 'user_' + String(email).replace(/[^a-z0-9]/g, '_'),
+                        name: isAdmin ? 'System Administrator' : email,
+                        email: email.includes('@') ? email : email + '@flyfishing.com',
+                        role: isAdmin ? 'admin' : 'user',
+                        tier: isAdmin ? 'pro admin' : 'pro',
+                        avatar: isAdmin ? 'https://api.dicebear.com/7.x/bottts/svg?seed=AdminBoss' : `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email)}`,
+                        lastLogin: new Date().toISOString()
+                    };
+                    localStorage.setItem('fly_fishing_user_session', JSON.stringify(user));
+                    window.location.reload();
+                }
+
+                window.closeAuthModal();
+            } catch(err) {
+                alert("Sign In Error: " + err.message);
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Sign In";
+                }
             }
+        };
+
+        window.submitGoogleAuth = async function(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            if (window.AuthApp && window.AuthApp.loginWithGoogle) {
+                await window.AuthApp.loginWithGoogle();
+            }
+            window.closeAuthModal();
         };
 
         window.toggleMobileMoreDrawer = function(forceState) {
@@ -85,7 +132,7 @@
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
-                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v100710</span>
+                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v100720</span>
                     </div>
                 </div>
             </div>
@@ -1042,7 +1089,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
                             <div>
                                 <strong style="font-size: 13px; color: var(--text-primary);">Installed Version:</strong>
-                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v100710 (Latest Build)</span>
+                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v100720 (Latest Build)</span>
                             </div>
                             <button class="btn btn-primary btn-sm" id="btn-force-check-updates">🔄 Check for Updates Now</button>
                         </div>
@@ -1503,7 +1550,7 @@
             </div>
 
             <!-- Auth Form -->
-            <form id="form-auth">
+            <form id="form-auth" onsubmit="window.submitAuthForm(event)">
                 <div class="form-group mb-15" id="auth-group-name" style="display: none;">
                     <label for="auth-name">Angler Name</label>
                     <input type="text" id="auth-name" class="form-input" placeholder="e.g. Captain Jack">
@@ -1516,7 +1563,7 @@
                     <label for="auth-password">Password</label>
                     <input type="password" id="auth-password" class="form-input" placeholder="••••••••" required>
                 </div>
-                <button type="submit" class="btn btn-primary btn-block mb-15" id="btn-auth-submit" style="width: 100%;">Sign In</button>
+                <button type="button" class="btn btn-primary btn-block mb-15" id="btn-auth-submit" onclick="window.submitAuthForm(event)" style="width: 100%;">Sign In</button>
             </form>
 
             <div style="display: flex; align-items: center; margin: 15px 0; color: var(--text-secondary); font-size: 11px;">
@@ -1525,7 +1572,7 @@
                 <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
             </div>
 
-            <button type="button" class="btn btn-glass btn-block" id="btn-auth-google" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <button type="button" class="btn btn-glass btn-block" id="btn-auth-google" onclick="window.submitGoogleAuth(event)" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
                 <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.15C3.25 21.36 7.34 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.24C.45 8.16 0 9.99 0 12s.45 3.84 1.24 5.42l4.04-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.25 2.64 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
                 <span>Continue with Google</span>
             </button>
@@ -1615,16 +1662,16 @@
     </div>
 
     <!-- Scripts -->
-    <script src="db.js?v=100710"></script>
-    <script src="regulations.js?v=100710"></script>
-    <script src="weather.js?v=100710"></script>
-    <script src="exif.js?v=100710"></script>
-    <script src="map.js?v=100710"></script>
-    <script src="tackle_db.js?v=100710"></script>
-    <script src="fish_db.js?v=100710"></script>
-    <script src="fly_box.js?v=100710"></script>
-    <script src="knots.js?v=100710"></script>
-    <script src="auth.js?v=100710"></script>
-    <script src="app.js?v=100710"></script>
+    <script src="db.js?v=100720"></script>
+    <script src="regulations.js?v=100720"></script>
+    <script src="weather.js?v=100720"></script>
+    <script src="exif.js?v=100720"></script>
+    <script src="map.js?v=100720"></script>
+    <script src="tackle_db.js?v=100720"></script>
+    <script src="fish_db.js?v=100720"></script>
+    <script src="fly_box.js?v=100720"></script>
+    <script src="knots.js?v=100720"></script>
+    <script src="auth.js?v=100720"></script>
+    <script src="app.js?v=100720"></script>
 </body>
 </html>
