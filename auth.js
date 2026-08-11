@@ -216,6 +216,29 @@ window.AuthApp = (function() {
         window.location.reload();
     }
 
+    // Toast notification banner helper
+    window.showSyncToast = function(message, isError = false) {
+        let toast = document.getElementById('global-sync-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'global-sync-toast';
+            toast.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 999999; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); transition: all 0.3s ease; text-align: center; max-width: 90vw; opacity: 0; pointer-events: none;';
+            document.body.appendChild(toast);
+        }
+
+        toast.style.background = isError ? 'linear-gradient(135deg, #ef4444, #991b1b)' : 'linear-gradient(135deg, #10b981, #047857)';
+        toast.style.color = '#ffffff';
+        toast.style.border = isError ? '1px solid #f87171' : '1px solid #34d399';
+        toast.textContent = message;
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateX(-50%) translateY(10px)';
+
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(-50%) translateY(0px)';
+        }, 4000);
+    };
+
     // Push local IndexedDB data to user cloud vault
     async function pushLocalToCloud() {
         if (syncInProgress) return;
@@ -233,7 +256,7 @@ window.AuthApp = (function() {
         }
 
         syncInProgress = true;
-        updateSyncStatusUI('⌛ Syncing to Cloud...');
+        updateSyncStatusUI('⌛ Uploading to Cloud Vault...');
 
         try {
             const catches = window.DB && window.DB.getAllCatches ? await window.DB.getAllCatches() : [];
@@ -256,20 +279,60 @@ window.AuthApp = (function() {
             localStorage.setItem(`${CLOUD_SYNC_KEY}_${currentUser.id}`, JSON.stringify(cloudPayload));
             localStorage.setItem(`cloud_vault_global`, JSON.stringify(cloudPayload));
 
+            let syncSuccess = false;
+            let currentBlobId = localStorage.getItem('fly_fishing_shared_blob_id') || '';
+
+            // Direct persistent JSONBlob push
+            try {
+                const blobUrl = currentBlobId ? `https://jsonblob.com/api/jsonBlob/${currentBlobId}` : 'https://jsonblob.com/api/jsonBlob';
+                const blobMethod = currentBlobId ? 'PUT' : 'POST';
+                const blobRes = await fetch(blobUrl, {
+                    method: blobMethod,
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ email: currentUser.email, payload: cloudPayload, updatedAt: new Date().toISOString() })
+                });
+
+                if (blobRes.ok || blobRes.status === 201) {
+                    const loc = blobRes.headers.get('Location') || blobRes.headers.get('location');
+                    if (loc) {
+                        const parts = loc.split('/');
+                        currentBlobId = parts[parts.length - 1];
+                        localStorage.setItem('fly_fishing_shared_blob_id', currentBlobId);
+                    }
+                    syncSuccess = true;
+                }
+            } catch(e){}
+
             // Server backup POST trigger to /api/sync
             try {
-                await fetch('/api/sync', {
+                const res = await fetch(`/api/sync?blobId=${encodeURIComponent(currentBlobId)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: currentUser.email, payload: cloudPayload }),
                     keepalive: true
                 });
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json && json.blobId) {
+                        localStorage.setItem('fly_fishing_shared_blob_id', json.blobId);
+                    }
+                    syncSuccess = true;
+                }
             } catch(e){}
 
-            updateSyncStatusUI('☁️ Synced to Cloud');
+            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            if (syncSuccess) {
+                const statusMsg = `🟢 Synced Today at ${timeStr} (${tackle.length} Tackle, ${catches.length} Catches uploaded)`;
+                updateSyncStatusUI(statusMsg);
+                window.showSyncToast(`✅ CLOUD SYNC SUCCESSFUL! Uploaded ${tackle.length} Tackle Items & ${catches.length} Catches at ${timeStr}.`);
+            } else {
+                updateSyncStatusUI(`⚠️ Local Cache Saved (${timeStr})`);
+                window.showSyncToast(`⚠️ Local vault saved. Re-connect to internet to sync across devices.`, true);
+            }
         } catch (err) {
             console.error("Cloud push failed:", err);
-            updateSyncStatusUI('⚠️ Sync Pending');
+            updateSyncStatusUI('❌ Sync Failed');
+            window.showSyncToast(`❌ Sync Failed: ${err.message}`, true);
         } finally {
             syncInProgress = false;
         }
@@ -278,23 +341,42 @@ window.AuthApp = (function() {
     // Pull cloud vault data to local IndexedDB with Smart Non-Destructive Deduplication
     async function pullCloudToLocal() {
         const targetEmail = currentUser ? currentUser.email : 'admin@flyfishing.com';
-        updateSyncStatusUI('⌛ Fetching Cloud Data...');
+        updateSyncStatusUI('⌛ Fetching Cloud Vault...');
 
         try {
             let cloudData = null;
+            let currentBlobId = localStorage.getItem('fly_fishing_shared_blob_id') || '';
 
-            // 1. Fetch live cloud vault from serverless API first
-            try {
-                const res = await fetch('/api/sync?email=' + encodeURIComponent(targetEmail));
-                if (res.ok) {
-                    const json = await res.json();
-                    if (json && json.success && json.vault) {
-                        cloudData = json.vault;
+            // 1. Fetch direct from JSONBlob cloud vault if blob ID is stored
+            if (currentBlobId) {
+                try {
+                    const res = await fetch(`https://jsonblob.com/api/jsonBlob/${currentBlobId}`, {
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    if (res.ok) {
+                        const json = await res.json();
+                        if (json && (json.payload || json.catches || json.tackle)) {
+                            cloudData = json.payload || json;
+                        }
                     }
-                }
-            } catch(e){}
+                } catch(e){}
+            }
 
-            // 2. Fallback to local device vault cache if offline
+            // 2. Fetch live cloud vault from serverless API
+            if (!cloudData) {
+                try {
+                    const res = await fetch(`/api/sync?email=${encodeURIComponent(targetEmail)}&blobId=${encodeURIComponent(currentBlobId)}`);
+                    if (res.ok) {
+                        const json = await res.json();
+                        if (json && json.success && json.vault) {
+                            cloudData = json.vault;
+                            if (json.blobId) localStorage.setItem('fly_fishing_shared_blob_id', json.blobId);
+                        }
+                    }
+                } catch(e){}
+            }
+
+            // 3. Fallback to local device vault cache if offline
             if (!cloudData) {
                 let userKey = currentUser ? currentUser.id : 'admin';
                 let rawCloud = localStorage.getItem(`${CLOUD_SYNC_KEY}_${userKey}`) || localStorage.getItem(`cloud_vault_global`);
@@ -303,7 +385,13 @@ window.AuthApp = (function() {
                 }
             }
 
-            if (!cloudData) return;
+            if (!cloudData) {
+                window.showSyncToast(`⚠️ No cloud vault found yet. Click 'Sync Now' on your PC first!`, true);
+                return;
+            }
+
+            let importedCatchesCount = 0;
+            let importedTackleCount = 0;
 
             if (window.DB) {
                 // 1. Deduplicated Catch Merging
@@ -323,6 +411,7 @@ window.AuthApp = (function() {
                         
                         if (!catchMap.has(idKey) && (!contentKey || !catchMap.has(contentKey))) {
                             await window.DB.addCatch(c);
+                            importedCatchesCount++;
                         }
                     }
                 }
@@ -341,6 +430,7 @@ window.AuthApp = (function() {
                         const nameKey = t.name ? t.name.toLowerCase().trim() : null;
                         if (!tackleMap.has(idKey) && (!nameKey || !tackleMap.has(nameKey))) {
                             await window.DB.addTackle(t);
+                            importedTackleCount++;
                         }
                     }
                 }
@@ -366,9 +456,16 @@ window.AuthApp = (function() {
                 }
             }
 
-            updateSyncStatusUI('☁️ Synced to Cloud');
+            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const statusMsg = `🟢 Synced Today at ${timeStr} (Imported ${importedTackleCount} Tackle, ${importedCatchesCount} Catches)`;
+            updateSyncStatusUI(statusMsg);
+            window.showSyncToast(`✅ SYNC SUCCESSFUL! Imported ${importedTackleCount} Tackle Items & ${importedCatchesCount} Catches onto this device.`);
+            
+            await triggerAppUIRefresh();
         } catch (err) {
             console.error("Cloud pull failed:", err);
+            updateSyncStatusUI('❌ Sync Failed');
+            window.showSyncToast(`❌ Sync Failed: ${err.message}`, true);
         }
     }
 
