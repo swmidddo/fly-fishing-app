@@ -784,11 +784,11 @@ textarea.form-input {
     display: none;
     position: fixed;
     top: 0;
-    left: 260px;
-    width: calc(100vw - 260px);
+    left: 0;
+    width: 100vw;
     height: 100vh;
-    background: rgba(5, 12, 25, 0.85);
-    z-index: 99999;
+    background: rgba(5, 12, 25, 0.88);
+    z-index: 999999;
     align-items: center;
     justify-content: center;
     padding: 20px;
@@ -796,7 +796,7 @@ textarea.form-input {
 }
 
 .modal.active {
-    display: flex;
+    display: flex !important;
 }
 
 .modal-content {

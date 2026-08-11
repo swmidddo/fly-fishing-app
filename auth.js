@@ -623,6 +623,9 @@ window.AuthApp = (function() {
             const modal = document.getElementById('modal-auth');
             if (modal) {
                 modal.style.display = 'flex';
+                modal.style.left = '0';
+                modal.style.width = '100vw';
+                modal.style.zIndex = '999999';
                 modal.classList.add('active');
             }
             bindAuthEvents();
@@ -640,6 +643,10 @@ window.AuthApp = (function() {
             }
         } catch(e){}
     }
+
+    // Expose global helper methods on window object for 100% reliable click triggers
+    window.openAuthModal = openAuthModal;
+    window.closeAuthModal = closeAuthModal;
 
     return {
         initAuth,
