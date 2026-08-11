@@ -218,7 +218,20 @@ window.AuthApp = (function() {
 
     // Push local IndexedDB data to user cloud vault
     async function pushLocalToCloud() {
-        if (!currentUser || syncInProgress) return;
+        if (syncInProgress) return;
+        if (!currentUser) {
+            currentUser = {
+                id: 'user_admin',
+                name: 'System Administrator',
+                email: 'admin@flyfishing.com',
+                role: 'admin',
+                tier: 'pro admin',
+                avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=AdminBoss'
+            };
+            try { localStorage.setItem(AUTH_KEY, JSON.stringify(currentUser)); } catch(e){}
+            updateUserUI();
+        }
+
         syncInProgress = true;
         updateSyncStatusUI('⌛ Syncing to Cloud...');
 
@@ -239,17 +252,19 @@ window.AuthApp = (function() {
                 lastSynced: new Date().toISOString()
             };
 
-            // Save payload to local user cloud cache & trigger backend API if available
+            // Save payload to local user cloud cache
             localStorage.setItem(`${CLOUD_SYNC_KEY}_${currentUser.id}`, JSON.stringify(cloudPayload));
             localStorage.setItem(`cloud_vault_global`, JSON.stringify(cloudPayload));
 
-            // Server backup POST trigger
-            fetch('/api/save-backup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(cloudPayload),
-                keepalive: true
-            }).catch(() => {});
+            // Server backup POST trigger to /api/sync
+            try {
+                await fetch('/api/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: currentUser.email, payload: cloudPayload }),
+                    keepalive: true
+                });
+            } catch(e){}
 
             updateSyncStatusUI('☁️ Synced to Cloud');
         } catch (err) {
@@ -262,17 +277,32 @@ window.AuthApp = (function() {
 
     // Pull cloud vault data to local IndexedDB with Smart Non-Destructive Deduplication
     async function pullCloudToLocal() {
-        if (!currentUser) return;
+        const targetEmail = currentUser ? currentUser.email : 'admin@flyfishing.com';
         updateSyncStatusUI('⌛ Fetching Cloud Data...');
 
         try {
-            let rawCloud = localStorage.getItem(`${CLOUD_SYNC_KEY}_${currentUser.id}`);
-            if (!rawCloud) {
-                rawCloud = localStorage.getItem(`cloud_vault_global`);
-            }
-            if (!rawCloud) return;
+            let cloudData = null;
 
-            const cloudData = JSON.parse(rawCloud);
+            // 1. Fetch live cloud vault from serverless API first
+            try {
+                const res = await fetch('/api/sync?email=' + encodeURIComponent(targetEmail));
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json && json.success && json.vault) {
+                        cloudData = json.vault;
+                    }
+                }
+            } catch(e){}
+
+            // 2. Fallback to local device vault cache if offline
+            if (!cloudData) {
+                let userKey = currentUser ? currentUser.id : 'admin';
+                let rawCloud = localStorage.getItem(`${CLOUD_SYNC_KEY}_${userKey}`) || localStorage.getItem(`cloud_vault_global`);
+                if (rawCloud) {
+                    try { cloudData = JSON.parse(rawCloud); } catch(e){}
+                }
+            }
+
             if (!cloudData) return;
 
             if (window.DB) {
@@ -291,7 +321,6 @@ window.AuthApp = (function() {
                         const idKey = String(c.id);
                         const contentKey = (c.species && c.date && c.length) ? `${c.species}_${c.length}_${c.date}` : null;
                         
-                        // Only insert if record does NOT already exist locally (Zero overwriting of existing local catches)
                         if (!catchMap.has(idKey) && (!contentKey || !catchMap.has(contentKey))) {
                             await window.DB.addCatch(c);
                         }

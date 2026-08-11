@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100610';
+window.APP_VERSION = 'v100630';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -575,15 +575,17 @@ window.initMainApp = async function() {
         }
     };
 
-    window.generateMobileSyncLink = function() {
+    window.generateMobileSyncLink = async function() {
+        const user = window.AuthApp ? window.AuthApp.getUser() : null;
+        const userEmail = user ? user.email : 'guest_vault';
+
+        if (window.AuthApp && window.AuthApp.pushLocalToCloud) {
+            await window.AuthApp.pushLocalToCloud();
+        }
+
         const gmapsKey = localStorage.getItem('googleMapsApiKey') || '';
         const geminiKey = localStorage.getItem('geminiApiKey') || '';
         const activeModel = localStorage.getItem('geminiActiveModel') || '';
-
-        if (!gmapsKey && !geminiKey) {
-            alert("Please save your Google Maps or Gemini API key in Settings first!");
-            return;
-        }
 
         const targetUrlInput = document.getElementById('sync-target-url');
         let baseUrl = (targetUrlInput && targetUrlInput.value.trim()) ? targetUrlInput.value.trim() : (window.location.origin + window.location.pathname);
@@ -600,6 +602,7 @@ window.initMainApp = async function() {
         if (gmapsKey) params.set('sync_gmaps', gmapsKey);
         if (geminiKey) params.set('sync_gemini', geminiKey);
         if (activeModel) params.set('sync_model', activeModel);
+        params.set('sync_email', userEmail);
 
         const shareUrl = baseUrl.includes('?') ? `${baseUrl}&${params.toString()}` : `${baseUrl}?${params.toString()}`;
         const container = document.getElementById('mobile-sync-container');
@@ -618,7 +621,7 @@ window.initMainApp = async function() {
         const shareInput = document.getElementById('sync-share-url');
         if (shareInput && shareInput.value) {
             navigator.clipboard.writeText(shareInput.value).then(() => {
-                alert("📋 Mobile sync link copied to clipboard! Send this link to your phone to sync API keys.");
+                alert("📋 Mobile sync link copied to clipboard! Send this link to your phone to sync PC tackle library, catches & keys.");
             }).catch(() => {
                 shareInput.select();
                 document.execCommand('copy');
@@ -627,12 +630,13 @@ window.initMainApp = async function() {
         }
     };
 
-    window.checkMobileSyncUrl = function() {
+    window.checkMobileSyncUrl = async function() {
         try {
             const params = new URLSearchParams(window.location.search);
             const gmaps = params.get('sync_gmaps');
             const gemini = params.get('sync_gemini');
             const model = params.get('sync_model');
+            const syncEmail = params.get('sync_email');
 
             let synced = false;
             if (gmaps) {
@@ -647,9 +651,40 @@ window.initMainApp = async function() {
                 localStorage.setItem('geminiActiveModel', model);
             }
 
+            if (syncEmail && window.DB) {
+                try {
+                    const res = await fetch('/api/sync?email=' + encodeURIComponent(syncEmail));
+                    if (res.ok) {
+                        const json = await res.json();
+                        if (json && json.success && json.vault) {
+                            const vault = json.vault;
+                            if (vault.tackle && Array.isArray(vault.tackle)) {
+                                const existingTackle = await window.DB.getAllTackle();
+                                const tackleMap = new Map();
+                                existingTackle.forEach(t => tackleMap.set(String(t.id), true));
+                                for (const t of vault.tackle) {
+                                    if (!tackleMap.has(String(t.id))) await window.DB.addTackle(t);
+                                }
+                            }
+                            if (vault.catches && Array.isArray(vault.catches)) {
+                                const existingCatches = await window.DB.getAllCatches();
+                                const catchMap = new Map();
+                                existingCatches.forEach(c => catchMap.set(String(c.id), true));
+                                for (const c of vault.catches) {
+                                    if (!catchMap.has(String(c.id))) await window.DB.addCatch(c);
+                                }
+                            }
+                            synced = true;
+                        }
+                    }
+                } catch(e){}
+            }
+
             if (synced) {
                 window.history.replaceState({}, document.title, window.location.pathname);
-                alert("✅ API Keys successfully imported to this mobile device! Google Maps & Gemini AI are now live.");
+                if (window.loadTackle) await window.loadTackle();
+                if (window.loadCatches) await window.loadCatches();
+                alert("✅ PC Tackle Library, Catches & Keys successfully imported to this mobile device!");
             }
         } catch(e){}
     };
