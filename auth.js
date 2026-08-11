@@ -523,7 +523,7 @@ window.AuthApp = (function() {
         if (headerProfileEl) {
             if (currentUser) {
                 headerProfileEl.innerHTML = `
-                    <div class="user-avatar-badge" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(0, 210, 255, 0.08); border: 1px solid var(--accent-teal); border-radius: 10px; cursor: pointer;" onclick="window.AuthApp.openAuthModal()">
+                    <div class="user-avatar-badge" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(0, 210, 255, 0.08); border: 1px solid var(--accent-teal); border-radius: 10px; cursor: pointer;" onclick="window.openAuthModal()">
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <img src="${currentUser.avatar}" alt="${currentUser.name}" style="width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--accent-teal);">
                             <div style="font-size: 12px; display: flex; flex-direction: column; text-align: left; line-height: 1.2;">
@@ -536,7 +536,7 @@ window.AuthApp = (function() {
                 `;
             } else {
                 headerProfileEl.innerHTML = `
-                    <button class="btn btn-primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; font-size: 13px; font-weight: 600; border-radius: 10px;" onclick="window.AuthApp.openAuthModal()">
+                    <button class="btn btn-primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; font-size: 13px; font-weight: 600; border-radius: 10px;" onclick="window.openAuthModal()">
                         <span>👤 Sign In / Register</span>
                     </button>
                 `;
@@ -556,8 +556,8 @@ window.AuthApp = (function() {
                             </div>
                         </div>
                         <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-glass btn-sm" onclick="window.AuthApp.syncNow()">🔄 Sync Now</button>
-                            <button class="btn btn-glass btn-danger btn-sm" onclick="window.AuthApp.logout()">🚪 Log Out</button>
+                            <button class="btn btn-glass btn-sm" onclick="window.syncNow()">🔄 Sync Now</button>
+                            <button class="btn btn-glass btn-danger btn-sm" onclick="window.logout()">🚪 Log Out</button>
                         </div>
                     </div>
                 `;
@@ -569,7 +569,7 @@ window.AuthApp = (function() {
                         <p class="text-secondary mb-15" style="max-width: 400px; margin: 0 auto 15px;">
                             Sign in to back up your secret spots, tackle gear, and catch logs to the cloud. Access your angler profile on any phone or desktop!
                         </p>
-                        <button class="btn btn-primary" onclick="window.AuthApp.openAuthModal()">👤 Sign In or Create Account</button>
+                        <button class="btn btn-primary" onclick="window.openAuthModal()">👤 Sign In or Create Account</button>
                     </div>
                 `;
             }
@@ -592,7 +592,7 @@ window.AuthApp = (function() {
                             <div style="font-size: 10px; color: var(--accent-teal);">${badgeText}</div>
                         </div>
                     </div>
-                    <button class="btn btn-glass btn-sm" onclick="window.AuthApp.syncNow()" style="width: 100%;">🔄 Sync Vault Now</button>
+                    <button class="btn btn-glass btn-sm" onclick="window.syncNow()" style="width: 100%;">🔄 Sync Vault Now</button>
                 `;
             } else {
                 dashCloudCard.innerHTML = `
@@ -605,7 +605,7 @@ window.AuthApp = (function() {
                     <p style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.4;">
                         Sync your catches, tackle library, and secret spots across all your devices.
                     </p>
-                    <button class="btn btn-primary btn-sm" onclick="window.AuthApp.openAuthModal()" style="display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;">
+                    <button class="btn btn-primary btn-sm" onclick="window.openAuthModal()" style="display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;">
                         <span>👤 Sign In / Create Account</span>
                     </button>
                 `;
@@ -647,6 +647,8 @@ window.AuthApp = (function() {
     // Expose global helper methods on window object for 100% reliable click triggers
     window.openAuthModal = openAuthModal;
     window.closeAuthModal = closeAuthModal;
+    window.syncNow = pushLocalToCloud;
+    window.logout = logout;
 
     return {
         initAuth,
