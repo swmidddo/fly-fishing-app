@@ -259,10 +259,19 @@ window.AuthApp = (function() {
         updateSyncStatusUI('⌛ Uploading to Cloud Vault...');
 
         try {
-            const catches = window.DB && window.DB.getAllCatches ? await window.DB.getAllCatches() : [];
+            const rawCatches = window.DB && window.DB.getAllCatches ? await window.DB.getAllCatches() : [];
             const tackle = window.DB && window.DB.getAllTackle ? await window.DB.getAllTackle() : [];
             const rigs = window.DB && window.DB.getAllRigs ? await window.DB.getAllRigs() : [];
             const licenses = window.DB && window.DB.getAllLicenses ? await window.DB.getAllLicenses() : [];
+
+            // Sanitize catches to prevent huge base64 string quota crashes
+            const catches = rawCatches.map(c => {
+                const item = { ...c };
+                if (item.photo && typeof item.photo === 'string' && item.photo.length > 200000) {
+                    item.photo = item.photo.substring(0, 200000);
+                }
+                return item;
+            });
 
             const cloudPayload = {
                 userId: currentUser.id,
@@ -275,9 +284,13 @@ window.AuthApp = (function() {
                 lastSynced: new Date().toISOString()
             };
 
-            // Save payload to local user cloud cache
-            localStorage.setItem(`${CLOUD_SYNC_KEY}_${currentUser.id}`, JSON.stringify(cloudPayload));
-            localStorage.setItem(`cloud_vault_global`, JSON.stringify(cloudPayload));
+            // Save payload to local user cloud cache safely
+            try {
+                localStorage.setItem(`${CLOUD_SYNC_KEY}_${currentUser.id}`, JSON.stringify(cloudPayload));
+                localStorage.setItem(`cloud_vault_global`, JSON.stringify(cloudPayload));
+            } catch(quotaErr) {
+                console.warn("localStorage quota reached, proceeding with live cloud upload:", quotaErr);
+            }
 
             let syncSuccess = false;
             let currentBlobId = localStorage.getItem('fly_fishing_shared_blob_id') || '';
@@ -297,7 +310,7 @@ window.AuthApp = (function() {
                     if (loc) {
                         const parts = loc.split('/');
                         currentBlobId = parts[parts.length - 1];
-                        localStorage.setItem('fly_fishing_shared_blob_id', currentBlobId);
+                        try { localStorage.setItem('fly_fishing_shared_blob_id', currentBlobId); } catch(e){}
                     }
                     syncSuccess = true;
                 }
@@ -314,7 +327,7 @@ window.AuthApp = (function() {
                 if (res.ok) {
                     const json = await res.json();
                     if (json && json.blobId) {
-                        localStorage.setItem('fly_fishing_shared_blob_id', json.blobId);
+                        try { localStorage.setItem('fly_fishing_shared_blob_id', json.blobId); } catch(e){}
                     }
                     syncSuccess = true;
                 }
