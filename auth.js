@@ -8,16 +8,51 @@ window.AuthApp = (function() {
     let syncInProgress = false;
     let isRegisterMode = false;
 
-    // Load initial session from local storage and bind UI events
-    function initAuth() {
-        const stored = localStorage.getItem(AUTH_KEY);
-        if (stored) {
+    // Multi-Layer Session Persistence Helper across localStorage, sessionStorage, Cookies & Memory
+    function saveUserSession(user) {
+        if (!user) return;
+        window.__GLOBAL_USER_SESSION__ = user;
+        currentUser = user;
+        const str = JSON.stringify(user);
+        
+        try { localStorage.setItem(AUTH_KEY, str); } catch(e){}
+        try { sessionStorage.setItem(AUTH_KEY, str); } catch(e){}
+        try { document.cookie = `${AUTH_KEY}=${encodeURIComponent(str)}; path=/; max-age=31536000; SameSite=Lax`; } catch(e){}
+    }
+
+    function loadUserSession() {
+        let user = null;
+        if (window.__GLOBAL_USER_SESSION__) return window.__GLOBAL_USER_SESSION__;
+        
+        try {
+            const stored = localStorage.getItem(AUTH_KEY);
+            if (stored) user = JSON.parse(stored);
+        } catch(e){}
+
+        if (!user) {
             try {
-                currentUser = JSON.parse(stored);
-            } catch (e) {
-                currentUser = null;
-            }
+                const stored = sessionStorage.getItem(AUTH_KEY);
+                if (stored) user = JSON.parse(stored);
+            } catch(e){}
         }
+
+        if (!user) {
+            try {
+                const match = document.cookie.match(new RegExp('(^| )' + AUTH_KEY + '=([^;]+)'));
+                if (match && match[2]) {
+                    user = JSON.parse(decodeURIComponent(match[2]));
+                }
+            } catch(e){}
+        }
+
+        if (user) window.__GLOBAL_USER_SESSION__ = user;
+        return user;
+    }
+
+    // Load initial session from multi-layer storage and bind UI events
+    function initAuth() {
+        checkUrlAuthQuery();
+        currentUser = loadUserSession();
         bindAuthEvents();
         updateUserUI();
     }
@@ -179,10 +214,7 @@ window.AuthApp = (function() {
             lastLogin: new Date().toISOString()
         };
 
-        currentUser = user;
-        try {
-            localStorage.setItem(AUTH_KEY, JSON.stringify(user));
-        } catch(e){}
+        saveUserSession(user);
 
         // INSTANT UI UPDATE & MODAL CLOSE BEFORE BACKGROUND NETWORK SYNC
         updateUserUI();
