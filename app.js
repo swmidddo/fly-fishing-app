@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100930';
+window.APP_VERSION = 'v100940';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -5840,8 +5840,44 @@ window.initMainApp = async function() {
         }
     };
 
+    // Helper to resize iPhone/Android photos (up to 48MP) to lightweight 1200px JPEG for instant AI recognition
+    async function resizeImageForAI(file, maxDimension = 1200) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                img.onload = () => {
+                    let w = img.width;
+                    let h = img.height;
+                    if (w > maxDimension || h > maxDimension) {
+                        if (w > h) {
+                            h = Math.round((h * maxDimension) / w);
+                            w = maxDimension;
+                        } else {
+                            w = Math.round((w * maxDimension) / h);
+                            h = maxDimension;
+                        }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+                    resolve(base64);
+                };
+                img.onerror = reject;
+                img.src = e.target.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
     // Pure Photo Capture Trigger (Guaranteed Still Image, Never Video)
     window.triggerTacklePackageCapture = function() {
+        // Stop any background camera stream immediately
+        window.closeBarcodeScanner();
         const input = document.getElementById('tackle-package-camera-input');
         if (input) {
             input.value = '';
@@ -5855,7 +5891,12 @@ window.initMainApp = async function() {
         if (!file) return;
 
         window.closeBarcodeScanner();
-        if (window.showSyncToast) window.showSyncToast("🔍 Analyzing package image & barcode...");
+        const badge = document.getElementById('tackle-scan-status-badge');
+        if (badge) {
+            badge.style.display = 'inline-block';
+            badge.textContent = "⏳ Analyzing Photo...";
+        }
+        if (window.showSyncToast) window.showSyncToast("🔍 Reading photo with Barcode & AI Scanner...");
 
         // Step 1: Attempt Barcode extraction from the photo
         let detectedBarcode = null;
@@ -5884,20 +5925,21 @@ window.initMainApp = async function() {
 
     // Gemini 2.0 Flash Vision AI OCR for Tackle Box, Packaging, Spool Labels & Rod Tubes
     window.scanTacklePackageWithAI = async function(file, optionalBarcode) {
+        const badge = document.getElementById('tackle-scan-status-badge');
+        if (badge) {
+            badge.style.display = 'inline-block';
+            badge.textContent = "🤖 AI Reading Box...";
+        }
         if (window.showSyncToast) window.showSyncToast("🤖 AI reading box/spool label text & specs...");
 
         try {
-            const base64Data = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
+            const base64Data = await resizeImageForAI(file, 1200);
 
             const geminiKey = window.DEFAULT_GEMINI_KEY || localStorage.getItem('gemini_api_key');
             if (!geminiKey) {
                 alert("Please add a Gemini API key in Settings to use AI Box Reading.");
                 window.showAddTackleModal();
+                if (badge) badge.style.display = 'none';
                 return false;
             }
 
@@ -5931,7 +5973,7 @@ Respond ONLY in valid JSON format:
                             { text: prompt },
                             {
                                 inline_data: {
-                                    mime_type: file.type || "image/jpeg",
+                                    mime_type: "image/jpeg",
                                     data: base64Data
                                 }
                             }
@@ -5957,6 +5999,10 @@ Respond ONLY in valid JSON format:
 
                     playBeepAudio();
                     if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+                    if (badge) {
+                        badge.textContent = `✅ ${parsed.brand} ${parsed.name}`;
+                        setTimeout(() => { if (badge) badge.style.display = 'none'; }, 4000);
+                    }
                     if (window.showSyncToast) window.showSyncToast(`✨ AI Read Box: ${parsed.brand} ${parsed.name} (${parsed.spec || parsed.category})`);
                     return true;
                 }
@@ -5966,6 +6012,7 @@ Respond ONLY in valid JSON format:
         }
 
         window.showAddTackleModal();
+        if (badge) badge.style.display = 'none';
         if (window.showSyncToast) window.showSyncToast("📦 Photo analyzed! Ready to complete details.");
         return false;
     };

@@ -262,7 +262,7 @@
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
-                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v100930</span>
+                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v100940</span>
                     </div>
                 </div>
             </div>
@@ -696,11 +696,9 @@
                         <p class="subtitle">Organize and keep track of your rods, reels, lines, and flies.</p>
                     </div>
                     <div style="display:flex; gap:8px; flex-wrap: wrap;">
-                        <button class="btn btn-glass" onclick="window.triggerTacklePackageCapture()" style="border-color: rgba(0, 210, 255, 0.5); color: var(--accent-teal);"><span style="font-size: 14px;">📸</span> Snap Barcode / Box (AI Auto-Fill)</button>
-                        <button class="btn btn-glass" onclick="window.openBarcodeScanner()" style="font-size: 12px;">📷 Live Viewfinder</button>
+                        <button class="btn btn-glass" onclick="window.triggerTacklePackageCapture()" style="border-color: rgba(0, 210, 255, 0.5); color: var(--accent-teal);"><span style="font-size: 14px;">📸</span> AI Photo Scan (Box &amp; Barcode)</button>
                         <button class="btn btn-glass" onclick="window.showAddRigModal()">+ Create Combo</button>
                         <button class="btn btn-primary" onclick="window.showAddTackleModal()">+ Add Equipment</button>
-                        <input type="file" id="tackle-package-camera-input" accept="image/jpeg,image/png,image/webp" capture="environment" style="display: none;" onchange="window.handleTacklePackagePhoto(event)">
                     </div>
                 </header>
 
@@ -1351,7 +1349,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
                             <div>
                                 <strong style="font-size: 13px; color: var(--text-primary);">Installed Version:</strong>
-                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v100930 (Latest Build)</span>
+                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v100940 (Latest Build)</span>
                             </div>
                             <button class="btn btn-primary btn-sm" id="btn-force-check-updates">🔄 Check for Updates Now</button>
                         </div>
@@ -1620,20 +1618,23 @@
             <h2 id="modal-tackle-title">Add Tackle or Equipment</h2>
             <form id="form-add-tackle" class="modal-form">
                 <!-- Barcode / UPC & AI Box Scan Banner -->
-                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0, 210, 255, 0.08); border: 1px solid rgba(0, 210, 255, 0.25); border-radius: 8px; padding: 10px 14px; margin-bottom: 15px; flex-wrap: wrap; gap: 8px;">
-                    <div>
-                        <strong style="font-size: 12.5px; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
-                            <span>✨</span> AI Box &amp; Barcode Auto-Fill
+                <div style="background: rgba(0, 210, 255, 0.08); border: 1px solid rgba(0, 210, 255, 0.25); border-radius: 10px; padding: 12px 14px; margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <strong style="font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+                            <span>✨</span> AI Tackle Box &amp; Barcode Auto-Fill
                         </strong>
-                        <span style="font-size: 11px; color: var(--text-secondary); display: block;">Snap a photo of the box, spool label, or barcode to auto-fill details.</span>
+                        <span id="tackle-scan-status-badge" class="badge" style="display: none; background: rgba(0, 210, 255, 0.2); color: var(--accent-teal); font-size: 11px;">Analyzing...</span>
                     </div>
-                    <div style="display: flex; gap: 6px;">
-                        <button type="button" class="btn btn-primary btn-sm" onclick="window.triggerTacklePackageCapture()" style="white-space: nowrap; font-size: 11.5px;">
-                            📸 Snap Photo
+                    <span style="font-size: 11.5px; color: var(--text-secondary); display: block; margin-bottom: 10px;">Take a still photo of the box, tippet spool, or barcode to automatically identify brand, name &amp; size.</span>
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="window.triggerTacklePackageCapture()" style="flex: 1; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px;">
+                            <span>📸</span> Take Photo
                         </button>
-                        <button type="button" class="btn btn-glass btn-sm" onclick="window.openBarcodeScanner()" style="border-color: var(--accent-teal); color: var(--accent-teal); white-space: nowrap; font-size: 11.5px;">
-                            📷 Live Scanner
+                        <button type="button" class="btn btn-glass btn-sm" onclick="document.getElementById('tackle-package-gallery-input').click()" style="flex: 1; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px;">
+                            <span>🖼️</span> Pick Photo
                         </button>
+                        <input type="file" id="tackle-package-camera-input" accept="image/jpeg,image/png,image/webp" capture="environment" style="display: none;" onchange="window.handleTacklePackagePhoto(event)">
+                        <input type="file" id="tackle-package-gallery-input" accept="image/jpeg,image/png,image/webp" style="display: none;" onchange="window.handleTacklePackagePhoto(event)">
                     </div>
                 </div>
 
@@ -2052,16 +2053,16 @@
     <!-- Scripts -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
-    <script src="db.js?v=100930"></script>
-    <script src="regulations.js?v=100930"></script>
-    <script src="weather.js?v=100930"></script>
-    <script src="exif.js?v=100930"></script>
-    <script src="map.js?v=100930"></script>
-    <script src="tackle_db.js?v=100930"></script>
-    <script src="fish_db.js?v=100930"></script>
-    <script src="fly_box.js?v=100930"></script>
-    <script src="knots.js?v=100930"></script>
-    <script src="auth.js?v=100930"></script>
-    <script src="app.js?v=100930"></script>
+    <script src="db.js?v=100940"></script>
+    <script src="regulations.js?v=100940"></script>
+    <script src="weather.js?v=100940"></script>
+    <script src="exif.js?v=100940"></script>
+    <script src="map.js?v=100940"></script>
+    <script src="tackle_db.js?v=100940"></script>
+    <script src="fish_db.js?v=100940"></script>
+    <script src="fly_box.js?v=100940"></script>
+    <script src="knots.js?v=100940"></script>
+    <script src="auth.js?v=100940"></script>
+    <script src="app.js?v=100940"></script>
 </body>
 </html>
