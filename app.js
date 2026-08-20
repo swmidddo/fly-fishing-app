@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100940';
+window.APP_VERSION = 'v100960';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -5885,7 +5885,7 @@ window.initMainApp = async function() {
         }
     };
 
-    // Master Photo Handler: Scans Barcode first, then runs Gemini Vision AI OCR if barcode yields no info
+    // Master Photo Handler: Takes still photo of box/spool, extracts barcode, and cross-references via Gemini AI
     window.handleTacklePackagePhoto = async function(event) {
         const file = event.target.files && event.target.files[0];
         if (!file) return;
@@ -5894,9 +5894,9 @@ window.initMainApp = async function() {
         const badge = document.getElementById('tackle-scan-status-badge');
         if (badge) {
             badge.style.display = 'inline-block';
-            badge.textContent = "⏳ Analyzing Photo...";
+            badge.textContent = "⏳ Analyzing Photo & Barcode...";
         }
-        if (window.showSyncToast) window.showSyncToast("🔍 Reading photo with Barcode & AI Scanner...");
+        if (window.showSyncToast) window.showSyncToast("🔍 Reading photo & cross-referencing product...");
 
         // Step 1: Attempt Barcode extraction from the photo
         let detectedBarcode = null;
@@ -5909,50 +5909,69 @@ window.initMainApp = async function() {
             }
         } catch(e) {}
 
-        // Step 2: If barcode found, query databases
-        let productFound = false;
+        // Step 2: If barcode is already in the user's personal tackle library, open it immediately
         if (detectedBarcode) {
-            playBeepAudio();
-            if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
-            productFound = await window.lookupTackleBarcode(detectedBarcode, file);
+            const existingItem = AppState.tackle.find(t => t.barcode === detectedBarcode || (t.notes && t.notes.includes(detectedBarcode)));
+            if (existingItem) {
+                playBeepAudio();
+                if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+                if (window.showSyncToast) window.showSyncToast(`🎯 Found existing ${existingItem.name} in library! Opening for duplicate...`);
+                window.duplicateTackleUI(existingItem.id);
+                const barcodeEl = document.getElementById('tackle-barcode');
+                if (barcodeEl) barcodeEl.value = detectedBarcode;
+                if (badge) badge.style.display = 'none';
+                return;
+            }
         }
 
-        // Step 3: If no barcode or database had no product title, read the box/label with Gemini Vision AI OCR!
-        if (!productFound) {
-            await window.scanTacklePackageWithAI(file, detectedBarcode);
-        }
+        // Step 3: Run Gemini AI on the box/label photo and cross-reference with detected barcode
+        await window.scanTacklePackageWithAI(file, detectedBarcode);
     };
 
-    // Gemini 2.0 Flash Vision AI OCR for Tackle Box, Packaging, Spool Labels & Rod Tubes
+    // Gemini AI OCR & Product Resolver for Tackle Box, Packaging, Spool Labels & Rod Tubes
     window.scanTacklePackageWithAI = async function(file, optionalBarcode) {
         const badge = document.getElementById('tackle-scan-status-badge');
         if (badge) {
             badge.style.display = 'inline-block';
-            badge.textContent = "🤖 AI Reading Box...";
+            badge.textContent = "🤖 Cross-Referencing Product...";
         }
-        if (window.showSyncToast) window.showSyncToast("🤖 AI reading box/spool label text & specs...");
+        if (window.showSyncToast) window.showSyncToast("🤖 AI identifying tackle brand, name & spec...");
 
         try {
             const base64Data = await resizeImageForAI(file, 1200);
 
-            const geminiKey = window.DEFAULT_GEMINI_KEY || localStorage.getItem('gemini_api_key');
+            // Use the exact same Gemini API Key stored in Settings for Fish Identification
+            let geminiKey = localStorage.getItem('geminiApiKey') || localStorage.getItem('gemini_api_key') || window.DEFAULT_GEMINI_KEY;
             if (!geminiKey) {
-                alert("Please add a Gemini API key in Settings to use AI Box Reading.");
+                try {
+                    const resp = await fetch('session_backup.json');
+                    if (resp.ok) {
+                        const backup = await resp.json();
+                        if (backup && backup.settings && backup.settings.geminiApiKey) {
+                            geminiKey = backup.settings.geminiApiKey.trim();
+                            if (geminiKey) localStorage.setItem('geminiApiKey', geminiKey);
+                        }
+                    }
+                } catch(e){}
+            }
+
+            if (!geminiKey) {
+                alert("Please add your Gemini API key in Settings (or connect your account) to use AI Tackle Box Scanning.");
                 window.showAddTackleModal();
                 if (badge) badge.style.display = 'none';
                 return false;
             }
 
-            const prompt = `You are an expert fly fishing and fishing equipment identification assistant.
-Analyze this photo of a tackle box, packaging, line spool, rod tube, reel box, fly box, or tippet spool.
-Read all printed text, logos, ratings, and labels on the package.
-Extract the following information:
+            const prompt = `You are an expert fishing tackle identification and retail product recognition assistant.
+Examine this photograph of fishing tackle packaging, box, spool label, rod tube, or leader packet.
+If a barcode number is present in the image or provided as "${optionalBarcode || ''}", cross-reference it with the visible product details.
+Extract and identify the following information:
 1. Category: Must be exactly one of "rod", "reel", "flyline", "leader", "tippet", or "fly"
-2. Brand: The manufacturer / brand (e.g. Sage, Orvis, Rio, Scientific Anglers, Trouthunter, Stroft, Simms, Daiwa, Shimano, Hardy, Berkley, G.Loomis, Maxima, Loon Outdoors, Primal, Loop)
-3. Name: Model or product series (e.g. "Powerflex Plus Tippet", "Amplitude Smooth Infinity", "R8 Core", "Hydros Reel", "GTM Monofilament")
+2. Brand: The manufacturer / brand name (e.g. Sage, Orvis, Rio, Scientific Anglers, Trouthunter, Stroft, Simms, Daiwa, Shimano, Hardy, Berkley, G.Loomis, Maxima, Loon Outdoors, Primal, Loop)
+3. Name: The exact model or product line (e.g. "Powerflex Plus Tippet", "Amplitude Smooth Infinity", "R8 Core", "Hydros Reel", "GTM Monofilament", "Flies Assortment")
 4. Spec: Technical size / line weight / diameter / hook size (e.g. "4X 6.0lb 0.18mm", "WF5F", "9ft 5wt", "#14 Olive Emerger", "3000 Drag 10lb")
-5. Barcode: If any barcode / UPC number is visible, extract it, else "${optionalBarcode || ''}"
-6. Notes: Brief summary of features or specs visible on the box.
+5. Barcode: The barcode / UPC number if visible, else "${optionalBarcode || ''}"
+6. Notes: Important features or packaging specifications.
 
 Respond ONLY in valid JSON format:
 {
@@ -5960,60 +5979,83 @@ Respond ONLY in valid JSON format:
   "brand": "Brand Name",
   "name": "Model Name",
   "spec": "Line Wt / Hook Size / Tippet X rating",
-  "barcode": "Barcode if seen",
-  "notes": "Short notes"
+  "barcode": "Barcode number",
+  "notes": "Short description"
 }`;
 
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [
-                            { text: prompt },
-                            {
-                                inline_data: {
-                                    mime_type: "image/jpeg",
-                                    data: base64Data
-                                }
+            const activeModel = localStorage.getItem('geminiActiveModel');
+            const modelsToTry = [activeModel, 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-flash-latest', 'gemini-pro-latest'].filter(Boolean);
+            const tried = new Set();
+
+            for (const modelName of modelsToTry) {
+                if (tried.has(modelName)) continue;
+                tried.add(modelName);
+
+                try {
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(geminiKey)}`;
+                    const res = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [
+                                    { text: prompt },
+                                    {
+                                        inline_data: {
+                                            mime_type: "image/jpeg",
+                                            data: base64Data
+                                        }
+                                    }
+                                ]
+                            }],
+                            generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+                        })
+                    });
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if (text) {
+                            let parsed = null;
+                            try {
+                                parsed = JSON.parse(text);
+                            } catch(e) {
+                                const jsonMatch = text.match(/\{[\s\S]*\}/);
+                                if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
                             }
-                        ]
-                    }],
-                    generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
-                })
-            });
 
-            if (res.ok) {
-                const data = await res.json();
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (text) {
-                    const parsed = JSON.parse(text);
-                    window.showAddTackleModal();
-                    
-                    if (parsed.category) document.getElementById('tackle-type').value = parsed.category;
-                    if (parsed.brand) document.getElementById('tackle-brand').value = parsed.brand;
-                    if (parsed.name) document.getElementById('tackle-name').value = parsed.name;
-                    if (parsed.spec) document.getElementById('tackle-spec').value = parsed.spec;
-                    if (parsed.barcode || optionalBarcode) document.getElementById('tackle-barcode').value = parsed.barcode || optionalBarcode;
-                    if (parsed.notes) document.getElementById('tackle-notes').value = parsed.notes;
+                            if (parsed) {
+                                window.showAddTackleModal();
+                                
+                                if (parsed.category) document.getElementById('tackle-type').value = parsed.category;
+                                if (parsed.brand) document.getElementById('tackle-brand').value = parsed.brand;
+                                if (parsed.name) document.getElementById('tackle-name').value = parsed.name;
+                                if (parsed.spec) document.getElementById('tackle-spec').value = parsed.spec;
+                                if (parsed.barcode || optionalBarcode) document.getElementById('tackle-barcode').value = parsed.barcode || optionalBarcode;
+                                if (parsed.notes) document.getElementById('tackle-notes').value = parsed.notes;
 
-                    playBeepAudio();
-                    if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
-                    if (badge) {
-                        badge.textContent = `✅ ${parsed.brand} ${parsed.name}`;
-                        setTimeout(() => { if (badge) badge.style.display = 'none'; }, 4000);
+                                playBeepAudio();
+                                if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+                                if (badge) {
+                                    badge.textContent = `✅ ${parsed.brand} ${parsed.name}`;
+                                    setTimeout(() => { if (badge) badge.style.display = 'none'; }, 4000);
+                                }
+                                if (window.showSyncToast) window.showSyncToast(`🎯 Cross-Referenced: ${parsed.brand} ${parsed.name} (${parsed.spec || parsed.category})`);
+                                return true;
+                            }
+                        }
                     }
-                    if (window.showSyncToast) window.showSyncToast(`✨ AI Read Box: ${parsed.brand} ${parsed.name} (${parsed.spec || parsed.category})`);
-                    return true;
+                } catch (mErr) {
+                    console.warn(`Tackle scan model ${modelName} notice:`, mErr);
                 }
             }
         } catch(err) {
-            console.error("AI package scan error:", err);
+            console.error("AI tackle package scan error:", err);
         }
 
         window.showAddTackleModal();
         if (badge) badge.style.display = 'none';
-        if (window.showSyncToast) window.showSyncToast("📦 Photo analyzed! Ready to complete details.");
+        if (window.showSyncToast) window.showSyncToast("📦 Package analyzed! Ready to complete details.");
         return false;
     };
 
@@ -6028,7 +6070,7 @@ Respond ONLY in valid JSON format:
         window.lookupTackleBarcode(barcode);
     };
 
-    // Master Barcode & UPC Auto-Lookup for Fly Tackle Products
+    // Master Barcode & UPC Auto-Lookup with Gemini AI Cross-Referencing
     window.lookupTackleBarcode = async function(barcodeText, optionalFile = null) {
         if (!barcodeText) return false;
         const cleanCode = barcodeText.trim();
@@ -6053,7 +6095,7 @@ Respond ONLY in valid JSON format:
         const notesEl = document.getElementById('tackle-notes');
 
         if (barcodeEl) barcodeEl.value = cleanCode;
-        if (nameEl) nameEl.placeholder = "Looking up product details online...";
+        if (nameEl) nameEl.placeholder = "Cross-referencing product details online...";
 
         // 3. Multi-Database & Gemini AI Tackle Identification Engine
         try {
@@ -6091,54 +6133,13 @@ Respond ONLY in valid JSON format:
                 } catch (e) {}
             }
 
-            // Step C: If Gemini Key available, invoke Gemini AI to resolve exact Tackle Category, Brand, Name, and Line/Hook Spec
-            const geminiKey = window.DEFAULT_GEMINI_KEY || localStorage.getItem('gemini_api_key');
-            if (geminiKey) {
-                try {
-                    const aiPrompt = `Identify the fishing equipment/tackle for UPC/Barcode "${cleanCode}"${productTitle ? ` (Search Result Title: "${productTitle}")` : ''}${productBrand ? ` (Brand: "${productBrand}")` : ''}.
-Classify accurately into one category: "rod", "reel", "flyline", "leader", "tippet", or "fly".
-Extract the Brand, Model Name, and Specification (e.g. 9ft 5wt, WF5F, 4X 6lb, #14 Olive).
-Respond ONLY in valid JSON format:
-{
-  "category": "rod|reel|flyline|leader|tippet|fly",
-  "brand": "Brand Name",
-  "name": "Model or Product Name",
-  "spec": "Specification / Weight / Hook Size",
-  "notes": "Short description"
-}`;
-                    const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ parts: [{ text: aiPrompt }] }],
-                            generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
-                        })
-                    });
-
-                    if (aiRes.ok) {
-                        const aiData = await aiRes.json();
-                        const candidate = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
-                        if (candidate) {
-                            const parsed = JSON.parse(candidate);
-                            if (parsed.brand) productBrand = parsed.brand;
-                            if (parsed.name) productTitle = parsed.name;
-                            if (parsed.spec) productSpec = parsed.spec;
-                            if (parsed.category) productCategory = parsed.category;
-                            if (parsed.notes) productNotes = parsed.notes;
-                        }
-                    }
-                } catch (aiErr) {
-                    console.warn("AI Barcode lookup notice:", aiErr);
-                }
-            }
-
-            // Step D: Match against Master Fly Tackle Database (tackle_db.js)
-            if (!productCategory && window.TACKLE_DATABASE) {
-                const searchLower = (productTitle + ' ' + productBrand).toLowerCase();
+            // Step C: Match against Master Fly Tackle Database (tackle_db.js)
+            if (window.TACKLE_DATABASE) {
+                const searchLower = (productTitle + ' ' + productBrand + ' ' + cleanCode).toLowerCase();
                 for (let cat in window.TACKLE_DATABASE) {
                     const dbCat = window.TACKLE_DATABASE[cat];
                     if (dbCat.models) {
-                        const found = dbCat.models.find(m => searchLower.includes(m.name.toLowerCase()));
+                        const found = dbCat.models.find(m => searchLower.includes(m.name.toLowerCase()) || (m.barcode && m.barcode === cleanCode));
                         if (found) {
                             if (!productBrand) productBrand = found.brand;
                             if (!productTitle) productTitle = found.name;
@@ -6147,6 +6148,53 @@ Respond ONLY in valid JSON format:
                             break;
                         }
                     }
+                }
+            }
+
+            // Step D: Use unified Gemini AI to cross-reference barcode number to brand, model name, and spec
+            let geminiKey = localStorage.getItem('geminiApiKey') || localStorage.getItem('gemini_api_key') || window.DEFAULT_GEMINI_KEY;
+            if (geminiKey) {
+                try {
+                    const aiPrompt = `Identify the fishing equipment/tackle for UPC/Barcode "${cleanCode}"${productTitle ? ` (Online Match: "${productTitle}")` : ''}${productBrand ? ` (Brand: "${productBrand}")` : ''}.
+Classify accurately into one category: "rod", "reel", "flyline", "leader", "tippet", or "fly".
+Identify the Brand, Model Name, and Specification (e.g. 9ft 5wt, WF5F, 4X 6lb, #14 Olive Emerger).
+Respond ONLY in valid JSON format:
+{
+  "category": "rod|reel|flyline|leader|tippet|fly",
+  "brand": "Brand Name",
+  "name": "Model or Product Name",
+  "spec": "Specification / Weight / Hook Size",
+  "notes": "Short description"
+}`;
+                    const modelsToTry = [localStorage.getItem('geminiActiveModel'), 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-flash-latest'].filter(Boolean);
+                    for (const mName of modelsToTry) {
+                        try {
+                            const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${encodeURIComponent(geminiKey)}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    contents: [{ parts: [{ text: aiPrompt }] }],
+                                    generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+                                })
+                            });
+
+                            if (aiRes.ok) {
+                                const aiData = await aiRes.json();
+                                const candidate = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
+                                if (candidate) {
+                                    const parsed = JSON.parse(candidate);
+                                    if (parsed.brand) productBrand = parsed.brand;
+                                    if (parsed.name) productTitle = parsed.name;
+                                    if (parsed.spec) productSpec = parsed.spec;
+                                    if (parsed.category) productCategory = parsed.category;
+                                    if (parsed.notes) productNotes = parsed.notes;
+                                    break;
+                                }
+                            }
+                        } catch (e) {}
+                    }
+                } catch (aiErr) {
+                    console.warn("AI Barcode lookup notice:", aiErr);
                 }
             }
 
