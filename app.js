@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100990';
+window.APP_VERSION = 'v101000';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -1846,21 +1846,90 @@ window.initMainApp = async function() {
         }
     });
 
+    // Helper to dynamically resolve complete tackle breakdown (Rod, Reel, Fly Line, Fly, Combo)
+    function resolveCatchTackle(item) {
+        if (!item) return { rod: '', reel: '', flyline: '', fly: '', combo: '' };
+        let rod = item.rod || '';
+        let reel = item.reel || '';
+        let flyline = item.flyline || '';
+        let fly = item.fly || '';
+        let combo = item.combo || item.rigCombo || '';
+
+        // If rod, reel, or flyline is missing but combo is present, resolve from saved rigs
+        if (combo && (!rod || !reel || !flyline)) {
+            const cleanCombo = combo.trim().toLowerCase();
+            const rig = (AppState.rigs || []).find(r => 
+                (r.name && r.name.toLowerCase() === cleanCombo) || 
+                String(r.id) === String(combo)
+            );
+            if (rig) {
+                const rRod = (AppState.tackle || []).find(t => t.id === Number(rig.rodId));
+                const rReel = (AppState.tackle || []).find(t => t.id === Number(rig.reelId));
+                const rLine = (AppState.tackle || []).find(t => t.id === Number(rig.lineId));
+                if (!rod && rRod) rod = getTackleDisambiguatedLabel(rRod, AppState.tackle);
+                if (!reel && rReel) reel = getTackleDisambiguatedLabel(rReel, AppState.tackle);
+                if (!flyline && rLine) flyline = getTackleDisambiguatedLabel(rLine, AppState.tackle);
+            }
+        }
+
+        // If combo is missing but rod and reel are present, resolve matching combo
+        if (!combo && rod && reel) {
+            const cleanRod = rod.trim().toLowerCase();
+            const cleanReel = reel.trim().toLowerCase();
+            const cleanLine = flyline ? flyline.trim().toLowerCase() : '';
+
+            const matchingRig = (AppState.rigs || []).find(rig => {
+                const rRod = (AppState.tackle || []).find(t => t.id === Number(rig.rodId));
+                const rReel = (AppState.tackle || []).find(t => t.id === Number(rig.reelId));
+                const rLine = (AppState.tackle || []).find(t => t.id === Number(rig.lineId));
+
+                const rodLabel = rRod ? getTackleDisambiguatedLabel(rRod, AppState.tackle).toLowerCase() : '';
+                const reelLabel = rReel ? getTackleDisambiguatedLabel(rReel, AppState.tackle).toLowerCase() : '';
+                const lineLabel = rLine ? getTackleDisambiguatedLabel(rLine, AppState.tackle).toLowerCase() : '';
+
+                const rodMatch = rRod && (rRod.name.toLowerCase() === cleanRod || rodLabel === cleanRod || cleanRod.includes(rRod.name.toLowerCase()));
+                const reelMatch = rReel && (rReel.name.toLowerCase() === cleanReel || reelLabel === cleanReel || cleanReel.includes(rReel.name.toLowerCase()));
+                const lineMatch = !flyline || (rLine && (rLine.name.toLowerCase() === cleanLine || lineLabel === cleanLine || cleanLine.includes(rLine.name.toLowerCase())));
+                return rodMatch && reelMatch && lineMatch;
+            });
+            if (matchingRig) combo = matchingRig.name;
+        }
+
+        return { rod, reel, flyline, fly, combo };
+    }
+
     // Auto-populate tackle items when selecting a saved Combo in the Log Catch form
     if (elements.rigComboSelect) {
         elements.rigComboSelect.addEventListener('change', () => {
             const rigId = elements.rigComboSelect.value;
             if (!rigId) return;
 
-            const rig = AppState.rigs.find(r => r.id === Number(rigId));
+            const rig = (AppState.rigs || []).find(r => String(r.id) === String(rigId));
             if (rig) {
-                const rod = AppState.tackle.find(t => t.id === Number(rig.rodId));
-                const reel = AppState.tackle.find(t => t.id === Number(rig.reelId));
-                const line = AppState.tackle.find(t => t.id === Number(rig.lineId));
+                const rod = (AppState.tackle || []).find(t => t.id === Number(rig.rodId));
+                const reel = (AppState.tackle || []).find(t => t.id === Number(rig.reelId));
+                const line = (AppState.tackle || []).find(t => t.id === Number(rig.lineId));
 
-                if (rod && elements.rigRod) elements.rigRod.value = rod.name;
-                if (reel && elements.rigReel) elements.rigReel.value = reel.name;
-                if (line && elements.rigFlyline) elements.rigFlyline.value = line.name;
+                const selectDropdownOption = (selectEl, tackleItem) => {
+                    if (!selectEl || !tackleItem) return;
+                    const label = getTackleDisambiguatedLabel(tackleItem, AppState.tackle);
+                    let found = false;
+                    for (let i = 0; i < selectEl.options.length; i++) {
+                        const opt = selectEl.options[i];
+                        if (opt.value === label || opt.value === tackleItem.name || opt.text === label || opt.text === tackleItem.name || opt.text.startsWith(tackleItem.name)) {
+                            selectEl.selectedIndex = i;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        selectEl.value = label;
+                    }
+                };
+
+                if (rod && elements.rigRod) selectDropdownOption(elements.rigRod, rod);
+                if (reel && elements.rigReel) selectDropdownOption(elements.rigReel, reel);
+                if (line && elements.rigFlyline) selectDropdownOption(elements.rigFlyline, line);
             }
         });
     }
@@ -1943,7 +2012,14 @@ window.initMainApp = async function() {
                 } catch(e){}
             }
 
-            const tackleText = [item.fly, item.rod, item.reel, item.flyline, item.rigCombo].filter(Boolean).join(' | ') || 'N/A';
+            const { rod: displayRod, reel: displayReel, flyline: displayLine, fly: displayFly, combo: displayCombo } = resolveCatchTackle(item);
+            const tackleParts = [];
+            if (displayFly) tackleParts.push(`🪰 ${displayFly}`);
+            if (displayCombo) tackleParts.push(`🎣 ${displayCombo}`);
+            else if (displayRod) tackleParts.push(`🎣 ${displayRod}`);
+            if (displayReel) tackleParts.push(`⚙️ ${displayReel}`);
+            if (displayLine) tackleParts.push(`🧵 ${displayLine}`);
+            const tackleText = tackleParts.join(' | ') || 'N/A';
 
             card.innerHTML = `
                 <div class="card-img-wrapper">
@@ -2049,22 +2125,7 @@ window.initMainApp = async function() {
             const photoSrc = getFishPhoto(item);
             const locationText = item.lat && item.lng ? `Lat: ${item.lat.toFixed(4)}, Lng: ${item.lng.toFixed(4)}` : 'No location tagged';
 
-            // Look up matching combo if not explicitly set
-            let displayCombo = item.combo || '';
-            if (!displayCombo && item.rod && item.reel) {
-                const matchingRig = AppState.rigs.find(rig => {
-                    const rRod = AppState.tackle.find(t => t.id === Number(rig.rodId));
-                    const rReel = AppState.tackle.find(t => t.id === Number(rig.reelId));
-                    const rLine = AppState.tackle.find(t => t.id === Number(rig.lineId));
-                    
-                    return (rRod && rRod.name === item.rod) &&
-                           (rReel && rReel.name === item.reel) &&
-                           (!item.flyline || (rLine && rLine.name === item.flyline));
-                });
-                if (matchingRig) {
-                    displayCombo = matchingRig.name;
-                }
-            }
+            const { rod: displayRod, reel: displayReel, flyline: displayLine, fly: displayFly, combo: displayCombo } = resolveCatchTackle(item);
 
             let environmentalStrip = '';
             if (item.weatherCondition || item.pressure || item.moonPhase || item.tideHeight) {
@@ -2107,10 +2168,10 @@ window.initMainApp = async function() {
                         <div class="card-specs mt-10">
                             <span>Weight: <strong>${item.weight || '--'} kg</strong></span>
                             <span>Location: <strong style="font-size:10px;">${locationText}</strong></span>
-                            <span>Fly/Lure: <strong>${item.fly || 'N/A'}</strong></span>
-                            <span>Rod Used: <strong>${item.rod || 'N/A'}</strong></span>
-                            ${item.reel ? `<span>Reel Used: <strong>${item.reel}</strong></span>` : ''}
-                            ${item.flyline ? `<span>Line Used: <strong>${item.flyline}</strong></span>` : ''}
+                            <span>Fly/Lure: <strong>${displayFly || 'N/A'}</strong></span>
+                            <span>Rod Used: <strong>${displayRod || 'N/A'}</strong></span>
+                            ${displayReel ? `<span>Reel Used: <strong>${displayReel}</strong></span>` : ''}
+                            ${displayLine ? `<span>Line Used: <strong>${displayLine}</strong></span>` : ''}
                             ${displayCombo ? `<span style="grid-column: span 2;">Rig Combo: <strong style="color: var(--accent-teal);">${displayCombo}</strong></span>` : ''}
                         </div>
                         <p class="card-notes" style="display: block; -webkit-line-clamp: unset; overflow: visible; white-space: pre-wrap;">${item.notes || 'No notes recorded.'}</p>
@@ -2340,12 +2401,14 @@ window.initMainApp = async function() {
         if (elements.catchTime) elements.catchTime.value = catchItem.time || '';
         document.getElementById('catch-notes').value = catchItem.notes || '';
 
+        const { rod: curRod, reel: curReel, flyline: curLine, fly: curFly, combo: curCombo } = resolveCatchTackle(catchItem);
+
         // Rig selections
-        if (elements.rigComboSelect && catchItem.combo) {
+        if (elements.rigComboSelect && curCombo) {
             const options = elements.rigComboSelect.options;
             let found = false;
             for (let i = 0; i < options.length; i++) {
-                if (options[i].text === catchItem.combo) {
+                if (options[i].text === curCombo || options[i].value === curCombo) {
                     elements.rigComboSelect.selectedIndex = i;
                     found = true;
                     break;
@@ -2356,15 +2419,41 @@ window.initMainApp = async function() {
             elements.rigComboSelect.value = '';
         }
 
-        if (elements.rigRod) elements.rigRod.value = catchItem.rod || '';
-        if (elements.rigReel) elements.rigReel.value = catchItem.reel || '';
-        if (elements.rigFlyline) elements.rigFlyline.value = catchItem.flyline || '';
-        if (elements.rigFly) elements.rigFly.value = catchItem.fly || '';
+        const selectByValueOrText = (selectEl, val) => {
+            if (!selectEl) return;
+            if (!val) {
+                selectEl.value = '';
+                return;
+            }
+            let found = false;
+            for (let i = 0; i < selectEl.options.length; i++) {
+                const opt = selectEl.options[i];
+                if (opt.value === val || opt.text === val || opt.text.startsWith(val) || val.startsWith(opt.text)) {
+                    selectEl.selectedIndex = i;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) selectEl.value = val;
+        };
+
+        if (elements.rigRod) selectByValueOrText(elements.rigRod, curRod);
+        if (elements.rigReel) selectByValueOrText(elements.rigReel, curReel);
+        if (elements.rigFlyline) selectByValueOrText(elements.rigFlyline, curLine);
+        if (elements.rigFly) selectByValueOrText(elements.rigFly, curFly);
 
         // Photo preview
         if (catchItem.photo) {
             elements.catchPhotoPreview.src = catchItem.photo;
             elements.catchPhotoPreviewContainer.style.display = 'block';
+            // Lazy-load full resolution image from IndexedDB
+            if (window.DB && window.DB.getFullPhoto) {
+                window.DB.getFullPhoto(catchItem.id, 'catch').then(fullPhoto => {
+                    if (fullPhoto && elements.catchPhotoPreview) {
+                        elements.catchPhotoPreview.src = fullPhoto;
+                    }
+                });
+            }
             const lat = catchItem.lat !== null && catchItem.lat !== undefined ? catchItem.lat : null;
             const lng = catchItem.lng !== null && catchItem.lng !== undefined ? catchItem.lng : null;
             displayRegulationBox(catchItem.species, lat, lng);
@@ -2473,11 +2562,28 @@ window.initMainApp = async function() {
         const photo = elements.catchPhotoPreview ? (elements.catchPhotoPreview.src || null) : null;
         const notes = document.getElementById('catch-notes') ? document.getElementById('catch-notes').value.trim() : '';
 
-        // Gear rig selections with safe null checks
-        const rod = elements.rigRod ? elements.rigRod.value : '';
-        const reel = elements.rigReel ? elements.rigReel.value : '';
-        const flyline = elements.rigFlyline ? elements.rigFlyline.value : '';
+        // Gear rig selections with safe null checks & auto-fill from selected combo
+        let rod = elements.rigRod ? elements.rigRod.value : '';
+        let reel = elements.rigReel ? elements.rigReel.value : '';
+        let flyline = elements.rigFlyline ? elements.rigFlyline.value : '';
         const fly = elements.rigFly ? elements.rigFly.value : '';
+
+        const comboVal = (elements.rigComboSelect && elements.rigComboSelect.value) ? 
+            elements.rigComboSelect.options[elements.rigComboSelect.selectedIndex].text : null;
+
+        // Auto-fill rod, reel, flyline from combo if they are blank
+        if (comboVal && (!rod || !reel || !flyline)) {
+            const rigId = elements.rigComboSelect.value;
+            const rig = (AppState.rigs || []).find(r => String(r.id) === String(rigId) || r.name === comboVal);
+            if (rig) {
+                const rRod = (AppState.tackle || []).find(t => t.id === Number(rig.rodId));
+                const rReel = (AppState.tackle || []).find(t => t.id === Number(rig.reelId));
+                const rLine = (AppState.tackle || []).find(t => t.id === Number(rig.lineId));
+                if (!rod && rRod) rod = getTackleDisambiguatedLabel(rRod, AppState.tackle);
+                if (!reel && rReel) reel = getTackleDisambiguatedLabel(rReel, AppState.tackle);
+                if (!flyline && rLine) flyline = getTackleDisambiguatedLabel(rLine, AppState.tackle);
+            }
+        }
 
         const rawDate = elements.catchDate && elements.catchDate.value ? elements.catchDate.value : new Date().toISOString().split('T')[0];
         let rawTime = elements.catchTime && elements.catchTime.value ? elements.catchTime.value : '12:00';
@@ -2548,8 +2654,6 @@ window.initMainApp = async function() {
             }
         }
 
-        const comboVal = (elements.rigComboSelect && elements.rigComboSelect.value) ? 
-            elements.rigComboSelect.options[elements.rigComboSelect.selectedIndex].text : null;
         const waterClarity = document.getElementById('catch-clarity') ? document.getElementById('catch-clarity').value : null;
         const activeHatch = document.getElementById('catch-hatch') ? document.getElementById('catch-hatch').value : null;
 
@@ -2566,6 +2670,7 @@ window.initMainApp = async function() {
             reel,
             flyline,
             fly,
+            combo: comboVal,
             rigCombo: comboVal,
             date,
             time,
