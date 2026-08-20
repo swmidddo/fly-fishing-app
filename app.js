@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100960';
+window.APP_VERSION = 'v100970';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -312,6 +312,25 @@ window.initMainApp = async function() {
         });
     }
 
+    window.toggleMobileNavDrawer = function(forceState) {
+        const backdrop = document.getElementById('mobile-nav-backdrop');
+        const drawer = document.getElementById('mobile-nav-drawer');
+        if (!backdrop || !drawer) return;
+
+        const isActive = drawer.classList.contains('active');
+        const shouldOpen = forceState !== undefined ? forceState : !isActive;
+
+        if (shouldOpen) {
+            backdrop.classList.add('active');
+            drawer.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        } else {
+            backdrop.classList.remove('active');
+            drawer.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    };
+
     window.switchTab = function(tabId) {
         if (!tabId) tabId = 'dashboard';
         AppState.activeTab = tabId;
@@ -319,7 +338,25 @@ window.initMainApp = async function() {
             localStorage.setItem('lastActiveTab', tabId);
         } catch(e){}
 
-        const navItems = document.querySelectorAll('.nav-item, .mobile-nav-item, [data-tab]');
+        const tabTitles = {
+            'dashboard': 'Dashboard',
+            'map': 'Interactive Map',
+            'catches': 'Catch Logs',
+            'tackle': 'Tackle Library',
+            'regulations': 'Fish Size Guide',
+            'weather': 'Weather & Tides',
+            'flybox': 'Virtual Fly Box',
+            'knots': 'Knots Guide',
+            'licenses': 'My Licenses',
+            'settings': 'Settings'
+        };
+
+        const mobileTabLabel = document.getElementById('mobile-current-tab-label');
+        if (mobileTabLabel) {
+            mobileTabLabel.textContent = tabTitles[tabId] || tabId;
+        }
+
+        const navItems = document.querySelectorAll('.nav-item, .mobile-nav-item, .mobile-drawer-card, [data-tab]');
         navItems.forEach(item => {
             if (item.getAttribute('data-tab') === tabId) {
                 item.classList.add('active');

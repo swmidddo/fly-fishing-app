@@ -262,7 +262,7 @@
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
-                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v100960</span>
+                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v100970</span>
                     </div>
                 </div>
             </div>
@@ -320,6 +320,29 @@
         <!-- Main Content Area -->
         <main class="main-content">
             
+            <!-- Mobile Sticky Top App Bar with ☰ Hamburger Menu -->
+            <header class="mobile-top-bar">
+                <div class="mobile-top-brand" onclick="window.switchTab('dashboard')">
+                    <img src="images/logo.jpg" class="brand-logo-img-sm" alt="Middo's">
+                    <div style="display: flex; flex-direction: column;">
+                        <span class="mobile-brand-title">Middo's Fly Fishing</span>
+                        <span class="mobile-brand-sub" id="mobile-current-tab-label">Dashboard</span>
+                    </div>
+                </div>
+                <div class="mobile-top-actions">
+                    <button class="btn btn-primary btn-sm mobile-quick-catch-btn" onclick="window.openLogCatchModal()" title="Log Catch">
+                        <span>+ Catch</span>
+                    </button>
+                    <button class="mobile-hamburger-btn" onclick="window.toggleMobileNavDrawer()" aria-label="Open Navigation Menu">
+                        <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2.2" fill="none">
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
             <!-- Dashboard View -->
             <section id="tab-dashboard" class="tab-content active">
                 <header class="section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.06);">
@@ -1349,7 +1372,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
                             <div>
                                 <strong style="font-size: 13px; color: var(--text-primary);">Installed Version:</strong>
-                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v100960 (Latest Build)</span>
+                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v100970 (Latest Build)</span>
                             </div>
                             <button class="btn btn-primary btn-sm" id="btn-force-check-updates">🔄 Check for Updates Now</button>
                         </div>
@@ -1980,70 +2003,68 @@
         </div>
     </div>
 
-    <!-- Mobile Bottom Navigation Bar -->
-    <nav class="mobile-bottom-nav">
-        <button class="mobile-nav-item active" data-tab="dashboard" onclick="window.switchTab('dashboard')">
-            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-            <span>Home</span>
-        </button>
-        <button class="mobile-nav-item" data-tab="map" onclick="window.switchTab('map')">
-            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polygon points="1 6 1 22 8 18 15 22 22 18 22 2 15 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="15" y1="6" x2="15" y2="22"></line></svg>
-            <span>Map</span>
-        </button>
-        <button class="mobile-nav-item" onclick="window.openLogCatchModal()">
-            <div class="mobile-nav-add-btn">
-                <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            </div>
-            <span>Log Catch</span>
-        </button>
-        <button class="mobile-nav-item" data-tab="regulations" onclick="window.switchTab('regulations')">
-            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-            <span>Fish Guide</span>
-        </button>
-        <button class="mobile-nav-item" data-tab="weather" onclick="window.switchTab('weather')">
-            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M17.5 19a4.5 4.5 0 0 0 2.5-8.4A6 6 0 0 0 8.5 7A5.5 5.5 0 0 0 3 12.5a5.5 5.5 0 0 0 5.5 5.5h9z"></path></svg>
-            <span>Weather</span>
-        </button>
-        <button class="mobile-nav-item" id="btn-mobile-more" onclick="window.toggleMobileMoreDrawer()">
-            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-            <span>More</span>
-        </button>
-    </nav>
-
-    <!-- Mobile More Sub-Menu Drawer Backdrop & Sheet -->
-    <div id="mobile-more-backdrop" class="mobile-drawer-backdrop" onclick="window.toggleMobileMoreDrawer(false)"></div>
-    <div id="mobile-more-drawer" class="mobile-drawer-sheet">
+    <!-- Mobile Slide-Out Navigation Drawer Backdrop & Sheet (Option 1 Header Navigation) -->
+    <div id="mobile-nav-backdrop" class="mobile-drawer-backdrop" onclick="window.toggleMobileNavDrawer(false)"></div>
+    <div id="mobile-nav-drawer" class="mobile-drawer-sheet">
         <div class="mobile-drawer-header">
             <div class="mobile-drawer-pill"></div>
-            <h3>Menu & Tools</h3>
-            <button class="modal-close" onclick="window.toggleMobileMoreDrawer(false)">&times;</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <img src="images/logo.jpg" style="width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--accent-teal);" alt="Logo">
+                    <div>
+                        <strong style="color: var(--text-primary); font-size: 15px; display: block;">Middo's Fly Fishing</strong>
+                        <span style="font-size: 10.5px; color: var(--accent-teal); font-weight: 600;">Main Navigation</span>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="window.toggleMobileNavDrawer(false)">&times;</button>
+            </div>
         </div>
         <div class="mobile-drawer-grid">
-            <button class="mobile-drawer-card" data-tab="flybox" onclick="window.switchTab('flybox'); window.toggleMobileMoreDrawer(false);">
+            <button class="mobile-drawer-card" data-tab="dashboard" onclick="window.switchTab('dashboard'); window.toggleMobileNavDrawer(false);">
+                <span class="mobile-drawer-icon">📊</span>
+                <span class="mobile-drawer-label">Dashboard</span>
+            </button>
+            <button class="mobile-drawer-card" data-tab="map" onclick="window.switchTab('map'); window.toggleMobileNavDrawer(false);">
+                <span class="mobile-drawer-icon">🗺️</span>
+                <span class="mobile-drawer-label">Map</span>
+            </button>
+            <button class="mobile-drawer-card" data-tab="catches" onclick="window.switchTab('catches'); window.toggleMobileNavDrawer(false);">
+                <span class="mobile-drawer-icon">🐟</span>
+                <span class="mobile-drawer-label">Catch Logs</span>
+            </button>
+            <button class="mobile-drawer-card" data-tab="tackle" onclick="window.switchTab('tackle'); window.toggleMobileNavDrawer(false);">
+                <span class="mobile-drawer-icon">🎣</span>
+                <span class="mobile-drawer-label">Tackle &amp; Rigs</span>
+            </button>
+            <button class="mobile-drawer-card" data-tab="regulations" onclick="window.switchTab('regulations'); window.toggleMobileNavDrawer(false);">
+                <span class="mobile-drawer-icon">📏</span>
+                <span class="mobile-drawer-label">Fish Guide</span>
+            </button>
+            <button class="mobile-drawer-card" data-tab="weather" onclick="window.switchTab('weather'); window.toggleMobileNavDrawer(false);">
+                <span class="mobile-drawer-icon">🌤️</span>
+                <span class="mobile-drawer-label">Weather &amp; Tides</span>
+            </button>
+            <button class="mobile-drawer-card" data-tab="flybox" onclick="window.switchTab('flybox'); window.toggleMobileNavDrawer(false);">
                 <span class="mobile-drawer-icon">🪰</span>
                 <span class="mobile-drawer-label">Fly Box</span>
             </button>
-            <button class="mobile-drawer-card" data-tab="tackle" onclick="window.switchTab('tackle'); window.toggleMobileMoreDrawer(false);">
-                <span class="mobile-drawer-icon">🎣</span>
-                <span class="mobile-drawer-label">Tackle & Rigs</span>
-            </button>
-            <button class="mobile-drawer-card" data-tab="knots" onclick="window.switchTab('knots'); window.toggleMobileMoreDrawer(false);">
+            <button class="mobile-drawer-card" data-tab="knots" onclick="window.switchTab('knots'); window.toggleMobileNavDrawer(false);">
                 <span class="mobile-drawer-icon">🪢</span>
                 <span class="mobile-drawer-label">Knots Guide</span>
             </button>
-            <button class="mobile-drawer-card" data-tab="licenses" onclick="window.switchTab('licenses'); window.toggleMobileMoreDrawer(false);">
+            <button class="mobile-drawer-card" data-tab="licenses" onclick="window.switchTab('licenses'); window.toggleMobileNavDrawer(false);">
                 <span class="mobile-drawer-icon">📜</span>
-                <span class="mobile-drawer-label">Licenses</span>
+                <span class="mobile-drawer-label">My Licenses</span>
             </button>
-            <button class="mobile-drawer-card" data-tab="settings" onclick="window.switchTab('settings'); window.toggleMobileMoreDrawer(false);">
+            <button class="mobile-drawer-card" data-tab="settings" onclick="window.switchTab('settings'); window.toggleMobileNavDrawer(false);">
                 <span class="mobile-drawer-icon">⚙️</span>
                 <span class="mobile-drawer-label">Settings</span>
             </button>
-            <button class="mobile-drawer-card" onclick="window.promptChangeLocation(); window.toggleMobileMoreDrawer(false);">
+            <button class="mobile-drawer-card" onclick="window.promptChangeLocation(); window.toggleMobileNavDrawer(false);">
                 <span class="mobile-drawer-icon">📍</span>
                 <span class="mobile-drawer-label">Set Location</span>
             </button>
-            <button class="mobile-drawer-card" onclick="window.toggleRiverMode(); window.toggleMobileMoreDrawer(false);">
+            <button class="mobile-drawer-card" onclick="window.toggleRiverMode(); window.toggleMobileNavDrawer(false);">
                 <span class="mobile-drawer-icon">☀️</span>
                 <span class="mobile-drawer-label">River Mode</span>
             </button>
@@ -2053,16 +2074,16 @@
     <!-- Scripts -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
-    <script src="db.js?v=100960"></script>
-    <script src="regulations.js?v=100960"></script>
-    <script src="weather.js?v=100960"></script>
-    <script src="exif.js?v=100960"></script>
-    <script src="map.js?v=100960"></script>
-    <script src="tackle_db.js?v=100960"></script>
-    <script src="fish_db.js?v=100960"></script>
-    <script src="fly_box.js?v=100960"></script>
-    <script src="knots.js?v=100960"></script>
-    <script src="auth.js?v=100960"></script>
-    <script src="app.js?v=100960"></script>
+    <script src="db.js?v=100970"></script>
+    <script src="regulations.js?v=100970"></script>
+    <script src="weather.js?v=100970"></script>
+    <script src="exif.js?v=100970"></script>
+    <script src="map.js?v=100970"></script>
+    <script src="tackle_db.js?v=100970"></script>
+    <script src="fish_db.js?v=100970"></script>
+    <script src="fly_box.js?v=100970"></script>
+    <script src="knots.js?v=100970"></script>
+    <script src="auth.js?v=100970"></script>
+    <script src="app.js?v=100970"></script>
 </body>
 </html>
