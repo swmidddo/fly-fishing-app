@@ -262,7 +262,7 @@
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
-                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v100850</span>
+                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v100880</span>
                     </div>
                 </div>
             </div>
@@ -695,7 +695,8 @@
                         <h1>Tackle & Equipment Library</h1>
                         <p class="subtitle">Organize and keep track of your rods, reels, lines, and flies.</p>
                     </div>
-                    <div style="display:flex; gap:10px;">
+                    <div style="display:flex; gap:8px; flex-wrap: wrap;">
+                        <button class="btn btn-glass" onclick="window.openBarcodeScanner()" style="border-color: rgba(0, 210, 255, 0.4); color: var(--accent-teal);">📷 Scan Barcode / UPC</button>
                         <button class="btn btn-glass" onclick="window.showAddRigModal()">+ Create Combo</button>
                         <button class="btn btn-primary" onclick="window.showAddTackleModal()">+ Add Equipment</button>
                     </div>
@@ -1348,7 +1349,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
                             <div>
                                 <strong style="font-size: 13px; color: var(--text-primary);">Installed Version:</strong>
-                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v100850 (Latest Build)</span>
+                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v100880 (Latest Build)</span>
                             </div>
                             <button class="btn btn-primary btn-sm" id="btn-force-check-updates">🔄 Check for Updates Now</button>
                         </div>
@@ -1616,6 +1617,19 @@
             <span class="modal-close" onclick="window.hideAddTackleModal()">&times;</span>
             <h2 id="modal-tackle-title">Add Tackle or Equipment</h2>
             <form id="form-add-tackle" class="modal-form">
+                <!-- Barcode / UPC Quick Scan Banner -->
+                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0, 210, 255, 0.06); border: 1px solid rgba(0, 210, 255, 0.2); border-radius: 8px; padding: 10px 14px; margin-bottom: 15px;">
+                    <div>
+                        <strong style="font-size: 12.5px; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+                            <span>📷</span> Barcode / UPC Package Scanner
+                        </strong>
+                        <span style="font-size: 11px; color: var(--text-secondary); display: block;">Scan tackle box/spool barcode to auto-fill brand, name &amp; spec.</span>
+                    </div>
+                    <button type="button" class="btn btn-glass btn-sm" onclick="window.openBarcodeScanner()" style="border-color: var(--accent-teal); color: var(--accent-teal); white-space: nowrap;">
+                        📷 Scan Package
+                    </button>
+                </div>
+
                 <div class="form-group">
                     <label for="tackle-type">Equipment Category *</label>
                     <select id="tackle-type" class="form-select" required>
@@ -1648,6 +1662,17 @@
                     </div>
                 </div>
 
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="tackle-nickname">Nickname / Setup Tag <span style="font-size: 10.5px; color: var(--accent-teal); font-weight: normal;">(Optional)</span></label>
+                        <input type="text" id="tackle-nickname" class="form-input" placeholder="e.g. Rig 1 (Dry Fly), Spool A">
+                    </div>
+                    <div class="form-group">
+                        <label for="tackle-barcode">Barcode / UPC Number <span style="font-size: 10.5px; color: var(--text-secondary); font-weight: normal;">(Optional)</span></label>
+                        <input type="text" id="tackle-barcode" class="form-input" placeholder="e.g. 052857201948">
+                    </div>
+                </div>
+
                 <!-- Leader-Tippet Rule Calculator -->
                 <div id="tackle-tippet-calc-box" style="display: none; padding: 10px; background: rgba(0, 210, 255, 0.08); border-left: 3px solid var(--accent-teal); border-radius: 6px; font-size: 11.5px; margin-bottom: 12px;">
                     <div style="color: var(--accent-teal); font-weight: 600; margin-bottom: 2px;">📐 Leader / Tippet Formula Recommendation:</div>
@@ -1659,8 +1684,9 @@
                     <textarea id="tackle-notes" class="form-input" rows="3" placeholder="Condition, purchase date, fly tying materials, backing capacity, etc..."></textarea>
                 </div>
 
-                <div class="modal-actions">
+                <div class="modal-actions" style="display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
                     <button type="button" class="btn btn-glass" onclick="window.hideAddTackleModal()">Cancel</button>
+                    <button type="button" class="btn btn-glass" id="btn-tackle-save-add-another" onclick="window.saveTackleAndAddAnother()" style="border-color: rgba(0, 210, 255, 0.4); color: var(--accent-teal);">➕ Save &amp; Add Next Size</button>
                     <button type="submit" class="btn btn-primary" id="btn-tackle-submit">Save Equipment</button>
                 </div>
             </form>
@@ -1896,10 +1922,54 @@
                 <!-- Dynamic trip report rendered here -->
             </div>
             <div class="modal-actions" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center; gap: 15px;">
-                <button type="button" class="btn btn-glass" onclick="document.getElementById('modal-trip-journal').classList.remove('active')">Close</button>
-                <button type="button" class="btn btn-primary" onclick="window.printTripJournalReport()">📄 Print / Save PDF</button>
+    <!-- Barcode / UPC Camera Scanner Modal -->
+    <div class="modal" id="modal-barcode-scanner">
+        <div class="modal-content glass" style="max-width: 480px; padding: 20px; border-left: 4px solid var(--accent-teal); position: relative;">
+            <span class="modal-close" onclick="window.closeBarcodeScanner()">&times;</span>
+            <h3 style="margin-top: 0; font-size: 17px; display: flex; align-items: center; gap: 8px;">
+                <span>📷</span> Scan Equipment Barcode / UPC
+            </h3>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+                Point your phone camera at any fly box, line spool, leader, or tackle package barcode.
+            </p>
+
+            <!-- Camera Viewport Container -->
+            <div style="position: relative; width: 100%; height: 260px; background: #000; border-radius: 12px; overflow: hidden; border: 2px solid rgba(0, 210, 255, 0.3); display: flex; align-items: center; justify-content: center;">
+                <video id="barcode-scanner-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+                <canvas id="barcode-scanner-canvas" style="display: none;"></canvas>
+
+                <!-- Scanning Reticle Overlay -->
+                <div style="position: absolute; width: 220px; height: 140px; border: 2px solid var(--accent-teal); border-radius: 8px; box-shadow: 0 0 20px rgba(0, 210, 255, 0.4); pointer-events: none; display: flex; align-items: center; justify-content: center;">
+                    <div style="width: 100%; height: 2px; background: linear-gradient(90deg, transparent, #00d2ff, #fff, #00d2ff, transparent); box-shadow: 0 0 10px #00d2ff; animation: scanLineAnim 2s infinite ease-in-out;"></div>
+                </div>
+
+                <!-- Live Camera Controls Overlay -->
+                <div style="position: absolute; bottom: 10px; left: 0; right: 0; display: flex; justify-content: center; gap: 10px; z-index: 10;">
+                    <button type="button" class="btn btn-glass btn-sm" id="btn-scanner-torch" onclick="window.toggleScannerTorch()" style="background: rgba(0,0,0,0.6); padding: 5px 12px; font-size: 11px;">🔦 Torch</button>
+                    <button type="button" class="btn btn-glass btn-sm" id="btn-scanner-switch" onclick="window.switchScannerCamera()" style="background: rgba(0,0,0,0.6); padding: 5px 12px; font-size: 11px;">🔄 Flip Camera</button>
+                </div>
+            </div>
+
+            <!-- Scanner Status Output -->
+            <div id="barcode-scanner-status" style="margin-top: 12px; font-size: 12px; text-align: center; color: var(--accent-teal); font-weight: 600;">
+                Initializing high-resolution camera...
+            </div>
+
+            <!-- Manual Barcode Entry Fallback -->
+            <div style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;">
+                <label style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Or Enter Barcode / UPC Number Manually:</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="manual-barcode-input" class="form-input" placeholder="e.g. 052857201948 or 7393433001234" style="flex: 1; font-size: 12px;">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="window.submitManualBarcode()">Auto-Detect</button>
+                </div>
+            </div>
+
+            <div class="modal-actions" style="margin-top: 16px; display: flex; justify-content: flex-end;">
+                <button type="button" class="btn btn-glass" onclick="window.closeBarcodeScanner()">Close</button>
             </div>
         </div>
+    </div>
+
     <!-- Mobile Bottom Navigation Bar -->
     <nav class="mobile-bottom-nav">
         <button class="mobile-nav-item active" data-tab="dashboard" onclick="window.switchTab('dashboard')">
@@ -1971,16 +2041,16 @@
     </div>
 
     <!-- Scripts -->
-    <script src="db.js?v=100850"></script>
-    <script src="regulations.js?v=100850"></script>
-    <script src="weather.js?v=100850"></script>
-    <script src="exif.js?v=100850"></script>
-    <script src="map.js?v=100850"></script>
-    <script src="tackle_db.js?v=100850"></script>
-    <script src="fish_db.js?v=100850"></script>
-    <script src="fly_box.js?v=100850"></script>
-    <script src="knots.js?v=100850"></script>
-    <script src="auth.js?v=100850"></script>
-    <script src="app.js?v=100850"></script>
+    <script src="db.js?v=100880"></script>
+    <script src="regulations.js?v=100880"></script>
+    <script src="weather.js?v=100880"></script>
+    <script src="exif.js?v=100880"></script>
+    <script src="map.js?v=100880"></script>
+    <script src="tackle_db.js?v=100880"></script>
+    <script src="fish_db.js?v=100880"></script>
+    <script src="fly_box.js?v=100880"></script>
+    <script src="knots.js?v=100880"></script>
+    <script src="auth.js?v=100880"></script>
+    <script src="app.js?v=100880"></script>
 </body>
 </html>

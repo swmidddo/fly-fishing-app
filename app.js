@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100850';
+window.APP_VERSION = 'v100880';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -1367,16 +1367,22 @@ window.initMainApp = async function() {
             else if (item.type === 'tippet') icon = '🪢';
             else if (item.type === 'fly') icon = '🪰';
 
+            const nicknameBadge = item.nickname ? `<div style="margin-top: 6px;"><span class="badge" style="background: rgba(0, 210, 255, 0.12); color: var(--accent-teal); border: 1px solid rgba(0, 210, 255, 0.25); font-size: 11px; padding: 2px 8px; border-radius: 4px;">🏷️ ${item.nickname}</span></div>` : '';
+
             card.innerHTML = `
                 <div class="card-content-body">
-                    <span class="card-badge" style="border-color: var(--accent-blue); color: var(--accent-blue);">${icon} ${item.type.toUpperCase()}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span class="card-badge" style="border-color: var(--accent-blue); color: var(--accent-blue);">${icon} ${item.type.toUpperCase()}</span>
+                    </div>
                     <h4 style="margin-top: 10px;">${item.name}</h4>
+                    ${nicknameBadge}
                     <div class="card-specs mt-10">
                         <span>Brand: <strong>${item.brand || 'N/A'}</strong></span>
                         <span>Spec: <strong>${item.spec || 'N/A'}</strong></span>
                     </div>
                     <p class="card-notes">${item.notes || 'No description provided.'}</p>
                     <div class="card-actions-row">
+                        <button class="btn btn-glass btn-sm" onclick="window.duplicateTackleUI(${item.id})" title="Quick copy brand & details for another size / weight class">📋 Duplicate</button>
                         <button class="btn btn-glass btn-sm" onclick="window.editTackleUI(${item.id})">Edit</button>
                         <button class="btn btn-glass btn-danger btn-sm" onclick="window.deleteTackleUI(${item.id})">Delete</button>
                     </div>
@@ -1384,6 +1390,33 @@ window.initMainApp = async function() {
             `;
             elements.tackleList.appendChild(card);
         });
+    }
+
+    // Helper to format tackle item labels with duplicate disambiguation
+    function getTackleDisambiguatedLabel(item, allTackleList) {
+        const specStr = item.spec ? ` (${item.spec})` : '';
+        const brandStr = item.brand ? `${item.brand} ` : '';
+        const baseName = `${brandStr}${item.name}${specStr}`.trim();
+
+        // 1. Explicit Nickname takes highest priority
+        if (item.nickname && item.nickname.trim()) {
+            return `${baseName} • [${item.nickname.trim()}]`;
+        }
+
+        // 2. Check for identical duplicates in the list
+        const duplicates = allTackleList.filter(t => 
+            t.type === item.type && 
+            (t.name || '').trim().toLowerCase() === (item.name || '').trim().toLowerCase() &&
+            (t.brand || '').trim().toLowerCase() === (item.brand || '').trim().toLowerCase() &&
+            (t.spec || '').trim().toLowerCase() === (item.spec || '').trim().toLowerCase()
+        );
+
+        if (duplicates.length > 1) {
+            const index = duplicates.findIndex(t => t.id === item.id);
+            return `${baseName} (#${index >= 0 ? index + 1 : 1})`;
+        }
+
+        return baseName;
     }
 
     // Bind sub-tabs for tackle filter
@@ -1407,9 +1440,7 @@ window.initMainApp = async function() {
         elements.rigFly.innerHTML = '<option value="">Select Fly/Lure...</option>';
 
         AppState.tackle.forEach(item => {
-            const specStr = item.spec ? ` (${item.spec})` : '';
-            const brandStr = item.brand ? `${item.brand} ` : '';
-            const labelText = `${brandStr}${item.name}${specStr}`;
+            const labelText = getTackleDisambiguatedLabel(item, AppState.tackle);
             const option = `<option value="${labelText}">${labelText}</option>`;
             
             if (item.type === 'rod') elements.rigRod.insertAdjacentHTML('beforeend', option);
@@ -1430,9 +1461,7 @@ window.initMainApp = async function() {
         elements.rigComboTippet.innerHTML = '<option value="">Select a Tippet...</option>';
 
         AppState.tackle.forEach(item => {
-            const specStr = item.spec ? ` (${item.spec})` : '';
-            const brandStr = item.brand ? `${item.brand} ` : '';
-            const labelText = `${brandStr}${item.name}${specStr}`;
+            const labelText = getTackleDisambiguatedLabel(item, AppState.tackle);
             const option = `<option value="${item.id}">${labelText}</option>`;
             
             if (item.type === 'rod') elements.rigComboRod.insertAdjacentHTML('beforeend', option);
@@ -1544,6 +1573,10 @@ window.initMainApp = async function() {
         document.getElementById('tackle-name').value = item.name;
         document.getElementById('tackle-brand').value = item.brand || '';
         document.getElementById('tackle-spec').value = item.spec || '';
+        const nicknameEl = document.getElementById('tackle-nickname');
+        if (nicknameEl) nicknameEl.value = item.nickname || '';
+        const barcodeEl = document.getElementById('tackle-barcode');
+        if (barcodeEl) barcodeEl.value = item.barcode || '';
         document.getElementById('tackle-notes').value = item.notes || '';
 
         // Update titles
@@ -1555,17 +1588,94 @@ window.initMainApp = async function() {
         window.showAddTackleModal();
     };
 
+    // Quick duplicate equipment (pre-fills form for another weight class / size)
+    window.duplicateTackleUI = (id) => {
+        const item = AppState.tackle.find(t => t.id === Number(id));
+        if (!item) return;
+
+        // Reset editing ID so it saves as a NEW item
+        AppState.editingTackleId = null;
+
+        // Pre-fill fields from template
+        document.getElementById('tackle-type').value = item.type;
+        document.getElementById('tackle-name').value = item.name;
+        document.getElementById('tackle-brand').value = item.brand || '';
+        document.getElementById('tackle-spec').value = item.spec || '';
+        const nicknameEl = document.getElementById('tackle-nickname');
+        if (nicknameEl) nicknameEl.value = item.nickname || '';
+        const barcodeEl = document.getElementById('tackle-barcode');
+        if (barcodeEl) barcodeEl.value = '';
+        document.getElementById('tackle-notes').value = item.notes || '';
+
+        // Update titles
+        const titleEl = document.getElementById('modal-tackle-title');
+        const submitBtn = document.getElementById('btn-tackle-submit');
+        if (titleEl) titleEl.textContent = "📋 Duplicate Equipment (Quick Copy)";
+        if (submitBtn) submitBtn.textContent = "Save New Item";
+
+        window.showAddTackleModal();
+
+        // Focus & select specification field so user can instantly type the new weight class
+        setTimeout(() => {
+            const specInput = document.getElementById('tackle-spec');
+            if (specInput) {
+                specInput.focus();
+                specInput.select();
+            }
+        }, 150);
+    };
+
+    // Save current item and immediately keep modal open for next weight class
+    window.saveTackleAndAddAnother = async function() {
+        const type = document.getElementById('tackle-type').value;
+        const name = document.getElementById('tackle-name').value.trim();
+        const brand = document.getElementById('tackle-brand').value.trim();
+        const spec = document.getElementById('tackle-spec').value.trim();
+        const nickname = document.getElementById('tackle-nickname') ? document.getElementById('tackle-nickname').value.trim() : '';
+        const barcode = document.getElementById('tackle-barcode') ? document.getElementById('tackle-barcode').value.trim() : '';
+        const notes = document.getElementById('tackle-notes').value.trim();
+
+        if (!name) {
+            alert("Please enter an equipment name first.");
+            return;
+        }
+
+        const item = { type, name, brand, spec, nickname, barcode, notes };
+        try {
+            await window.DB.addTackle(item);
+            await loadTackle();
+
+            // Clear spec, nickname & barcode for the next item, keep category, name, brand & notes
+            const specEl = document.getElementById('tackle-spec');
+            const nickEl = document.getElementById('tackle-nickname');
+            const barEl = document.getElementById('tackle-barcode');
+            if (specEl) {
+                specEl.value = '';
+                specEl.focus();
+            }
+            if (nickEl) nickEl.value = '';
+            if (barEl) barEl.value = '';
+
+            if (window.showSyncToast) window.showSyncToast(`✅ Saved ${spec || name}! Ready for next size.`);
+            else alert(`✅ Saved ${spec || name}! Enter next size / weight class.`);
+        } catch (err) {
+            alert("Error saving tackle: " + err.message);
+        }
+    };
+
     elements.formAddTackle.addEventListener('submit', async (e) => {
         e.preventDefault();
         const type = document.getElementById('tackle-type').value;
         const name = document.getElementById('tackle-name').value.trim();
         const brand = document.getElementById('tackle-brand').value.trim();
         const spec = document.getElementById('tackle-spec').value.trim();
+        const nickname = document.getElementById('tackle-nickname') ? document.getElementById('tackle-nickname').value.trim() : '';
+        const barcode = document.getElementById('tackle-barcode') ? document.getElementById('tackle-barcode').value.trim() : '';
         const notes = document.getElementById('tackle-notes').value.trim();
 
         if (!name) return;
 
-        const item = { type, name, brand, spec, notes };
+        const item = { type, name, brand, spec, nickname, barcode, notes };
         
         if (AppState.editingTackleId) {
             item.id = Number(AppState.editingTackleId);
@@ -5614,17 +5724,253 @@ window.initMainApp = async function() {
         if (btn) btn.style.display = 'inline-flex';
     });
 
-    window.installPwaApp = function() {
-        if (!deferredPrompt) return;
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then((choiceResult) => {
-            if (choiceResult.outcome === 'accepted') {
-                console.log('User accepted PWA prompt');
+    // --- 5. Phone Camera Barcode / UPC Scanner & Tackle Auto-Lookup Engine ---
+    let scannerStream = null;
+    let scannerTrack = null;
+    let scannerFacingMode = 'environment';
+    let isTorchOn = false;
+    let scannerAnimId = null;
+    let isScanningActive = false;
+
+    window.openBarcodeScanner = async function() {
+        const modal = document.getElementById('modal-barcode-scanner');
+        const video = document.getElementById('barcode-scanner-video');
+        const status = document.getElementById('barcode-scanner-status');
+        if (!modal || !video) return;
+
+        modal.classList.add('active');
+        if (status) status.textContent = "Initializing camera... Align barcode in the box.";
+
+        try {
+            if (scannerStream) {
+                scannerStream.getTracks().forEach(t => t.stop());
             }
-            deferredPrompt = null;
-            const btn = document.getElementById('btn-pwa-install');
-            if (btn) btn.style.display = 'none';
-        });
+
+            const constraints = {
+                video: {
+                    facingMode: { ideal: scannerFacingMode },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            };
+
+            scannerStream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = scannerStream;
+            scannerTrack = scannerStream.getVideoTracks()[0];
+            await video.play();
+
+            isScanningActive = true;
+            startBarcodeDetectionLoop();
+        } catch (err) {
+            console.error("Camera access error:", err);
+            if (status) {
+                status.innerHTML = `<span style="color: var(--accent-orange);">⚠️ Camera error: ${err.message}. You can enter barcode number below.</span>`;
+            }
+        }
+    };
+
+    window.closeBarcodeScanner = function() {
+        isScanningActive = false;
+        if (scannerAnimId) {
+            cancelAnimationFrame(scannerAnimId);
+            scannerAnimId = null;
+        }
+        if (scannerStream) {
+            scannerStream.getTracks().forEach(t => t.stop());
+            scannerStream = null;
+            scannerTrack = null;
+        }
+        const modal = document.getElementById('modal-barcode-scanner');
+        if (modal) modal.classList.remove('active');
+    };
+
+    window.toggleScannerTorch = async function() {
+        if (!scannerTrack) return;
+        try {
+            const capabilities = scannerTrack.getCapabilities ? scannerTrack.getCapabilities() : {};
+            if (!capabilities.torch) {
+                alert("Flashlight/Torch is not supported on this camera.");
+                return;
+            }
+            isTorchOn = !isTorchOn;
+            await scannerTrack.applyConstraints({
+                advanced: [{ torch: isTorchOn }]
+            });
+            const btn = document.getElementById('btn-scanner-torch');
+            if (btn) btn.textContent = isTorchOn ? '🔦 Torch On' : '🔦 Torch Off';
+        } catch (e) {
+            console.warn("Torch toggle error:", e);
+        }
+    };
+
+    window.switchScannerCamera = async function() {
+        scannerFacingMode = (scannerFacingMode === 'environment') ? 'user' : 'environment';
+        await window.openBarcodeScanner();
+    };
+
+    function playBeepAudio() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1200, ctx.currentTime);
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.15);
+        } catch (e) {}
+    }
+
+    async function startBarcodeDetectionLoop() {
+        const video = document.getElementById('barcode-scanner-video');
+        const status = document.getElementById('barcode-scanner-status');
+        if (!video || !isScanningActive) return;
+
+        let detector = null;
+        if ('BarcodeDetector' in window) {
+            try {
+                detector = new window.BarcodeDetector({
+                    formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code', 'data_matrix']
+                });
+            } catch (e) {
+                console.warn("BarcodeDetector formats unsupported", e);
+            }
+        }
+
+        const scanFrame = async () => {
+            if (!isScanningActive) return;
+
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                if (detector) {
+                    try {
+                        const barcodes = await detector.detect(video);
+                        if (barcodes && barcodes.length > 0) {
+                            const rawVal = barcodes[0].rawValue;
+                            if (rawVal) {
+                                isScanningActive = false;
+                                playBeepAudio();
+                                if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+                                if (status) status.innerHTML = `✅ <strong style="color:#34d399;">Scanned: ${rawVal}</strong>`;
+                                setTimeout(() => {
+                                    window.closeBarcodeScanner();
+                                    window.lookupTackleBarcode(rawVal);
+                                }, 400);
+                                return;
+                            }
+                        }
+                    } catch (err) {
+                        // frame detection error
+                    }
+                }
+            }
+
+            scannerAnimId = requestAnimationFrame(scanFrame);
+        };
+
+        scannerAnimId = requestAnimationFrame(scanFrame);
+    }
+
+    window.submitManualBarcode = function() {
+        const input = document.getElementById('manual-barcode-input');
+        if (!input || !input.value.trim()) {
+            alert("Please type or paste a barcode / UPC number.");
+            return;
+        }
+        const barcode = input.value.trim();
+        window.closeBarcodeScanner();
+        window.lookupTackleBarcode(barcode);
+    };
+
+    // Master Barcode & UPC Auto-Lookup for Fly Tackle Products
+    window.lookupTackleBarcode = async function(barcodeText) {
+        if (!barcodeText) return;
+        const cleanCode = barcodeText.trim();
+
+        // 1. Check if item already exists in user's Tackle Library
+        const existingItem = AppState.tackle.find(t => t.barcode === cleanCode || (t.notes && t.notes.includes(cleanCode)));
+        if (existingItem) {
+            if (window.showSyncToast) window.showSyncToast(`🎯 Found existing ${existingItem.name} in library! Opening for duplicate...`);
+            window.duplicateTackleUI(existingItem.id);
+            const barcodeEl = document.getElementById('tackle-barcode');
+            if (barcodeEl) barcodeEl.value = cleanCode;
+            return;
+        }
+
+        // 2. Open Add Tackle Modal & pre-fill Barcode
+        window.showAddTackleModal();
+        const barcodeEl = document.getElementById('tackle-barcode');
+        const nameEl = document.getElementById('tackle-name');
+        const brandEl = document.getElementById('tackle-brand');
+        const specEl = document.getElementById('tackle-spec');
+        const typeEl = document.getElementById('tackle-type');
+        const notesEl = document.getElementById('tackle-notes');
+
+        if (barcodeEl) barcodeEl.value = cleanCode;
+        if (nameEl) nameEl.placeholder = "Looking up product details online...";
+
+        // 3. Online Database & Brand Pattern Auto-Detection
+        try {
+            let productTitle = '';
+            let productBrand = '';
+            let productCategory = '';
+            let productSpec = '';
+
+            // Try Open Food / Open Product Database API
+            const openProdRes = await fetch(`https://world.openfoodfacts.org/api/v0/product/${cleanCode}.json`).catch(() => null);
+            if (openProdRes && openProdRes.ok) {
+                const data = await openProdRes.json();
+                if (data && data.product) {
+                    productTitle = data.product.product_name || data.product.generic_name || '';
+                    productBrand = data.product.brands || '';
+                }
+            }
+
+            // Fallback: Check built-in brand patterns or parse UPC
+            if (!productTitle) {
+                // Heuristic brand detection from master tackle database
+                if (window.TACKLE_DATABASE) {
+                    for (let cat in window.TACKLE_DATABASE) {
+                        const dbCat = window.TACKLE_DATABASE[cat];
+                        if (dbCat.models) {
+                            const found = dbCat.models.find(m => m.name.toLowerCase().includes(cleanCode.toLowerCase()));
+                            if (found) {
+                                productTitle = found.name;
+                                productBrand = found.brand;
+                                productSpec = found.spec;
+                                productCategory = cat;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // If we found product info, parse specifications
+            if (productTitle || productBrand) {
+                if (brandEl && productBrand) brandEl.value = productBrand;
+                if (nameEl && productTitle) nameEl.value = productTitle;
+                if (specEl && productSpec) specEl.value = productSpec;
+                if (typeEl && productCategory) typeEl.value = productCategory;
+
+                if (window.showSyncToast) window.showSyncToast(`✅ Auto-filled: ${productBrand} ${productTitle}`);
+            } else {
+                if (nameEl) {
+                    nameEl.value = '';
+                    nameEl.placeholder = "Type equipment name...";
+                    nameEl.focus();
+                }
+                if (notesEl) {
+                    notesEl.value = (notesEl.value ? notesEl.value + '\n' : '') + `UPC / Barcode: ${cleanCode}`;
+                }
+                if (window.showSyncToast) window.showSyncToast(`📷 Barcode #${cleanCode} saved! Enter brand & name.`);
+            }
+        } catch (e) {
+            console.warn("Barcode lookup network notice:", e);
+            if (nameEl) nameEl.placeholder = "Type equipment name...";
+        }
     };
 };
 

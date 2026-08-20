@@ -2417,6 +2417,10 @@ body.high-contrast-mode .badge {
     .mobile-header-menu-btn {
         display: none !important;
     }
+@keyframes scanLineAnim {
+    0% { transform: translateY(-60px); opacity: 0.2; }
+    50% { transform: translateY(60px); opacity: 1; }
+    100% { transform: translateY(-60px); opacity: 0.2; }
 }
 
 
