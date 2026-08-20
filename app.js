@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100980';
+window.APP_VERSION = 'v100990';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -3657,7 +3657,7 @@ window.initMainApp = async function() {
             }
         };
 
-        // Master Vault Backup Exporter
+        // Master Vault Backup Exporter with Full IndexedDB Photo Bundling
         window.exportMasterVaultBackup = async function() {
             try {
                 const catches = await window.DB.getAllCatches();
@@ -3667,6 +3667,17 @@ window.initMainApp = async function() {
                 const fishingSpots = JSON.parse(localStorage.getItem('fishingSpots') || '[]');
                 const carCoords = JSON.parse(localStorage.getItem('carCoords') || 'null');
                 const userFlyBox = JSON.parse(localStorage.getItem('user_fly_box') || '[]');
+
+                // Pull full-resolution photos from IndexedDB for 100% photo preservation
+                const catchesWithFullPhotos = await Promise.all(catches.map(async (c) => {
+                    const fullP = await window.DB.getFullPhoto(c.id, 'catch');
+                    return { ...c, photo: fullP || c.photo };
+                }));
+
+                const tackleWithFullPhotos = await Promise.all(tackle.map(async (t) => {
+                    const fullP = await window.DB.getFullPhoto(t.id, 'tackle');
+                    return { ...t, photo: fullP || t.photo };
+                }));
 
                 const settings = {
                     riverMode: localStorage.getItem('river_mode_enabled') === 'true',
@@ -3678,11 +3689,11 @@ window.initMainApp = async function() {
                 };
 
                 const backupData = {
-                    version: "100840",
+                    version: "100990",
                     app: "Middo's Fly Fishing Master Vault",
                     timestamp: new Date().toISOString(),
-                    catches: catches || [],
-                    tackle: tackle || [],
+                    catches: catchesWithFullPhotos || [],
+                    tackle: tackleWithFullPhotos || [],
                     rigs: rigs || [],
                     licenses: licenses || [],
                     userFlyBox: userFlyBox || [],
@@ -3699,14 +3710,14 @@ window.initMainApp = async function() {
                 downloadAnchor.click();
                 downloadAnchor.remove();
 
-                if (window.showSyncToast) window.showSyncToast("💾 Vault backup downloaded successfully!");
+                if (window.showSyncToast) window.showSyncToast("💾 Complete Vault backup with full-res photos downloaded!");
                 else alert("Master Vault backup downloaded successfully!");
             } catch (err) {
                 alert("Vault export failed: " + err.message);
             }
         };
 
-        // Master Vault Backup Importer
+        // Master Vault Backup Importer with IndexedDB Unpacking
         window.importMasterVaultFile = function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -3727,8 +3738,28 @@ window.initMainApp = async function() {
                         }
                     };
 
-                    if (backup.tackle) await importStore('tackle', backup.tackle);
-                    if (backup.catches) await importStore('catches', backup.catches);
+                    if (backup.tackle) {
+                        for (const t of backup.tackle) {
+                            if (t.photo && t.photo.length > 50000) {
+                                await window.DB.saveFullPhoto(t.id, t.photo, 'tackle');
+                                t.thumbnail = await window.DB.generateMicroThumbnail(t.photo, 300);
+                                t.photo = t.thumbnail;
+                            }
+                        }
+                        await importStore('tackle', backup.tackle);
+                    }
+
+                    if (backup.catches) {
+                        for (const c of backup.catches) {
+                            if (c.photo && c.photo.length > 20) {
+                                await window.DB.saveFullPhoto(c.id, c.photo, 'catch');
+                                c.thumbnail = await window.DB.generateMicroThumbnail(c.photo, 320);
+                                c.hasFullPhoto = true;
+                            }
+                        }
+                        await importStore('catches', backup.catches);
+                    }
+
                     if (backup.rigs) await importStore('rigs', backup.rigs);
                     if (backup.licenses) await importStore('licenses', backup.licenses);
 
