@@ -262,7 +262,7 @@
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
-                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v100790</span>
+                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v100850</span>
                     </div>
                 </div>
             </div>
@@ -393,12 +393,30 @@
 
                     <!-- Solunar Prime Feeding Windows Card -->
                     <div class="card glass shadow-lg card-solunar-summary" style="border-left: 4px solid var(--accent-teal);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <h3 style="margin: 0;">🔥 Solunar Feeding Windows</h3>
-                            <span id="dash-solunar-badge" class="badge-active" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); border: 1px solid var(--accent-teal);">Prime 92%</span>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <h3 style="margin: 0; font-size: 16px;">🔥 Solunar Feeding Windows</h3>
+                            <span id="dash-solunar-badge" class="badge-active" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); border: 1px solid var(--accent-teal); font-size: 11px;">Prime 92%</span>
                         </div>
-                        <div id="dash-solunar-windows" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11.5px;">
+                        <div id="dash-solunar-windows" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px; margin-bottom: 12px;">
                             <!-- Populated dynamically -->
+                        </div>
+                        
+                        <!-- 24-Hour Solunar Feeding Activity Timeline -->
+                        <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; color: var(--text-secondary); margin-bottom: 6px;">
+                                <span><b>24-Hour Feeding Activity Curve:</b></span>
+                                <span id="dash-solunar-pressure-note" style="color: var(--accent-teal);">🎈 Barometer: Normal</span>
+                            </div>
+                            <div id="dash-solunar-timeline" style="display: flex; align-items: flex-end; gap: 2px; height: 42px; background: rgba(0,0,0,0.2); padding: 4px; border-radius: 6px;">
+                                <!-- Populated dynamically with 24 hourly activity bars -->
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 9px; color: var(--text-secondary); margin-top: 4px;">
+                                <span>12 AM</span>
+                                <span>6 AM (Dawn)</span>
+                                <span>12 PM (Noon)</span>
+                                <span>6 PM (Dusk)</span>
+                                <span>11 PM</span>
+                            </div>
                         </div>
                     </div>
 
@@ -595,7 +613,7 @@
                 </header>
 
                 <!-- Catch Analytics Summary Cards -->
-                <div class="analytics-grid">
+                <div class="analytics-grid mb-20">
                     <div class="card glass" style="padding: 16px; border-left: 4px solid var(--accent-teal);">
                         <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600;">🏆 Personal Record Trophy</div>
                         <div style="font-size: 20px; font-weight: 700; color: var(--accent-teal); margin-top: 4px;" id="analytics-trophy">--</div>
@@ -607,9 +625,43 @@
                         <div style="font-size: 11px; color: #94a3b8;" id="analytics-top-fly-sub">0 catches registered</div>
                     </div>
                     <div class="card glass" style="padding: 16px; border-left: 4px solid #f59e0b;">
-                        <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600;">⏰ Peak Bite Hour</div>
+                        <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600;">⏰ Peak Bite Window</div>
                         <div style="font-size: 20px; font-weight: 700; color: #f59e0b; margin-top: 4px;" id="analytics-peak-hour">--</div>
                         <div style="font-size: 11px; color: #94a3b8;" id="analytics-peak-hour-sub">Based on catch timestamps</div>
+                    </div>
+                </div>
+
+                <!-- Comprehensive Fly Success Leaderboard & Angler Analytics Card -->
+                <div class="card glass mb-20" style="padding: 20px; border-left: 4px solid var(--accent-teal);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                        <div>
+                            <h3 style="margin: 0; font-size: 17px; display: flex; align-items: center; gap: 8px;">
+                                <span>📊</span> Fly Success &amp; Angler Intelligence Leaderboard
+                            </h3>
+                            <p style="font-size: 12px; color: var(--text-secondary); margin: 2px 0 0 0;">
+                                Empirical success rates, top-producing fly patterns, and lunar phase correlations from your catch log.
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 6px; background: rgba(255,255,255,0.05); padding: 3px; border-radius: 8px;">
+                            <button type="button" class="btn btn-sm btn-glass active" id="btn-analytics-tab-flies" onclick="window.switchAnalyticsSubTab('flies')" style="padding: 5px 10px; font-size: 11.5px;">🪰 Fly Leaderboard</button>
+                            <button type="button" class="btn btn-sm btn-glass" id="btn-analytics-tab-moon" onclick="window.switchAnalyticsSubTab('moon')" style="padding: 5px 10px; font-size: 11.5px;">🌙 Moon Phases</button>
+                            <button type="button" class="btn btn-sm btn-glass" id="btn-analytics-tab-time" onclick="window.switchAnalyticsSubTab('time')" style="padding: 5px 10px; font-size: 11.5px;">⏰ Time of Day</button>
+                            <button type="button" class="btn btn-sm btn-glass" id="btn-analytics-tab-species" onclick="window.switchAnalyticsSubTab('species')" style="padding: 5px 10px; font-size: 11.5px;">🐟 Species Records</button>
+                        </div>
+                    </div>
+
+                    <!-- Analytics Sub-Tab Content Panes -->
+                    <div id="analytics-pane-flies">
+                        <!-- Populated dynamically: Ranked Fly Podium & Performance Table -->
+                    </div>
+                    <div id="analytics-pane-moon" style="display: none;">
+                        <!-- Populated dynamically: Moon Phase Success Breakdown -->
+                    </div>
+                    <div id="analytics-pane-time" style="display: none;">
+                        <!-- Populated dynamically: Time of Day & Hourly Activity Chart -->
+                    </div>
+                    <div id="analytics-pane-species" style="display: none;">
+                        <!-- Populated dynamically: Species Personal Bests & Catch Tallies -->
                     </div>
                 </div>
 
@@ -861,58 +913,135 @@
                     </div>
                 </div>
             </section>
-            <!-- Virtual Fly Box View -->
+            <!-- Virtual Fly Box & Master Hatch Guide View -->
             <section id="tab-flybox" class="tab-content">
                 <header class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
                     <div>
-                        <h1>🪰 Virtual Fly Box &amp; Hatch Matcher</h1>
-                        <p class="subtitle">Organize your fly box compartments and match active insect hatches for current weather.</p>
+                        <h1>🪰 Virtual Fly Box &amp; Aquatic Insect Hatch Guide</h1>
+                        <p class="subtitle">Seasonal Australian &amp; global entomology guide, water temperature hatch triggers, and your personal fly box compartments.</p>
                     </div>
-                    <button class="btn btn-primary" onclick="window.showAddFlyModal()">+ Add New Fly</button>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-glass btn-sm" onclick="FlyBoxApp.autoSyncCurrentRiverConditions()">🌊 Auto-Sync Stream Conditions</button>
+                        <button class="btn btn-primary btn-sm" onclick="window.showAddFlyModal()">+ Add New Fly</button>
+                    </div>
                 </header>
 
                 <!-- Interactive Match-the-Hatch Assistant -->
-                <div class="match-hatch-card">
+                <div class="match-hatch-card mb-20">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 28px;">🪰</span>
+                            <span style="font-size: 28px;">🎯</span>
                             <div>
-                                <h3 style="margin: 0; font-size: 17px; color: var(--text-primary);">Riverbank Match-the-Hatch Assistant</h3>
-                                <span style="font-size: 12px; color: var(--accent-teal);">Answer 3 quick questions for instant fly pattern &amp; tippet recommendation</span>
+                                <h3 style="margin: 0; font-size: 16px; color: var(--text-primary);">Riverbank Quick-Selector</h3>
+                                <span style="font-size: 12px; color: var(--accent-teal);">Instant fly pattern, tippet diameter &amp; presentation technique matcher</span>
                             </div>
                         </div>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 14px;">
                         <div>
                             <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">1. Target Species</label>
                             <select id="hatch-wizard-target" class="form-select" onchange="window.recommendFlyPattern()">
                                 <option value="trout">Trout (Rainbow / Brown / Brook)</option>
-                                <option value="bass">Bass (Smallmouth / Largemouth)</option>
+                                <option value="bass">Bass (Smallmouth / Australian Bass)</option>
                                 <option value="salmon">Salmon &amp; Steelhead</option>
-                                <option value="saltwater">Saltwater (Bonefish / Redfish / GT)</option>
+                                <option value="saltwater">Saltwater (Flathead / Bream / Salmon / GT)</option>
                             </select>
                         </div>
                         <div>
                             <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">2. Water Condition</label>
                             <select id="hatch-wizard-water" class="form-select" onchange="window.recommendFlyPattern()">
                                 <option value="clear">Low &amp; Crystal Clear Water</option>
-                                <option value="normal">Normal Stream Flow</option>
+                                <option value="normal" selected>Normal River Flow</option>
                                 <option value="murky">High &amp; Murky Runoff Water</option>
                             </select>
                         </div>
                         <div>
-                            <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">3. Current Activity</label>
+                            <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">3. Current Feeding Activity</label>
                             <select id="hatch-wizard-activity" class="form-select" onchange="window.recommendFlyPattern()">
-                                <option value="dry">Flies Rising / Surface Hatch</option>
+                                <option value="dry" selected>Flies Rising / Surface Hatch</option>
                                 <option value="nymph">Sub-surface Nymphing / Deep Run</option>
                                 <option value="streamer">Aggressive Chasing / Deep Pools</option>
                             </select>
                         </div>
                     </div>
 
-                    <div id="hatch-wizard-result" style="background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px;">
+                    <div id="hatch-wizard-result" style="background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px;">
                         <!-- Dynamically rendered recommendation -->
+                    </div>
+                </div>
+
+                <!-- Master Aquatic Insect Hatch Matrix -->
+                <div class="card glass mb-20" style="padding: 20px; border-left: 4px solid var(--accent-teal);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                        <div>
+                            <h3 style="margin: 0; font-size: 17px; display: flex; align-items: center; gap: 8px;">
+                                <span>🦟</span> Master Aquatic Insect Hatch Guide
+                            </h3>
+                            <p style="font-size: 12px; color: var(--text-secondary); margin: 2px 0 0 0;">
+                                Filter Australian &amp; global insect emergence by month, water temperature, and insect family.
+                            </p>
+                        </div>
+                        
+                        <!-- Hatch Filter Matrix Controls -->
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                            <div>
+                                <select id="hatch-filter-month" class="form-select" style="font-size: 12px; padding: 5px 10px;" onchange="FlyBoxApp.updateHatchFilters('month', this.value)">
+                                    <option value="all">📅 All Months</option>
+                                    <option value="1">Jan (Mid-Summer)</option>
+                                    <option value="2">Feb (Late Summer)</option>
+                                    <option value="3">Mar (Early Autumn)</option>
+                                    <option value="4">Apr (Mid Autumn)</option>
+                                    <option value="5">May (Late Autumn)</option>
+                                    <option value="6">Jun (Winter)</option>
+                                    <option value="7">Jul (Mid Winter)</option>
+                                    <option value="8">Aug (Late Winter)</option>
+                                    <option value="9">Sep (Early Spring)</option>
+                                    <option value="10">Oct (Spring Hatch Peak)</option>
+                                    <option value="11">Nov (Late Spring)</option>
+                                    <option value="12">Dec (Early Summer)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <select id="hatch-filter-temp" class="form-select" style="font-size: 12px; padding: 5px 10px;" onchange="FlyBoxApp.updateHatchFilters('tempBracket', this.value)">
+                                    <option value="all">🌡️ All Water Temps</option>
+                                    <option value="cold">❄️ Cold (&lt; 10°C)</option>
+                                    <option value="spring">🌿 Spring (10 - 14°C)</option>
+                                    <option value="prime" selected>🔥 Prime Trout (13 - 18°C)</option>
+                                    <option value="summer">☀️ Warmwater (&gt; 18°C)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <select id="hatch-filter-order" class="form-select" style="font-size: 12px; padding: 5px 10px;" onchange="FlyBoxApp.updateHatchFilters('order', this.value)">
+                                    <option value="all">🦟 All Insect Families</option>
+                                    <option value="mayfly">Mayflies (Ephemeroptera)</option>
+                                    <option value="caddis">Caddisflies (Trichoptera)</option>
+                                    <option value="midge">Midges (Diptera)</option>
+                                    <option value="stonefly">Stoneflies (Plecoptera)</option>
+                                    <option value="terrestrial">Terrestrials (Beetles / Hoppers)</option>
+                                    <option value="forage">Forage (Minnow / Yabby / Mudeye)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hatch Cards Grid -->
+                    <div id="hatch-guide-cards-container" class="grid-two-col">
+                        <!-- Populated dynamically by FlyBoxApp.renderHatchGuideUI() -->
+                    </div>
+                </div>
+
+                <!-- My Fly Box Inventory Section -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h3 style="margin: 0; font-size: 17px; display: flex; align-items: center; gap: 8px;">
+                        <span>📦</span> My Stocked Fly Box Compartments
+                    </h3>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="btn btn-glass btn-sm" onclick="FlyBoxApp.renderFlyBoxUI('all')">All</button>
+                        <button class="btn btn-glass btn-sm" onclick="FlyBoxApp.renderFlyBoxUI('dry fly')">Dry</button>
+                        <button class="btn btn-glass btn-sm" onclick="FlyBoxApp.renderFlyBoxUI('nymph')">Nymph</button>
+                        <button class="btn btn-glass btn-sm" onclick="FlyBoxApp.renderFlyBoxUI('streamer')">Streamer</button>
+                        <button class="btn btn-glass btn-sm" onclick="FlyBoxApp.renderFlyBoxUI('saltwater')">Saltwater</button>
                     </div>
                 </div>
 
@@ -1219,20 +1348,65 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
                             <div>
                                 <strong style="font-size: 13px; color: var(--text-primary);">Installed Version:</strong>
-                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v100790 (Latest Build)</span>
+                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v100850 (Latest Build)</span>
                             </div>
                             <button class="btn btn-primary btn-sm" id="btn-force-check-updates">🔄 Check for Updates Now</button>
                         </div>
                     </div>
 
-                    <!-- Data Backup Export / Import Card -->
-                    <div class="card glass mb-20">
-                        <h3>📥 Backup & Data Transfer Across Devices</h3>
-                        <p class="text-secondary mb-15">Export your complete fly fishing catches, tackle library, combos, and licenses into a JSON backup file to transfer to your deployed website or mobile devices.</p>
+                    <!-- Comprehensive Data Backup & Vault Transfer Card -->
+                    <div class="card glass mb-20" style="border-left: 4px solid var(--accent-teal); padding: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+                            <div>
+                                <h3 style="margin: 0; font-size: 17px; display: flex; align-items: center; gap: 8px;">
+                                    <span>💾</span> Single-Click Master Vault Backup &amp; Transfer
+                                </h3>
+                                <p style="font-size: 12px; color: var(--text-secondary); margin: 3px 0 0 0;">
+                                    Safely backup and restore 100% of your catches, photos, tackle, fly box, licenses, and secret spots across all devices.
+                                </p>
+                            </div>
+                            <span class="badge" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); font-size: 11px;">🔒 Encrypted Local Storage</span>
+                        </div>
+
+                        <!-- Live Vault Items Summary -->
+                        <div id="vault-summary-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 16px; font-size: 11.5px;">
+                            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 8px 10px;">
+                                <span style="color: var(--text-secondary); display: block;">🐟 Catch Logs:</span>
+                                <strong id="vault-stat-catches" style="font-size: 14px; color: var(--accent-teal);">Loading...</strong>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 8px 10px;">
+                                <span style="color: var(--text-secondary); display: block;">🎣 Tackle Gear:</span>
+                                <strong id="vault-stat-tackle" style="font-size: 14px; color: #a3e635;">Loading...</strong>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 8px 10px;">
+                                <span style="color: var(--text-secondary); display: block;">🪰 Fly Box:</span>
+                                <strong id="vault-stat-flies" style="font-size: 14px; color: #f59e0b;">Loading...</strong>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 8px 10px;">
+                                <span style="color: var(--text-secondary); display: block;">🌲 Spots &amp; Waypoints:</span>
+                                <strong id="vault-stat-spots" style="font-size: 14px; color: #38bdf8;">Loading...</strong>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 8px 10px;">
+                                <span style="color: var(--text-secondary); display: block;">📜 Licenses:</span>
+                                <strong id="vault-stat-licenses" style="font-size: 14px; color: #ec4899;">Loading...</strong>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
                         <div class="btn-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
-                            <button class="btn btn-primary" id="btn-export-backup-file">📤 Export Backup File (.json)</button>
-                            <button class="btn btn-glass" id="btn-import-backup-file-trigger">📥 Import Backup File (.json)</button>
-                            <input type="file" id="input-import-backup-file" accept=".json" style="display: none;">
+                            <button class="btn btn-primary" id="btn-export-backup-file" onclick="window.exportMasterVaultBackup()">
+                                📤 Download Complete Vault Backup (.json)
+                            </button>
+                            <button class="btn btn-glass" id="btn-import-backup-file-trigger" onclick="document.getElementById('input-import-backup-file').click()">
+                                📥 Restore From Vault Backup (.json)
+                            </button>
+                            <button class="btn btn-glass" onclick="window.copyDirectSyncString()">
+                                📋 Copy Direct Sync Code
+                            </button>
+                            <button class="btn btn-glass" onclick="window.pasteDirectSyncString()">
+                                📥 Paste Sync Code
+                            </button>
+                            <input type="file" id="input-import-backup-file" accept=".json" style="display: none;" onchange="window.importMasterVaultFile(event)">
                         </div>
                     </div>
 
@@ -1797,16 +1971,16 @@
     </div>
 
     <!-- Scripts -->
-    <script src="db.js?v=100790"></script>
-    <script src="regulations.js?v=100790"></script>
-    <script src="weather.js?v=100790"></script>
-    <script src="exif.js?v=100790"></script>
-    <script src="map.js?v=100790"></script>
-    <script src="tackle_db.js?v=100790"></script>
-    <script src="fish_db.js?v=100790"></script>
-    <script src="fly_box.js?v=100790"></script>
-    <script src="knots.js?v=100790"></script>
-    <script src="auth.js?v=100790"></script>
-    <script src="app.js?v=100790"></script>
+    <script src="db.js?v=100850"></script>
+    <script src="regulations.js?v=100850"></script>
+    <script src="weather.js?v=100850"></script>
+    <script src="exif.js?v=100850"></script>
+    <script src="map.js?v=100850"></script>
+    <script src="tackle_db.js?v=100850"></script>
+    <script src="fish_db.js?v=100850"></script>
+    <script src="fly_box.js?v=100850"></script>
+    <script src="knots.js?v=100850"></script>
+    <script src="auth.js?v=100850"></script>
+    <script src="app.js?v=100850"></script>
 </body>
 </html>

@@ -2866,22 +2866,27 @@ window.initMainApp = async function() {
             dashTideDirEl.style.color = tides.tideDirection === 'Rising' ? 'var(--accent-teal)' : 'var(--accent-orange)';
         }
 
-        // Calculate Solunar Feeding Windows
+        // Calculate High-Precision Astronomical Solunar Feeding Windows & 24h Timeline
+        const currentPressure = (AppState.weatherData && AppState.weatherData.current && AppState.weatherData.current.pressure) ? AppState.weatherData.current.pressure : 1016;
         const solunar = (window.WEATHER && typeof window.WEATHER.getSolunarData === 'function')
-            ? window.WEATHER.getSolunarData(now, lat, lon)
+            ? window.WEATHER.getSolunarData(now, lat, lon, currentPressure)
             : {
                 score: 85,
                 rating: "Prime",
                 ratingIcon: "🔥",
                 ratingColor: "var(--accent-teal)",
-                majorWindows: [{ start: "07:15 AM", end: "09:15 AM" }, { start: "07:45 PM", end: "09:45 PM" }],
-                minorWindows: [{ start: "01:30 AM", end: "02:30 AM" }, { start: "01:55 PM", end: "02:55 PM" }]
+                pressureNote: "Normal Feeding",
+                majorWindows: [{ title: "Major Window 1", start: "07:15 AM", end: "09:15 AM" }, { title: "Major Window 2", start: "07:45 PM", end: "09:45 PM" }],
+                minorWindows: [{ title: "Minor Window 1", start: "01:30 AM", end: "02:30 AM" }, { title: "Minor Window 2", start: "01:55 PM", end: "02:55 PM" }],
+                hourlyTimeline: []
             };
 
         AppState.solunarData = solunar;
 
         const solunarBadge = document.getElementById('dash-solunar-badge');
         const solunarWindows = document.getElementById('dash-solunar-windows');
+        const solunarTimeline = document.getElementById('dash-solunar-timeline');
+        const solunarPressNote = document.getElementById('dash-solunar-pressure-note');
 
         if (solunarBadge) {
             solunarBadge.textContent = `${solunar.ratingIcon || '🔥'} ${solunar.rating || 'Prime'} ${solunar.score || 85}%`;
@@ -2889,21 +2894,41 @@ window.initMainApp = async function() {
             solunarBadge.style.borderColor = solunar.ratingColor || 'var(--accent-teal)';
         }
 
+        if (solunarPressNote && solunar.pressureNote) {
+            solunarPressNote.innerHTML = `🎈 ${solunar.pressureNote}`;
+        }
+
         if (solunarWindows && solunar.majorWindows && solunar.minorWindows) {
             solunarWindows.innerHTML = `
                 <div style="background: rgba(255,255,255,0.04); padding: 6px 8px; border-radius: 6px; border-left: 2px solid var(--accent-teal);">
-                    <strong>🔥 Major Window 1:</strong><br>${solunar.majorWindows[0].start} - ${solunar.majorWindows[0].end}
+                    <strong>🌕 Major 1 (Overhead):</strong><br><span style="color: var(--accent-teal); font-weight: 700;">${solunar.majorWindows[0].start} - ${solunar.majorWindows[0].end}</span>
                 </div>
                 <div style="background: rgba(255,255,255,0.04); padding: 6px 8px; border-radius: 6px; border-left: 2px solid var(--accent-teal);">
-                    <strong>🔥 Major Window 2:</strong><br>${solunar.majorWindows[1].start} - ${solunar.majorWindows[1].end}
+                    <strong>🌑 Major 2 (Underfoot):</strong><br><span style="color: var(--accent-teal); font-weight: 700;">${solunar.majorWindows[1].start} - ${solunar.majorWindows[1].end}</span>
                 </div>
                 <div style="background: rgba(255,255,255,0.04); padding: 6px 8px; border-radius: 6px; border-left: 2px solid var(--accent-orange);">
-                    <strong>⚡ Minor Window 1:</strong><br>${solunar.minorWindows[0].start} - ${solunar.minorWindows[0].end}
+                    <strong>🌅 Minor 1 (Moonrise):</strong><br><span style="color: var(--accent-orange); font-weight: 600;">${solunar.minorWindows[0].start} - ${solunar.minorWindows[0].end}</span>
                 </div>
                 <div style="background: rgba(255,255,255,0.04); padding: 6px 8px; border-radius: 6px; border-left: 2px solid var(--accent-orange);">
-                    <strong>⚡ Minor Window 2:</strong><br>${solunar.minorWindows[1].start} - ${solunar.minorWindows[1].end}
+                    <strong>🌇 Minor 2 (Moonset):</strong><br><span style="color: var(--accent-orange); font-weight: 600;">${solunar.minorWindows[1].start} - ${solunar.minorWindows[1].end}</span>
                 </div>
             `;
+        }
+
+        // Render 24-Hour Feeding Activity Bars
+        if (solunarTimeline && solunar.hourlyTimeline && solunar.hourlyTimeline.length > 0) {
+            solunarTimeline.innerHTML = solunar.hourlyTimeline.map(item => {
+                const heightPct = Math.max(15, Math.min(100, item.activity));
+                let barColor = 'rgba(0, 210, 255, 0.3)';
+                if (item.activity >= 85) barColor = 'var(--accent-teal)';
+                else if (item.activity >= 70) barColor = '#34d399';
+                else if (item.activity >= 50) barColor = '#60a5fa';
+
+                const borderStyle = item.isCurrentHour ? 'border: 1.5px solid #fff; box-shadow: 0 0 8px #fff;' : '';
+                return `
+                    <div style="flex: 1; height: ${heightPct}%; background: ${barColor}; border-radius: 2px 2px 0 0; ${borderStyle} transition: height 0.3s ease;" title="${item.label}: ${item.activity}% Feeding Activity${item.isCurrentHour ? ' (CURRENT TIME)' : ''}"></div>
+                `;
+            }).join('');
         }
 
         // Weather Tab detailed
@@ -2979,15 +3004,18 @@ window.initMainApp = async function() {
             if (stationLabel.startsWith('📡')) {
                 dashBadgeEl.innerHTML = stationLabel;
             } else {
-                dashBadgeEl.innerHTML = `📡 <b>Weather Underground PWS:</b> ${stationLabel}`;
+                dashBadgeEl.innerHTML = `📡 <b>WillyWeather Station:</b> ${stationLabel}`;
             }
         }
 
         if (dashPwsClarifEl) {
-            if (weather.isWithin30kmPWS && weather.pwsClarification) {
+            if (weather.isWithin15kmPWS && weather.pwsClarification) {
                 dashPwsClarifEl.innerHTML = `<span style="color: var(--accent-teal); font-weight: 600;">📍 PWS Active (&lt; 15km):</span> ${weather.pwsClarification}`;
+            } else if (weather.isWithin30kmPWS && weather.pwsClarification) {
+                dashPwsClarifEl.innerHTML = `<span style="color: var(--accent-teal); font-weight: 600;">📍 Local Station (&lt; 30km):</span> ${weather.pwsClarification}`;
             } else {
-                dashPwsClarifEl.innerHTML = `📡 <b>Weather Underground PWS Feed:</b> Live observation station forecast for ${weather.locationName || 'your fishing spot'}.`;
+                const distText = weather.pwsDistance ? `${weather.pwsDistance.toFixed(1)} km away` : 'Regional';
+                dashPwsClarifEl.innerHTML = `<span style="color: var(--accent-orange); font-weight: 600;">⚠️ Regional Feed (${distText}):</span> ${weather.pwsClarification || 'No local PWS within 30km.'}`;
             }
         }
 
@@ -3457,40 +3485,196 @@ window.initMainApp = async function() {
             });
         }
 
-        // Export Backup File Listener
-        const btnExport = document.getElementById('btn-export-backup-file');
-        if (btnExport) {
-            btnExport.addEventListener('click', async () => {
-                try {
-                    const catches = await window.DB.getAllCatches();
-                    const tackle = await window.DB.getAllTackle();
-                    const rigs = await window.DB.getAllRigs();
-                    const licenses = await window.DB.getAllLicenses();
-                    const fishingSpots = JSON.parse(localStorage.getItem('fishingSpots') || '[]');
-                    const carCoords = JSON.parse(localStorage.getItem('carCoords') || 'null');
+        // Master Vault Live Summary Update
+        window.updateVaultSummaryUI = async function() {
+            try {
+                const catches = await window.DB.getAllCatches();
+                const tackle = await window.DB.getAllTackle();
+                const licenses = await window.DB.getAllLicenses();
+                const spots = JSON.parse(localStorage.getItem('fishingSpots') || '[]');
+                const flies = (window.FlyBoxApp && window.FlyBoxApp.flies) ? window.FlyBoxApp.flies : JSON.parse(localStorage.getItem('user_fly_box') || '[]');
 
-                    const backupData = {
-                        catches,
-                        tackle,
-                        rigs,
-                        licenses,
-                        fishingSpots,
-                        carCoords,
-                        timestamp: new Date().toISOString()
+                const statCatches = document.getElementById('vault-stat-catches');
+                const statTackle = document.getElementById('vault-stat-tackle');
+                const statFlies = document.getElementById('vault-stat-flies');
+                const statSpots = document.getElementById('vault-stat-spots');
+                const statLicenses = document.getElementById('vault-stat-licenses');
+
+                if (statCatches) statCatches.textContent = `${catches ? catches.length : 0} Catches`;
+                if (statTackle) statTackle.textContent = `${tackle ? tackle.length : 0} Items`;
+                if (statFlies) statFlies.textContent = `${flies ? flies.length : 0} Patterns`;
+                if (statSpots) statSpots.textContent = `${spots ? spots.length : 0} Spots`;
+                if (statLicenses) statLicenses.textContent = `${licenses ? licenses.length : 0} Permits`;
+            } catch (e) {
+                console.warn("Failed to update vault summary counts:", e);
+            }
+        };
+
+        // Master Vault Backup Exporter
+        window.exportMasterVaultBackup = async function() {
+            try {
+                const catches = await window.DB.getAllCatches();
+                const tackle = await window.DB.getAllTackle();
+                const rigs = await window.DB.getAllRigs();
+                const licenses = await window.DB.getAllLicenses();
+                const fishingSpots = JSON.parse(localStorage.getItem('fishingSpots') || '[]');
+                const carCoords = JSON.parse(localStorage.getItem('carCoords') || 'null');
+                const userFlyBox = JSON.parse(localStorage.getItem('user_fly_box') || '[]');
+
+                const settings = {
+                    riverMode: localStorage.getItem('river_mode_enabled') === 'true',
+                    userCoords: AppState.userCoords || null,
+                    googleMapsApiKey: localStorage.getItem('googleMapsApiKey') || '',
+                    geminiApiKey: localStorage.getItem('geminiApiKey') || '',
+                    geminiActiveModel: localStorage.getItem('geminiActiveModel') || '',
+                    customWillyLocation: localStorage.getItem('customWillyLocation') || ''
+                };
+
+                const backupData = {
+                    version: "100840",
+                    app: "Middo's Fly Fishing Master Vault",
+                    timestamp: new Date().toISOString(),
+                    catches: catches || [],
+                    tackle: tackle || [],
+                    rigs: rigs || [],
+                    licenses: licenses || [],
+                    userFlyBox: userFlyBox || [],
+                    fishingSpots: fishingSpots || [],
+                    carCoords: carCoords,
+                    settings: settings
+                };
+
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+                const downloadAnchor = document.createElement('a');
+                downloadAnchor.setAttribute("href", dataStr);
+                downloadAnchor.setAttribute("download", `middos_fly_fishing_vault_backup_${new Date().toISOString().slice(0, 10)}.json`);
+                document.body.appendChild(downloadAnchor);
+                downloadAnchor.click();
+                downloadAnchor.remove();
+
+                if (window.showSyncToast) window.showSyncToast("💾 Vault backup downloaded successfully!");
+                else alert("Master Vault backup downloaded successfully!");
+            } catch (err) {
+                alert("Vault export failed: " + err.message);
+            }
+        };
+
+        // Master Vault Backup Importer
+        window.importMasterVaultFile = function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (evt) => {
+                try {
+                    const backup = JSON.parse(evt.target.result);
+                    if (!backup) throw new Error("Invalid JSON format");
+
+                    const db = await initDB();
+                    const importStore = async (storeName, list) => {
+                        if (!list || !Array.isArray(list)) return;
+                        const tx = db.transaction(storeName, 'readwrite');
+                        const store = tx.objectStore(storeName);
+                        store.clear();
+                        for (const item of list) {
+                            store.put(item);
+                        }
                     };
 
-                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
-                    const downloadAnchor = document.createElement('a');
-                    downloadAnchor.setAttribute("href", dataStr);
-                    downloadAnchor.setAttribute("download", `fly_fishing_app_backup_${new Date().toISOString().slice(0, 10)}.json`);
-                    document.body.appendChild(downloadAnchor);
-                    downloadAnchor.click();
-                    downloadAnchor.remove();
+                    if (backup.tackle) await importStore('tackle', backup.tackle);
+                    if (backup.catches) await importStore('catches', backup.catches);
+                    if (backup.rigs) await importStore('rigs', backup.rigs);
+                    if (backup.licenses) await importStore('licenses', backup.licenses);
+
+                    if (backup.userFlyBox) {
+                        localStorage.setItem('user_fly_box', JSON.stringify(backup.userFlyBox));
+                        if (window.FlyBoxApp) window.FlyBoxApp.loadFliesFromStorage();
+                    }
+                    if (backup.fishingSpots) localStorage.setItem('fishingSpots', JSON.stringify(backup.fishingSpots));
+                    if (backup.carCoords) localStorage.setItem('carCoords', JSON.stringify(backup.carCoords));
+
+                    if (backup.settings) {
+                        if (backup.settings.riverMode !== undefined) localStorage.setItem('river_mode_enabled', backup.settings.riverMode ? 'true' : 'false');
+                        if (backup.settings.googleMapsApiKey) localStorage.setItem('googleMapsApiKey', backup.settings.googleMapsApiKey);
+                        if (backup.settings.geminiApiKey) localStorage.setItem('geminiApiKey', backup.settings.geminiApiKey);
+                    }
+
+                    if (window.showSyncToast) window.showSyncToast("✅ Vault restored! Reloading library...");
+                    else alert("✅ Vault restored! Reloading library...");
+
+                    setTimeout(() => window.location.reload(), 500);
                 } catch (err) {
-                    alert("Export failed: " + err.message);
+                    alert("Vault restoration failed: " + err.message);
                 }
-            });
-        }
+            };
+            reader.readAsText(file);
+        };
+
+        // Direct Sync String Copy & Paste
+        window.copyDirectSyncString = async function() {
+            try {
+                const catches = await window.DB.getAllCatches();
+                const tackle = await window.DB.getAllTackle();
+                const rigs = await window.DB.getAllRigs();
+                const licenses = await window.DB.getAllLicenses();
+                const fishingSpots = JSON.parse(localStorage.getItem('fishingSpots') || '[]');
+                const userFlyBox = JSON.parse(localStorage.getItem('user_fly_box') || '[]');
+
+                const compactObj = {
+                    c: catches || [],
+                    t: tackle || [],
+                    r: rigs || [],
+                    l: licenses || [],
+                    f: userFlyBox || [],
+                    s: fishingSpots || []
+                };
+
+                const str = btoa(unescape(encodeURIComponent(JSON.stringify(compactObj))));
+                await navigator.clipboard.writeText(str);
+                if (window.showSyncToast) window.showSyncToast("📋 Direct Sync String copied to clipboard! Paste on any device.");
+                else alert("Direct Sync String copied to clipboard! Paste on any device.");
+            } catch (err) {
+                alert("Failed to copy sync string: " + err.message);
+            }
+        };
+
+        window.pasteDirectSyncString = async function() {
+            const rawStr = prompt("Paste your Direct Sync String below to restore all catches & gear:");
+            if (!rawStr || !rawStr.trim()) return;
+
+            try {
+                const jsonStr = decodeURIComponent(escape(atob(rawStr.trim())));
+                const obj = JSON.parse(jsonStr);
+                if (!obj) throw new Error("Invalid sync string");
+
+                const db = await initDB();
+                const importStore = async (storeName, list) => {
+                    if (!list || !Array.isArray(list)) return;
+                    const tx = db.transaction(storeName, 'readwrite');
+                    const store = tx.objectStore(storeName);
+                    store.clear();
+                    for (const item of list) {
+                        store.put(item);
+                    }
+                };
+
+                if (obj.c) await importStore('catches', obj.c);
+                if (obj.t) await importStore('tackle', obj.t);
+                if (obj.r) await importStore('rigs', obj.r);
+                if (obj.l) await importStore('licenses', obj.l);
+                if (obj.f) {
+                    localStorage.setItem('user_fly_box', JSON.stringify(obj.f));
+                    if (window.FlyBoxApp) window.FlyBoxApp.loadFliesFromStorage();
+                }
+                if (obj.s) localStorage.setItem('fishingSpots', JSON.stringify(obj.s));
+
+                if (window.showSyncToast) window.showSyncToast("✅ Sync code imported successfully! Reloading...");
+                else alert("✅ Sync code imported successfully! Reloading...");
+
+                setTimeout(() => window.location.reload(), 500);
+            } catch (err) {
+                alert("Sync string import failed: " + err.message);
+            }
+        };
 
         // Force Check for Updates Listener (Mobile Cache Purge)
         const btnCheckUpdates = document.getElementById('btn-force-check-updates');
@@ -3518,49 +3702,6 @@ window.initMainApp = async function() {
                 } finally {
                     btnCheckUpdates.textContent = "🔄 Check for Updates Now";
                 }
-            });
-        }
-
-        // Import Backup File Listener
-        const btnImportTrigger = document.getElementById('btn-import-backup-file-trigger');
-        const inputImport = document.getElementById('input-import-backup-file');
-        if (btnImportTrigger && inputImport) {
-            btnImportTrigger.addEventListener('click', () => inputImport.click());
-            inputImport.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = async (evt) => {
-                    try {
-                        const backup = JSON.parse(evt.target.result);
-                        if (!backup) throw new Error("Invalid JSON format");
-
-                        const db = await initDB();
-                        const importStore = async (storeName, list) => {
-                            if (!list) return;
-                            const tx = db.transaction(storeName, 'readwrite');
-                            const store = tx.objectStore(storeName);
-                            store.clear();
-                            for (const item of list) {
-                                store.put(item);
-                            }
-                        };
-
-                        if (backup.tackle) await importStore('tackle', backup.tackle);
-                        if (backup.catches) await importStore('catches', backup.catches);
-                        if (backup.rigs) await importStore('rigs', backup.rigs);
-                        if (backup.licenses) await importStore('licenses', backup.licenses);
-
-                        if (backup.fishingSpots) localStorage.setItem('fishingSpots', JSON.stringify(backup.fishingSpots));
-                        if (backup.carCoords) localStorage.setItem('carCoords', JSON.stringify(backup.carCoords));
-
-                        alert("Backup data imported successfully! All custom gear & catches loaded.");
-                        window.location.reload();
-                    } catch (err) {
-                        alert("Import failed: " + err.message);
-                    }
-                };
-                reader.readAsText(file);
             });
         }
     }
@@ -5028,11 +5169,12 @@ window.initMainApp = async function() {
         window.print();
     };
 
-    // Initialize FlyBox & Knots Apps & Analytics
+    // Initialize FlyBox & Knots Apps, Analytics & Master Vault Summary
     setTimeout(() => {
         if (window.FlyBoxApp) window.FlyBoxApp.init();
         if (window.KnotsApp) window.KnotsApp.renderKnotsUI();
         if (window.updateCatchAnalytics) window.updateCatchAnalytics();
+        if (window.updateVaultSummaryUI) window.updateVaultSummaryUI();
     }, 300);
 
     // --- 1. River Mode Toggle ---
@@ -5046,7 +5188,22 @@ window.initMainApp = async function() {
         document.body.classList.add('high-contrast-mode');
     }
 
-    // --- 2. Catch Analytics Calculation ---
+    // --- 2. Comprehensive Fly Success & Angler Analytics Calculation ---
+    window.switchAnalyticsSubTab = function(tabKey) {
+        const tabs = ['flies', 'moon', 'time', 'species'];
+        tabs.forEach(t => {
+            const btn = document.getElementById(`btn-analytics-tab-${t}`);
+            const pane = document.getElementById(`analytics-pane-${t}`);
+            if (btn) {
+                if (t === tabKey) btn.classList.add('active');
+                else btn.classList.remove('active');
+            }
+            if (pane) {
+                pane.style.display = (t === tabKey) ? 'block' : 'none';
+            }
+        });
+    };
+
     window.updateCatchAnalytics = async function(customCatches = null) {
         try {
             const elTrophy = document.getElementById('analytics-trophy');
@@ -5056,7 +5213,10 @@ window.initMainApp = async function() {
             const elPeak = document.getElementById('analytics-peak-hour');
             const elPeakSub = document.getElementById('analytics-peak-hour-sub');
 
-            if (!elTrophy) return;
+            const paneFlies = document.getElementById('analytics-pane-flies');
+            const paneMoon = document.getElementById('analytics-pane-moon');
+            const paneTime = document.getElementById('analytics-pane-time');
+            const paneSpecies = document.getElementById('analytics-pane-species');
 
             // Fetch catches list from argument, AppState, or IndexedDB
             let catchesList = customCatches;
@@ -5067,19 +5227,24 @@ window.initMainApp = async function() {
             }
 
             if (!catchesList || catchesList.length === 0) {
-                elTrophy.textContent = "--";
+                if (elTrophy) elTrophy.textContent = "--";
                 if (elTrophySub) elTrophySub.textContent = "Log catches to record trophy size";
                 if (elTopFly) elTopFly.textContent = "--";
                 if (elTopFlySub) elTopFlySub.textContent = "0 catches registered";
                 if (elPeak) elPeak.textContent = "--";
                 if (elPeakSub) elPeakSub.textContent = "Based on catch timestamps";
+
+                const emptyHtml = `<p class="placeholder-text" style="text-align: center; padding: 20px; font-size: 12px; color: var(--text-secondary);">No catches logged yet. Log your first catch to populate empirical analytics!</p>`;
+                if (paneFlies) paneFlies.innerHTML = emptyHtml;
+                if (paneMoon) paneMoon.innerHTML = emptyHtml;
+                if (paneTime) paneTime.innerHTML = emptyHtml;
+                if (paneSpecies) paneSpecies.innerHTML = emptyHtml;
                 return;
             }
 
             // Helper to dynamically scan all properties for fish length
             const parseLen = (c) => {
                 if (!c || typeof c !== 'object') return 0;
-                // 1. Direct explicit length keys
                 for (let k of ['length', 'size', 'fishLength', 'lengthCm', 'length_cm', 'len', 'fish_size']) {
                     if (c[k] !== undefined && c[k] !== null && c[k] !== '') {
                         const raw = String(c[k]);
@@ -5090,7 +5255,6 @@ window.initMainApp = async function() {
                         }
                     }
                 }
-                // 2. String search across all keys for regex patterns like "74cm", "74 cm", "74-cm"
                 for (let key in c) {
                     if (typeof c[key] === 'string') {
                         const match = c[key].match(/\b([0-9]{2,3})\s*(?:cm|centimeters|centimetres|inch|in|")\b/i);
@@ -5103,7 +5267,7 @@ window.initMainApp = async function() {
                 return 0;
             };
 
-            // Trophy Calculation
+            // 1. Trophy Calculation
             let trophy = null;
             let maxLen = 0;
             catchesList.forEach(c => {
@@ -5115,56 +5279,262 @@ window.initMainApp = async function() {
             });
 
             if (trophy && maxLen > 0) {
-                elTrophy.textContent = `${maxLen} cm ${trophy.species || 'Fish'}`;
+                if (elTrophy) elTrophy.textContent = `${maxLen} cm ${trophy.species || 'Fish'}`;
                 const dateStr = trophy.date ? new Date(trophy.date).toLocaleDateString() : '';
-                if (elTrophySub) elTrophySub.textContent = dateStr ? `Caught ${dateStr}` : 'Personal Record Trophy';
+                if (elTrophySub) elTrophySub.textContent = dateStr ? `Caught ${dateStr} on ${trophy.fly || 'Fly'}` : 'Personal Record Trophy';
             } else {
-                elTrophy.textContent = "--";
+                if (elTrophy) elTrophy.textContent = "--";
                 if (elTrophySub) elTrophySub.textContent = "Log length (cm) to record trophy size";
             }
 
-            // Top Producing Fly
-            const flyCounts = {};
+            // 2. Comprehensive Fly Performance Aggregation
+            const flyStats = {};
             catchesList.forEach(c => {
-                const flyName = (c.fly || c.lure || c.pattern || '').trim();
-                if (flyName && flyName !== 'N/A' && flyName !== '--') {
-                    flyCounts[flyName] = (flyCounts[flyName] || 0) + 1;
+                const flyName = (c.fly || c.lure || c.pattern || 'Standard Pattern').trim();
+                const len = parseLen(c);
+                const species = (c.species || 'Gamefish').trim();
+
+                if (!flyStats[flyName]) {
+                    flyStats[flyName] = {
+                        name: flyName,
+                        catches: 0,
+                        totalLen: 0,
+                        lenCount: 0,
+                        maxLen: 0,
+                        speciesCounts: {}
+                    };
                 }
+
+                flyStats[flyName].catches += 1;
+                if (len > 0) {
+                    flyStats[flyName].totalLen += len;
+                    flyStats[flyName].lenCount += 1;
+                    if (len > flyStats[flyName].maxLen) flyStats[flyName].maxLen = len;
+                }
+                flyStats[flyName].speciesCounts[species] = (flyStats[flyName].speciesCounts[species] || 0) + 1;
             });
 
-            const flyKeys = Object.keys(flyCounts);
-            if (flyKeys.length > 0) {
-                const topFly = flyKeys.reduce((a, b) => (flyCounts[a] > flyCounts[b] ? a : b), flyKeys[0]);
-                if (elTopFly) elTopFly.textContent = topFly;
-                if (elTopFlySub) elTopFlySub.textContent = `${flyCounts[topFly]} catch${flyCounts[topFly] > 1 ? 'es' : ''} logged`;
-            } else {
-                if (elTopFly) elTopFly.textContent = "--";
-                if (elTopFlySub) elTopFlySub.textContent = `${catchesList.length} total catches logged`;
+            const sortedFlies = Object.values(flyStats).sort((a, b) => b.catches - a.catches);
+            const totalCatchesCount = catchesList.length;
+
+            if (sortedFlies.length > 0) {
+                const topFly = sortedFlies[0];
+                if (elTopFly) elTopFly.textContent = topFly.name;
+                if (elTopFlySub) elTopFlySub.textContent = `${topFly.catches} catch${topFly.catches > 1 ? 'es' : ''} (${Math.round((topFly.catches / totalCatchesCount) * 100)}% of total)`;
             }
 
-            // Peak Hour
-            const hourCounts = {};
-            catchesList.forEach(c => {
-                if (c.date || c.time) {
-                    const dateObj = c.time ? new Date(`${c.date || '2026-01-01'}T${c.time}`) : new Date(c.date);
-                    if (!isNaN(dateObj.getTime())) {
-                        const hr = dateObj.getHours();
-                        hourCounts[hr] = (hourCounts[hr] || 0) + 1;
-                    }
-                }
-            });
+            // Render Pane 1: Fly Leaderboard & Podium
+            if (paneFlies) {
+                const podiumRanks = ['🥇 1st Place', '🥈 2nd Place', '🥉 3rd Place'];
+                const podiumColors = ['var(--accent-orange)', '#94a3b8', '#d97706'];
 
-            const hourKeys = Object.keys(hourCounts);
-            if (hourKeys.length > 0) {
-                const peakHr = hourKeys.reduce((a, b) => (hourCounts[a] > hourCounts[b] ? a : b), hourKeys[0]);
-                const hrNum = parseInt(peakHr);
-                const ampm = hrNum >= 12 ? 'PM' : 'AM';
-                const formattedHr = hrNum % 12 || 12;
-                if (elPeak) elPeak.textContent = `${formattedHr}:00 ${ampm}`;
-                if (elPeakSub) elPeakSub.textContent = `${hourCounts[peakHr]} catches recorded`;
-            } else {
-                if (elPeak) elPeak.textContent = "--";
-                if (elPeakSub) elPeakSub.textContent = "Based on catch timestamps";
+                let podiumHtml = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 16px;">
+                        ${sortedFlies.slice(0, 3).map((fly, idx) => {
+                            const avgLen = fly.lenCount > 0 ? (fly.totalLen / fly.lenCount).toFixed(1) : '--';
+                            const topSpecies = Object.keys(fly.speciesCounts).sort((a,b) => fly.speciesCounts[b] - fly.speciesCounts[a])[0] || 'Trout';
+                            return `
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-top: 3px solid ${podiumColors[idx]}; border-radius: 8px; padding: 12px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                        <strong style="font-size: 11.5px; color: ${podiumColors[idx]};">${podiumRanks[idx]}</strong>
+                                        <span class="badge" style="font-size: 10px; background: rgba(0, 210, 255, 0.1); color: var(--accent-teal);">${fly.catches} Fish</span>
+                                    </div>
+                                    <h4 style="margin: 0; font-size: 14px; color: var(--text-primary);">${fly.name}</h4>
+                                    <div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px;">
+                                        📏 Avg: <b>${avgLen} cm</b> • PB: <b>${fly.maxLen || '--'} cm</b><br>
+                                        🐟 Top: <b>${topSpecies}</b>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+
+                let tableHtml = `
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; font-size: 12px; border-collapse: collapse; text-align: left;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-secondary);">
+                                    <th style="padding: 8px 6px;">Rank & Pattern</th>
+                                    <th style="padding: 8px 6px;">Catches</th>
+                                    <th style="padding: 8px 6px;">Share</th>
+                                    <th style="padding: 8px 6px;">Avg Length</th>
+                                    <th style="padding: 8px 6px;">Trophy PB</th>
+                                    <th style="padding: 8px 6px;">Primary Target</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${sortedFlies.map((fly, idx) => {
+                                    const sharePct = Math.round((fly.catches / totalCatchesCount) * 100);
+                                    const avgLen = fly.lenCount > 0 ? (fly.totalLen / fly.lenCount).toFixed(1) + ' cm' : '--';
+                                    const topSpecies = Object.keys(fly.speciesCounts).sort((a,b) => fly.speciesCounts[b] - fly.speciesCounts[a])[0] || 'Gamefish';
+                                    const rankBadge = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+                                    return `
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                            <td style="padding: 8px 6px; font-weight: 600; color: var(--text-primary);">
+                                                <span style="margin-right: 6px;">${rankBadge}</span> ${fly.name}
+                                            </td>
+                                            <td style="padding: 8px 6px; color: var(--accent-teal); font-weight: 700;">${fly.catches}</td>
+                                            <td style="padding: 8px 6px;">
+                                                <div style="display: flex; align-items: center; gap: 6px;">
+                                                    <div style="flex: 1; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; max-width: 60px;">
+                                                        <div style="height: 100%; width: ${sharePct}%; background: var(--accent-teal); border-radius: 3px;"></div>
+                                                    </div>
+                                                    <span style="font-size: 10.5px; color: var(--text-secondary);">${sharePct}%</span>
+                                                </div>
+                                            </td>
+                                            <td style="padding: 8px 6px; color: var(--text-secondary);">${avgLen}</td>
+                                            <td style="padding: 8px 6px; color: var(--accent-orange); font-weight: 600;">${fly.maxLen ? fly.maxLen + ' cm' : '--'}</td>
+                                            <td style="padding: 8px 6px; color: #cbd5e1;">${topSpecies}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+                paneFlies.innerHTML = podiumHtml + tableHtml;
+            }
+
+            // Render Pane 2: Moon Phase Success Breakdown
+            if (paneMoon) {
+                const moonCounts = {
+                    'New Moon': { count: 0, icon: '🌑' },
+                    'Waxing Crescent': { count: 0, icon: '🌒' },
+                    'First Quarter': { count: 0, icon: '🌓' },
+                    'Waxing Gibbous': { count: 0, icon: '🌔' },
+                    'Full Moon': { count: 0, icon: '🌕' },
+                    'Waning Gibbous': { count: 0, icon: '🌖' },
+                    'Third Quarter': { count: 0, icon: '🌗' },
+                    'Waning Crescent': { count: 0, icon: '🌘' }
+                };
+
+                catchesList.forEach(c => {
+                    const phase = c.moonPhase || (window.WEATHER && c.date ? window.WEATHER.getMoonPhase(new Date(c.date)).label : 'New Moon');
+                    if (moonCounts[phase]) moonCounts[phase].count += 1;
+                    else moonCounts['New Moon'].count += 1;
+                });
+
+                paneMoon.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
+                        ${Object.entries(moonCounts).map(([phaseName, data]) => {
+                            const pct = totalCatchesCount > 0 ? Math.round((data.count / totalCatchesCount) * 100) : 0;
+                            const isTop = data.count > 0 && Math.max(...Object.values(moonCounts).map(m => m.count)) === data.count;
+                            const border = isTop ? 'border: 1px solid var(--accent-teal); background: rgba(0, 210, 255, 0.08);' : 'border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02);';
+                            return `
+                                <div style="border-radius: 8px; padding: 10px; text-align: center; ${border}">
+                                    <div style="font-size: 24px; margin-bottom: 2px;">${data.icon}</div>
+                                    <strong style="font-size: 11px; color: var(--text-primary); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${phaseName}</strong>
+                                    <div style="font-size: 14px; font-weight: 700; color: ${isTop ? 'var(--accent-teal)' : 'var(--text-secondary)'}; margin-top: 4px;">${data.count} Fish</div>
+                                    <div style="font-size: 9.5px; color: var(--text-secondary);">${pct}% of catches</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            }
+
+            // Render Pane 3: Time-of-Day & Peak Bite Hours
+            if (paneTime) {
+                const timeBlocks = {
+                    '🌅 Morning Dawn (5AM - 9AM)': { count: 0, hours: [5,6,7,8,9] },
+                    '☀️ Midday Sun (10AM - 2PM)': { count: 0, hours: [10,11,12,13,14] },
+                    '🌇 Evening Rise (3PM - 7PM)': { count: 0, hours: [15,16,17,18,19] },
+                    '🌙 Night / Twilight (8PM - 4AM)': { count: 0, hours: [20,21,22,23,0,1,2,3,4] }
+                };
+
+                const hourCounts = {};
+                catchesList.forEach(c => {
+                    if (c.date || c.time) {
+                        const dateObj = c.time ? new Date(`${c.date || '2026-01-01'}T${c.time}`) : new Date(c.date);
+                        if (!isNaN(dateObj.getTime())) {
+                            const hr = dateObj.getHours();
+                            hourCounts[hr] = (hourCounts[hr] || 0) + 1;
+                            for (let b in timeBlocks) {
+                                if (timeBlocks[b].hours.includes(hr)) {
+                                    timeBlocks[b].count += 1;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                });
+
+                const hourKeys = Object.keys(hourCounts);
+                if (hourKeys.length > 0) {
+                    const peakHr = hourKeys.reduce((a, b) => (hourCounts[a] > hourCounts[b] ? a : b), hourKeys[0]);
+                    const hrNum = parseInt(peakHr);
+                    const ampm = hrNum >= 12 ? 'PM' : 'AM';
+                    const formattedHr = hrNum % 12 || 12;
+                    if (elPeak) elPeak.textContent = `${formattedHr}:00 ${ampm}`;
+                    if (elPeakSub) elPeakSub.textContent = `${hourCounts[peakHr]} catches recorded`;
+                }
+
+                paneTime.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                        ${Object.entries(timeBlocks).map(([blockTitle, data]) => {
+                            const pct = totalCatchesCount > 0 ? Math.round((data.count / totalCatchesCount) * 100) : 0;
+                            return `
+                                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px;">
+                                    <div style="font-size: 11.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">${blockTitle}</div>
+                                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+                                        <strong style="font-size: 18px; color: var(--accent-orange);">${data.count} Fish</strong>
+                                        <span style="font-size: 11px; color: var(--text-secondary);">${pct}% Success</span>
+                                    </div>
+                                    <div style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+                                        <div style="height: 100%; width: ${pct}%; background: var(--accent-orange); border-radius: 3px;"></div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            }
+
+            // Render Pane 4: Species Personal Bests & Catch Tallies
+            if (paneSpecies) {
+                const speciesMap = {};
+                catchesList.forEach(c => {
+                    const sp = (c.species || 'Gamefish').trim();
+                    const len = parseLen(c);
+                    const fly = (c.fly || 'Standard Fly').trim();
+
+                    if (!speciesMap[sp]) {
+                        speciesMap[sp] = {
+                            name: sp,
+                            count: 0,
+                            maxLen: 0,
+                            flyCounts: {}
+                        };
+                    }
+
+                    speciesMap[sp].count += 1;
+                    if (len > speciesMap[sp].maxLen) speciesMap[sp].maxLen = len;
+                    speciesMap[sp].flyCounts[fly] = (speciesMap[sp].flyCounts[fly] || 0) + 1;
+                });
+
+                const sortedSpecies = Object.values(speciesMap).sort((a, b) => b.count - a.count);
+
+                paneSpecies.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px;">
+                        ${sortedSpecies.map(sp => {
+                            const topFly = Object.keys(sp.flyCounts).sort((a,b) => sp.flyCounts[b] - sp.flyCounts[a])[0] || 'Fly';
+                            return `
+                                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                        <h4 style="margin: 0; font-size: 14px; color: var(--text-primary);">🐟 ${sp.name}</h4>
+                                        <span class="badge" style="background: rgba(16, 185, 129, 0.12); color: #34d399; font-size: 10.5px;">${sp.count} Caught</span>
+                                    </div>
+                                    <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 6px; line-height: 1.4;">
+                                        🏆 Personal Best: <strong style="color: var(--accent-teal);">${sp.maxLen > 0 ? sp.maxLen + ' cm' : 'Recorded'}</strong><br>
+                                        🪰 Most Effective Fly: <strong style="color: var(--text-primary);">${topFly}</strong>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
             }
         } catch (e) {
             console.error("Analytics calc error", e);
