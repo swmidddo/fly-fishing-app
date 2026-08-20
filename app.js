@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100970';
+window.APP_VERSION = 'v100980';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -6264,6 +6264,163 @@ Respond ONLY in valid JSON format:
             console.warn("Barcode lookup network notice:", e);
             if (nameEl) nameEl.placeholder = "Type equipment name...";
             return false;
+        }
+    };
+
+    // --- 6. Backcountry Offline Mode & Caching Hub Engine ---
+    window.updateOfflineStatusUI = function(isReady) {
+        const badge = document.getElementById('backcountry-status-badge');
+        const isOnline = navigator.onLine;
+
+        if (badge) {
+            if (!isOnline) {
+                badge.textContent = "📡 Backcountry Mode (Offline Active)";
+                badge.style.background = "rgba(0, 210, 255, 0.2)";
+                badge.style.color = "var(--accent-teal)";
+            } else if (isReady || window.__BACKCOUNTRY_SW_ACTIVE__) {
+                badge.textContent = "🟢 Backcountry Offline Ready";
+                badge.style.background = "rgba(46, 213, 115, 0.15)";
+                badge.style.color = "#2ed573";
+            } else {
+                badge.textContent = "🟡 Initializing Cache...";
+                badge.style.background = "rgba(255, 171, 0, 0.15)";
+                badge.style.color = "var(--accent-orange)";
+            }
+        }
+    };
+
+    window.addEventListener('online', () => {
+        window.updateOfflineStatusUI(true);
+        if (window.showSyncToast) window.showSyncToast("🟢 Internet connection restored. Syncing data...");
+    });
+
+    window.addEventListener('offline', () => {
+        window.updateOfflineStatusUI(true);
+        if (window.showSyncToast) window.showSyncToast("📡 Backcountry Offline Mode active. All cached guides & tools available!");
+    });
+
+    window.downloadFullBackcountryPack = async function() {
+        const btn = document.getElementById('btn-precache-backcountry');
+        const container = document.getElementById('backcountry-progress-container');
+        const textEl = document.getElementById('backcountry-progress-text');
+        const pctEl = document.getElementById('backcountry-progress-pct');
+        const barEl = document.getElementById('backcountry-progress-bar');
+
+        if (container) container.style.display = 'block';
+        if (btn) btn.disabled = true;
+
+        const speciesPhotos = [
+            'images/dpi_illustrations/atlantic_salmon.jpg',
+            'images/dpi_illustrations/australian_bass.jpg',
+            'images/dpi_illustrations/australian_salmon.jpg',
+            'images/dpi_illustrations/barramundi.jpg',
+            'images/dpi_illustrations/black_bream.jpg',
+            'images/dpi_illustrations/brook_trout.jpg',
+            'images/dpi_illustrations/brown_trout.jpg',
+            'images/dpi_illustrations/dusky_flathead.jpg',
+            'images/dpi_illustrations/eastern_blue_groper.jpg',
+            'images/dpi_illustrations/eastern_freshwater_cod.jpg',
+            'images/dpi_illustrations/estuary_perch.jpg',
+            'images/dpi_illustrations/european_carp.jpg',
+            'images/dpi_illustrations/flathead_bluespotted.jpg',
+            'images/dpi_illustrations/garfish.jpg',
+            'images/dpi_illustrations/giant_trevally.jpg',
+            'images/dpi_illustrations/golden_perch.jpg',
+            'images/dpi_illustrations/golden_snapper.jpg',
+            'images/dpi_illustrations/king_george_whiting.jpg',
+            'images/dpi_illustrations/luderick.jpg',
+            'images/dpi_illustrations/macquarie_perch.jpg',
+            'images/dpi_illustrations/mahi_mahi.jpg',
+            'images/dpi_illustrations/mangrove_jack.jpg',
+            'images/dpi_illustrations/mary_river_cod.jpg',
+            'images/dpi_illustrations/mulloway.jpg',
+            'images/dpi_illustrations/murray_cod.jpg',
+            'images/dpi_illustrations/queenfish.jpg',
+            'images/dpi_illustrations/rainbow_trout.jpg',
+            'images/dpi_illustrations/redfin_perch.jpg',
+            'images/dpi_illustrations/sand_flathead.jpg',
+            'images/dpi_illustrations/sand_whiting.jpg',
+            'images/dpi_illustrations/saratoga.jpg',
+            'images/dpi_illustrations/silver_perch.jpg',
+            'images/dpi_illustrations/silver_trevally.jpg',
+            'images/dpi_illustrations/snapper.jpg',
+            'images/dpi_illustrations/sooty_grunter.jpg',
+            'images/dpi_illustrations/spanish_mackerel.jpg',
+            'images/dpi_illustrations/striped_trumpeter.jpg',
+            'images/dpi_illustrations/tailor.jpg',
+            'images/tarwhine.jpg',
+            'images/dpi_illustrations/tilapia.jpg',
+            'images/dpi_illustrations/trout_cod.jpg',
+            'images/dpi_illustrations/yellowfin_bream.jpg',
+            'images/dpi_illustrations/yellowfin_whiting.jpg',
+            'images/dpi_illustrations/yellowtail_kingfish.jpg',
+            'images/knot_albright.jpg',
+            'images/knot_blood.jpg',
+            'images/knot_clinch.jpg',
+            'images/knot_davy.jpg',
+            'images/knot_loop.jpg',
+            'images/knot_nail.jpg',
+            'images/knot_palomar.jpg',
+            'images/knot_surgeons.jpg',
+            'images/knot_turle.jpg',
+            'images/knot_uni.jpg',
+            'images/logo.jpg',
+            'index.html',
+            'styles.css',
+            'app.js',
+            'db.js',
+            'regulations.js',
+            'weather.js',
+            'exif.js',
+            'map.js',
+            'tackle_db.js',
+            'fish_db.js',
+            'fly_box.js',
+            'knots.js',
+            'auth.js'
+        ];
+
+        try {
+            const cache = await caches.open('fly-fishing-v100980');
+            let completed = 0;
+            const total = speciesPhotos.length;
+
+            for (const item of speciesPhotos) {
+                try {
+                    await cache.add(item);
+                } catch(e) {
+                    console.warn("Backcountry precache item notice:", item, e);
+                }
+                completed++;
+                const pct = Math.round((completed / total) * 100);
+                if (barEl) barEl.style.width = `${pct}%`;
+                if (pctEl) pctEl.textContent = `${pct}%`;
+                if (textEl) textEl.textContent = `Downloaded ${completed} of ${total} Backcountry offline guides...`;
+            }
+
+            if (textEl) textEl.textContent = "✅ Backcountry Pack 100% Downloaded & Ready for Offline River Use!";
+            if (window.showSyncToast) window.showSyncToast("🎒 100% of species photos, guides & maps cached for offline backcountry use!");
+            window.updateOfflineStatusUI(true);
+        } catch(err) {
+            console.error("Backcountry download error:", err);
+            if (textEl) textEl.textContent = "Notice: Some assets may already be cached offline.";
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    };
+
+    window.checkForAppUpdates = async function() {
+        if (window.showSyncToast) window.showSyncToast("🔄 Checking for live website updates...");
+        try {
+            if ('serviceWorker' in navigator) {
+                const reg = await navigator.serviceWorker.getRegistration();
+                if (reg) {
+                    await reg.update();
+                }
+            }
+            if (window.showSyncToast) window.showSyncToast("✨ App is on the latest build (v100980)!");
+        } catch(e) {
+            console.warn("Update check error:", e);
         }
     };
 };

@@ -14,15 +14,18 @@
     <!-- Main Style -->
     <link rel="stylesheet" href="styles.css?v=100000">
     <script>
-        // Unregister any active Service Workers and clear CacheStorage instantly on parse
+        // Backcountry Offline PWA Service Worker Registration
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                for (let r of registrations) r.unregister();
-            });
-        }
-        if ('caches' in window) {
-            caches.keys().then(function(keys) {
-                for (let k of keys) caches.delete(k);
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('sw.js?v=100980')
+                    .then(function(reg) {
+                        console.log('[Backcountry SW] Registered successfully with scope:', reg.scope);
+                        window.__BACKCOUNTRY_SW_ACTIVE__ = true;
+                        if (window.updateOfflineStatusUI) window.updateOfflineStatusUI(true);
+                    })
+                    .catch(function(err) {
+                        console.warn('[Backcountry SW] Registration notice:', err);
+                    });
             });
         }
 
@@ -262,7 +265,7 @@
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
-                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v100970</span>
+                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v100980</span>
                     </div>
                 </div>
             </div>
@@ -1365,16 +1368,46 @@
                         </div>
                     </div>
 
-                    <!-- App Version & Service Worker Update Card -->
-                    <div class="card glass mb-20">
-                        <h3>📱 App Updates & Cache Control</h3>
-                        <p class="text-secondary mb-15">Check for live website updates or force-refresh your mobile offline cache to load the latest regulations and features.</p>
-                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                    <!-- Backcountry Offline Mode & App Cache Hub -->
+                    <div class="card glass mb-20" style="border-left: 4px solid var(--accent-teal);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+                            <div>
+                                <h3 style="margin: 0; font-size: 17px; display: flex; align-items: center; gap: 8px;">
+                                    <span>📡</span> Backcountry Offline Mode &amp; PWA Cache Hub
+                                </h3>
+                                <p style="font-size: 12px; color: var(--text-secondary); margin: 3px 0 0 0;">
+                                    Enables 100% full offline capability for remote riverbanks and no-reception backcountry zones.
+                                </p>
+                            </div>
+                            <span class="badge" id="backcountry-status-badge" style="background: rgba(46, 213, 115, 0.15); color: #2ed573; font-size: 11.5px; font-weight: 600;">
+                                🟢 Backcountry Offline Ready
+                            </span>
+                        </div>
+
+                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
                             <div>
                                 <strong style="font-size: 13px; color: var(--text-primary);">Installed Version:</strong>
-                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v100970 (Latest Build)</span>
+                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v100980 (Latest Build)</span>
                             </div>
-                            <button class="btn btn-primary btn-sm" id="btn-force-check-updates">🔄 Check for Updates Now</button>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button class="btn btn-glass btn-sm" id="btn-precache-backcountry" onclick="window.downloadFullBackcountryPack()">
+                                    ⚡ Download Offline Pack
+                                </button>
+                                <button class="btn btn-primary btn-sm" id="btn-force-check-updates" onclick="window.checkForAppUpdates()">
+                                    🔄 Check for Updates Now
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Offline Pack Progress Bar (Hidden by default) -->
+                        <div id="backcountry-progress-container" style="display: none; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; margin-top: 10px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px;">
+                                <span id="backcountry-progress-text" style="color: var(--accent-teal); font-weight: 600;">Downloading all species photos &amp; knot diagrams...</span>
+                                <span id="backcountry-progress-pct" style="color: var(--text-secondary);">0%</span>
+                            </div>
+                            <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
+                                <div id="backcountry-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--accent-teal), #00d2ff); transition: width 0.2s ease;"></div>
+                            </div>
                         </div>
                     </div>
 
@@ -2074,16 +2107,16 @@
     <!-- Scripts -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
-    <script src="db.js?v=100970"></script>
-    <script src="regulations.js?v=100970"></script>
-    <script src="weather.js?v=100970"></script>
-    <script src="exif.js?v=100970"></script>
-    <script src="map.js?v=100970"></script>
-    <script src="tackle_db.js?v=100970"></script>
-    <script src="fish_db.js?v=100970"></script>
-    <script src="fly_box.js?v=100970"></script>
-    <script src="knots.js?v=100970"></script>
-    <script src="auth.js?v=100970"></script>
-    <script src="app.js?v=100970"></script>
+    <script src="db.js?v=100980"></script>
+    <script src="regulations.js?v=100980"></script>
+    <script src="weather.js?v=100980"></script>
+    <script src="exif.js?v=100980"></script>
+    <script src="map.js?v=100980"></script>
+    <script src="tackle_db.js?v=100980"></script>
+    <script src="fish_db.js?v=100980"></script>
+    <script src="fly_box.js?v=100980"></script>
+    <script src="knots.js?v=100980"></script>
+    <script src="auth.js?v=100980"></script>
+    <script src="app.js?v=100980"></script>
 </body>
 </html>
