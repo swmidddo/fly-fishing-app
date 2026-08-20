@@ -262,7 +262,7 @@
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
-                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v100890</span>
+                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v100900</span>
                     </div>
                 </div>
             </div>
@@ -1349,7 +1349,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
                             <div>
                                 <strong style="font-size: 13px; color: var(--text-primary);">Installed Version:</strong>
-                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v100890 (Latest Build)</span>
+                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v100900 (Latest Build)</span>
                             </div>
                             <button class="btn btn-primary btn-sm" id="btn-force-check-updates">🔄 Check for Updates Now</button>
                         </div>
@@ -1930,37 +1930,30 @@
 
     <!-- Standalone Barcode / UPC Camera Scanner Modal Window -->
     <div class="modal" id="modal-barcode-scanner" style="z-index: 100000;">
-        <div class="modal-content glass" style="max-width: 480px; width: 92%; padding: 20px; border-left: 4px solid var(--accent-teal); position: relative; background: #0c1829; box-shadow: 0 16px 48px rgba(0,0,0,0.9);">
+        <div class="modal-content glass" style="max-width: 480px; width: 92%; padding: 20px; border-left: 4px solid var(--accent-teal); position: relative; background: #0c1829; box-shadow: 0 16px 48px rgba(0,0,0,0.95);">
             <span class="modal-close" onclick="window.closeBarcodeScanner()">&times;</span>
             <h3 style="margin-top: 0; font-size: 17px; display: flex; align-items: center; gap: 8px; color: var(--text-primary);">
                 <span>📷</span> Scan Equipment Barcode / UPC
             </h3>
             <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
-                Align the barcode within the targeting frame, or snap a photo of the package.
+                Point your camera at the barcode on any fly box, line spool, or leader package.
             </p>
 
-            <!-- Camera Viewport Container -->
-            <div style="position: relative; width: 100%; height: 260px; background: #000; border-radius: 12px; overflow: hidden; border: 2px solid rgba(0, 210, 255, 0.4); display: flex; align-items: center; justify-content: center;">
-                <video id="barcode-scanner-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
-                <canvas id="barcode-scanner-canvas" style="display: none;"></canvas>
+            <!-- Embedded In-App Scanner Viewport Container (No OS App Redirects) -->
+            <div style="position: relative; width: 100%; min-height: 250px; background: #000; border-radius: 12px; overflow: hidden; border: 2px solid rgba(0, 210, 255, 0.4);">
+                <div id="barcode-reader-viewport" style="width: 100%;"></div>
+            </div>
 
-                <!-- Scanning Reticle Overlay -->
-                <div style="position: absolute; width: 220px; height: 140px; border: 2px solid var(--accent-teal); border-radius: 8px; box-shadow: 0 0 20px rgba(0, 210, 255, 0.4); pointer-events: none; display: flex; align-items: center; justify-content: center;">
-                    <div style="width: 100%; height: 2px; background: linear-gradient(90deg, transparent, #00d2ff, #fff, #00d2ff, transparent); box-shadow: 0 0 10px #00d2ff; animation: scanLineAnim 2s infinite ease-in-out;"></div>
-                </div>
-
-                <!-- Live Camera Controls Overlay -->
-                <div style="position: absolute; bottom: 10px; left: 0; right: 0; display: flex; justify-content: center; gap: 8px; z-index: 10;">
-                    <button type="button" class="btn btn-glass btn-sm" id="btn-scanner-torch" onclick="window.toggleScannerTorch()" style="background: rgba(0,0,0,0.65); padding: 5px 10px; font-size: 11px;">🔦 Torch</button>
-                    <button type="button" class="btn btn-glass btn-sm" id="btn-scanner-switch" onclick="window.switchScannerCamera()" style="background: rgba(0,0,0,0.65); padding: 5px 10px; font-size: 11px;">🔄 Flip</button>
-                    <button type="button" class="btn btn-glass btn-sm" onclick="document.getElementById('barcode-photo-upload').click()" style="background: rgba(0,0,0,0.65); padding: 5px 10px; font-size: 11px; color: var(--accent-teal);">📸 Snap Photo</button>
-                    <input type="file" id="barcode-photo-upload" accept="image/*" capture="environment" style="display: none;" onchange="window.handleBarcodePhotoUpload(event)">
-                </div>
+            <!-- Scanner Actions Bar -->
+            <div style="display: flex; justify-content: center; gap: 10px; margin-top: 10px;">
+                <button type="button" class="btn btn-glass btn-sm" id="btn-scanner-switch" onclick="window.switchScannerCamera()" style="font-size: 11.5px;">🔄 Switch Camera</button>
+                <button type="button" class="btn btn-glass btn-sm" onclick="document.getElementById('barcode-photo-upload').click()" style="font-size: 11.5px; color: var(--accent-teal);">📸 Scan From Photo</button>
+                <input type="file" id="barcode-photo-upload" accept="image/*" style="display: none;" onchange="window.handleBarcodePhotoUpload(event)">
             </div>
 
             <!-- Scanner Status Output -->
             <div id="barcode-scanner-status" style="margin-top: 12px; font-size: 12px; text-align: center; color: var(--accent-teal); font-weight: 600;">
-                Initializing high-resolution camera...
+                Initializing in-app camera scanner...
             </div>
 
             <!-- Manual Barcode Entry Fallback -->
@@ -2049,17 +2042,18 @@
     </div>
 
     <!-- Scripts -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
-    <script src="db.js?v=100890"></script>
-    <script src="regulations.js?v=100890"></script>
-    <script src="weather.js?v=100890"></script>
-    <script src="exif.js?v=100890"></script>
-    <script src="map.js?v=100890"></script>
-    <script src="tackle_db.js?v=100890"></script>
-    <script src="fish_db.js?v=100890"></script>
-    <script src="fly_box.js?v=100890"></script>
-    <script src="knots.js?v=100890"></script>
-    <script src="auth.js?v=100890"></script>
-    <script src="app.js?v=100890"></script>
+    <script src="db.js?v=100900"></script>
+    <script src="regulations.js?v=100900"></script>
+    <script src="weather.js?v=100900"></script>
+    <script src="exif.js?v=100900"></script>
+    <script src="map.js?v=100900"></script>
+    <script src="tackle_db.js?v=100900"></script>
+    <script src="fish_db.js?v=100900"></script>
+    <script src="fly_box.js?v=100900"></script>
+    <script src="knots.js?v=100900"></script>
+    <script src="auth.js?v=100900"></script>
+    <script src="app.js?v=100900"></script>
 </body>
 </html>

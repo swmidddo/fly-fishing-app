@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100890';
+window.APP_VERSION = 'v100900';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -5725,88 +5725,8 @@ window.initMainApp = async function() {
     });
 
     // --- 5. Phone Camera Barcode / UPC Scanner & Tackle Auto-Lookup Engine ---
-    let scannerStream = null;
-    let scannerTrack = null;
-    let scannerFacingMode = 'environment';
-    let isTorchOn = false;
-    let scannerAnimId = null;
-    let isScanningActive = false;
-
-    window.openBarcodeScanner = async function() {
-        const modal = document.getElementById('modal-barcode-scanner');
-        const video = document.getElementById('barcode-scanner-video');
-        const status = document.getElementById('barcode-scanner-status');
-        if (!modal || !video) return;
-
-        modal.classList.add('active');
-        if (status) status.textContent = "Initializing camera... Align barcode in the box.";
-
-        try {
-            if (scannerStream) {
-                scannerStream.getTracks().forEach(t => t.stop());
-            }
-
-            const constraints = {
-                video: {
-                    facingMode: { ideal: scannerFacingMode },
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }
-            };
-
-            scannerStream = await navigator.mediaDevices.getUserMedia(constraints);
-            video.srcObject = scannerStream;
-            scannerTrack = scannerStream.getVideoTracks()[0];
-            await video.play();
-
-            isScanningActive = true;
-            startBarcodeDetectionLoop();
-        } catch (err) {
-            console.error("Camera access error:", err);
-            if (status) {
-                status.innerHTML = `<span style="color: var(--accent-orange);">⚠️ Camera error: ${err.message}. You can enter barcode number below.</span>`;
-            }
-        }
-    };
-
-    window.closeBarcodeScanner = function() {
-        isScanningActive = false;
-        if (scannerAnimId) {
-            cancelAnimationFrame(scannerAnimId);
-            scannerAnimId = null;
-        }
-        if (scannerStream) {
-            scannerStream.getTracks().forEach(t => t.stop());
-            scannerStream = null;
-            scannerTrack = null;
-        }
-        const modal = document.getElementById('modal-barcode-scanner');
-        if (modal) modal.classList.remove('active');
-    };
-
-    window.toggleScannerTorch = async function() {
-        if (!scannerTrack) return;
-        try {
-            const capabilities = scannerTrack.getCapabilities ? scannerTrack.getCapabilities() : {};
-            if (!capabilities.torch) {
-                alert("Flashlight/Torch is not supported on this camera.");
-                return;
-            }
-            isTorchOn = !isTorchOn;
-            await scannerTrack.applyConstraints({
-                advanced: [{ torch: isTorchOn }]
-            });
-            const btn = document.getElementById('btn-scanner-torch');
-            if (btn) btn.textContent = isTorchOn ? '🔦 Torch On' : '🔦 Torch Off';
-        } catch (e) {
-            console.warn("Torch toggle error:", e);
-        }
-    };
-
-    window.switchScannerCamera = async function() {
-        scannerFacingMode = (scannerFacingMode === 'environment') ? 'user' : 'environment';
-        await window.openBarcodeScanner();
-    };
+    let html5QrCodeScanner = null;
+    let scannerFacingMode = "environment";
 
     function playBeepAudio() {
         try {
@@ -5824,134 +5744,99 @@ window.initMainApp = async function() {
         } catch (e) {}
     }
 
-    async function startBarcodeDetectionLoop() {
-        const video = document.getElementById('barcode-scanner-video');
-        const canvas = document.getElementById('barcode-scanner-canvas');
+    window.openBarcodeScanner = async function() {
+        const modal = document.getElementById('modal-barcode-scanner');
         const status = document.getElementById('barcode-scanner-status');
-        if (!video || !isScanningActive) return;
+        if (!modal) return;
 
-        let zxingReader = null;
-        if (window.ZXing && window.ZXing.BrowserMultiFormatReader) {
-            try {
-                zxingReader = new window.ZXing.BrowserMultiFormatReader();
-            } catch (e) {
-                console.warn("ZXing init warning", e);
+        modal.classList.add('active');
+        if (status) status.textContent = "Starting in-app scanner...";
+
+        try {
+            if (typeof Html5Qrcode === 'undefined') {
+                throw new Error("Barcode scanner library loading, please wait a moment...");
             }
-        }
 
-        let detector = null;
-        if ('BarcodeDetector' in window) {
-            try {
-                detector = new window.BarcodeDetector({
-                    formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code', 'data_matrix']
-                });
-            } catch (e) {
-                console.warn("BarcodeDetector formats unsupported", e);
+            if (!html5QrCodeScanner) {
+                html5QrCodeScanner = new Html5Qrcode("barcode-reader-viewport");
             }
-        }
 
-        let lastScanTime = 0;
+            if (html5QrCodeScanner.isScanning) {
+                await html5QrCodeScanner.stop();
+            }
 
-        const scanFrame = async (timestamp) => {
-            if (!isScanningActive) return;
+            const config = { 
+                fps: 15, 
+                qrbox: { width: 250, height: 160 },
+                aspectRatio: 1.333334
+            };
 
-            if (video.readyState === video.HAVE_ENOUGH_DATA && timestamp - lastScanTime > 150) {
-                lastScanTime = timestamp;
-
-                // 1. Try Native BarcodeDetector (high speed)
-                if (detector) {
-                    try {
-                        const barcodes = await detector.detect(video);
-                        if (barcodes && barcodes.length > 0) {
-                            const rawVal = barcodes[0].rawValue;
-                            if (rawVal) {
-                                onBarcodeFound(rawVal);
-                                return;
-                            }
-                        }
-                    } catch (err) {}
+            await html5QrCodeScanner.start(
+                { facingMode: scannerFacingMode },
+                config,
+                (decodedText) => {
+                    if (decodedText) {
+                        playBeepAudio();
+                        if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+                        if (status) status.innerHTML = `✅ <strong style="color:#34d399;">Scanned: ${decodedText}</strong>`;
+                        setTimeout(async () => {
+                            await window.closeBarcodeScanner();
+                            window.lookupTackleBarcode(decodedText);
+                        }, 350);
+                    }
+                },
+                (errorMessage) => {
+                    // scanning frame
                 }
-
-                // 2. Try ZXing Browser MultiFormat Reader Fallback
-                if (zxingReader && canvas && isScanningActive) {
-                    try {
-                        const ctx = canvas.getContext('2d');
-                        canvas.width = video.videoWidth || 640;
-                        canvas.height = video.videoHeight || 480;
-                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                        const result = zxingReader.decodeFromCanvas(canvas);
-                        if (result && result.getText()) {
-                            onBarcodeFound(result.getText());
-                            return;
-                        }
-                    } catch (err) {}
-                }
+            );
+            if (status) status.textContent = "Align barcode within the target box.";
+        } catch (err) {
+            console.error("Barcode scanner error:", err);
+            if (status) {
+                status.innerHTML = `<span style="color: var(--accent-orange);">Camera notice: ${err.message || 'Please allow camera permission or tap "Scan From Photo" below.'}</span>`;
             }
-
-            scannerAnimId = requestAnimationFrame(scanFrame);
-        };
-
-        function onBarcodeFound(barcodeVal) {
-            isScanningActive = false;
-            playBeepAudio();
-            if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
-            if (status) status.innerHTML = `✅ <strong style="color:#34d399;">Scanned: ${barcodeVal}</strong>`;
-            setTimeout(() => {
-                window.closeBarcodeScanner();
-                window.lookupTackleBarcode(barcodeVal);
-            }, 350);
         }
+    };
 
-        scannerAnimId = requestAnimationFrame(scanFrame);
-    }
+    window.closeBarcodeScanner = async function() {
+        try {
+            if (html5QrCodeScanner && html5QrCodeScanner.isScanning) {
+                await html5QrCodeScanner.stop();
+            }
+        } catch (e) {}
+        const modal = document.getElementById('modal-barcode-scanner');
+        if (modal) modal.classList.remove('active');
+    };
 
-    // Snap / Upload barcode photo fallback
+    window.switchScannerCamera = async function() {
+        scannerFacingMode = (scannerFacingMode === "environment") ? "user" : "environment";
+        await window.openBarcodeScanner();
+    };
+
+    // Scan / Upload barcode photo fallback
     window.handleBarcodePhotoUpload = async function(event) {
         const file = event.target.files[0];
         if (!file) return;
 
         const status = document.getElementById('barcode-scanner-status');
-        if (status) status.textContent = "Analyzing photo for barcode...";
+        if (status) status.textContent = "Scanning photo for barcode...";
 
         try {
-            const img = new Image();
-            img.src = URL.createObjectURL(file);
-            await img.decode();
-
-            // 1. Try Native BarcodeDetector on Image
-            if ('BarcodeDetector' in window) {
-                try {
-                    const detector = new window.BarcodeDetector({
-                        formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code', 'data_matrix']
-                    });
-                    const barcodes = await detector.detect(img);
-                    if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
-                        playBeepAudio();
-                        window.closeBarcodeScanner();
-                        window.lookupTackleBarcode(barcodes[0].rawValue);
-                        return;
-                    }
-                } catch (e) {}
+            if (!html5QrCodeScanner) {
+                html5QrCodeScanner = new Html5Qrcode("barcode-reader-viewport");
             }
-
-            // 2. Try ZXing Decoder on Image
-            if (window.ZXing && window.ZXing.BrowserMultiFormatReader) {
-                try {
-                    const reader = new window.ZXing.BrowserMultiFormatReader();
-                    const result = await reader.decodeFromImageUrl(img.src);
-                    if (result && result.getText()) {
-                        playBeepAudio();
-                        window.closeBarcodeScanner();
-                        window.lookupTackleBarcode(result.getText());
-                        return;
-                    }
-                } catch (e) {}
+            const decodedText = await html5QrCodeScanner.scanFile(file, true);
+            if (decodedText) {
+                playBeepAudio();
+                if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+                await window.closeBarcodeScanner();
+                window.lookupTackleBarcode(decodedText);
+            } else {
+                throw new Error("No barcode detected");
             }
-
-            if (status) status.innerHTML = `<span style="color: var(--accent-orange);">⚠️ Could not detect barcode in photo. Please ensure clear focus or enter number below.</span>`;
         } catch (err) {
-            console.error("Photo barcode error:", err);
-            if (status) status.innerHTML = `<span style="color: var(--accent-orange);">Error reading photo: ${err.message}</span>`;
+            console.warn("Scan file error:", err);
+            if (status) status.innerHTML = `<span style="color: var(--accent-orange);">Could not detect barcode in photo. Please ensure clear focus or enter number below.</span>`;
         }
     };
 
