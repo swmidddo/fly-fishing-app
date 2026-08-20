@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100900';
+window.APP_VERSION = 'v100910';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -5878,61 +5878,120 @@ window.initMainApp = async function() {
         if (barcodeEl) barcodeEl.value = cleanCode;
         if (nameEl) nameEl.placeholder = "Looking up product details online...";
 
-        // 3. Online Database & Brand Pattern Auto-Detection
+        // 3. Multi-Database & Gemini AI Tackle Identification Engine
         try {
             let productTitle = '';
             let productBrand = '';
             let productCategory = '';
             let productSpec = '';
+            let productNotes = '';
 
-            // Try Open Food / Open Product Database API
-            const openProdRes = await fetch(`https://world.openfoodfacts.org/api/v0/product/${cleanCode}.json`).catch(() => null);
-            if (openProdRes && openProdRes.ok) {
-                const data = await openProdRes.json();
-                if (data && data.product) {
-                    productTitle = data.product.product_name || data.product.generic_name || '';
-                    productBrand = data.product.brands || '';
+            // Step A: Query UPCitemdb API (millions of sports & fishing items)
+            try {
+                const upcRes = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${cleanCode}`);
+                if (upcRes.ok) {
+                    const upcData = await upcRes.json();
+                    if (upcData && upcData.items && upcData.items.length > 0) {
+                        const item = upcData.items[0];
+                        productTitle = item.title || '';
+                        productBrand = item.brand || '';
+                        productNotes = item.description || '';
+                    }
+                }
+            } catch (e) {}
+
+            // Step B: Query Open Products / Open Food Database
+            if (!productTitle) {
+                try {
+                    const openRes = await fetch(`https://world.openproductsfacts.org/api/v0/product/${cleanCode}.json`);
+                    if (openRes.ok) {
+                        const data = await openRes.json();
+                        if (data && data.product) {
+                            productTitle = data.product.product_name || data.product.generic_name || '';
+                            productBrand = data.product.brands || '';
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            // Step C: If Gemini Key available, invoke Gemini AI to resolve exact Tackle Category, Brand, Name, and Line/Hook Spec
+            const geminiKey = window.DEFAULT_GEMINI_KEY || localStorage.getItem('gemini_api_key');
+            if (geminiKey) {
+                try {
+                    const aiPrompt = `Identify the fishing equipment/tackle for UPC/Barcode "${cleanCode}"${productTitle ? ` (Search Result Title: "${productTitle}")` : ''}${productBrand ? ` (Brand: "${productBrand}")` : ''}.
+Classify accurately into one category: "rod", "reel", "flyline", "leader", "tippet", or "fly".
+Extract the Brand, Model Name, and Specification (e.g. 9ft 5wt, WF5F, 4X 6lb, #14 Olive).
+Respond ONLY in valid JSON format:
+{
+  "category": "rod|reel|flyline|leader|tippet|fly",
+  "brand": "Brand Name",
+  "name": "Model or Product Name",
+  "spec": "Specification / Weight / Hook Size",
+  "notes": "Short description"
+}`;
+                    const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: aiPrompt }] }],
+                            generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+                        })
+                    });
+
+                    if (aiRes.ok) {
+                        const aiData = await aiRes.json();
+                        const candidate = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if (candidate) {
+                            const parsed = JSON.parse(candidate);
+                            if (parsed.brand) productBrand = parsed.brand;
+                            if (parsed.name) productTitle = parsed.name;
+                            if (parsed.spec) productSpec = parsed.spec;
+                            if (parsed.category) productCategory = parsed.category;
+                            if (parsed.notes) productNotes = parsed.notes;
+                        }
+                    }
+                } catch (aiErr) {
+                    console.warn("AI Barcode lookup notice:", aiErr);
                 }
             }
 
-            // Fallback: Check built-in brand patterns or parse UPC
-            if (!productTitle) {
-                // Heuristic brand detection from master tackle database
-                if (window.TACKLE_DATABASE) {
-                    for (let cat in window.TACKLE_DATABASE) {
-                        const dbCat = window.TACKLE_DATABASE[cat];
-                        if (dbCat.models) {
-                            const found = dbCat.models.find(m => m.name.toLowerCase().includes(cleanCode.toLowerCase()));
-                            if (found) {
-                                productTitle = found.name;
-                                productBrand = found.brand;
-                                productSpec = found.spec;
-                                productCategory = cat;
-                                break;
-                            }
+            // Step D: Match against Master Fly Tackle Database (tackle_db.js)
+            if (!productCategory && window.TACKLE_DATABASE) {
+                const searchLower = (productTitle + ' ' + productBrand).toLowerCase();
+                for (let cat in window.TACKLE_DATABASE) {
+                    const dbCat = window.TACKLE_DATABASE[cat];
+                    if (dbCat.models) {
+                        const found = dbCat.models.find(m => searchLower.includes(m.name.toLowerCase()));
+                        if (found) {
+                            if (!productBrand) productBrand = found.brand;
+                            if (!productTitle) productTitle = found.name;
+                            if (!productSpec) productSpec = found.spec;
+                            productCategory = cat;
+                            break;
                         }
                     }
                 }
             }
 
-            // If we found product info, parse specifications
+            // Step E: Populate Form Fields
             if (productTitle || productBrand) {
                 if (brandEl && productBrand) brandEl.value = productBrand;
                 if (nameEl && productTitle) nameEl.value = productTitle;
                 if (specEl && productSpec) specEl.value = productSpec;
                 if (typeEl && productCategory) typeEl.value = productCategory;
+                if (notesEl && productNotes && !notesEl.value) notesEl.value = productNotes;
 
-                if (window.showSyncToast) window.showSyncToast(`✅ Auto-filled: ${productBrand} ${productTitle}`);
+                if (window.showSyncToast) window.showSyncToast(`🎯 Identified: ${productBrand} ${productTitle} (${productSpec || productCategory})`);
             } else {
                 if (nameEl) {
                     nameEl.value = '';
                     nameEl.placeholder = "Type equipment name...";
                     nameEl.focus();
                 }
-                if (notesEl) {
+                if (notesEl && !notesEl.value.includes(cleanCode)) {
                     notesEl.value = (notesEl.value ? notesEl.value + '\n' : '') + `UPC / Barcode: ${cleanCode}`;
                 }
-                if (window.showSyncToast) window.showSyncToast(`📷 Barcode #${cleanCode} saved! Enter brand & name.`);
+                if (window.showSyncToast) window.showSyncToast(`📷 Barcode #${cleanCode} scanned! Ready to save.`);
             }
         } catch (e) {
             console.warn("Barcode lookup network notice:", e);
