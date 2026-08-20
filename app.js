@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100910';
+window.APP_VERSION = 'v100920';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -5837,7 +5837,134 @@ window.initMainApp = async function() {
         } catch (err) {
             console.warn("Scan file error:", err);
             if (status) status.innerHTML = `<span style="color: var(--accent-orange);">Could not detect barcode in photo. Please ensure clear focus or enter number below.</span>`;
+    // Pure Photo Capture Trigger (Guaranteed Still Image, Never Video)
+    window.triggerTacklePackageCapture = function() {
+        const input = document.getElementById('tackle-package-camera-input');
+        if (input) {
+            input.value = '';
+            input.click();
         }
+    };
+
+    // Master Photo Handler: Scans Barcode first, then runs Gemini Vision AI OCR if barcode yields no info
+    window.handleTacklePackagePhoto = async function(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+
+        window.closeBarcodeScanner();
+        if (window.showSyncToast) window.showSyncToast("🔍 Analyzing package image & barcode...");
+
+        // Step 1: Attempt Barcode extraction from the photo
+        let detectedBarcode = null;
+        try {
+            if (typeof Html5Qrcode !== 'undefined') {
+                if (!html5QrCodeScanner) {
+                    html5QrCodeScanner = new Html5Qrcode("barcode-reader-viewport");
+                }
+                detectedBarcode = await html5QrCodeScanner.scanFile(file, true);
+            }
+        } catch(e) {}
+
+        // Step 2: If barcode found, query databases
+        let productFound = false;
+        if (detectedBarcode) {
+            playBeepAudio();
+            if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+            productFound = await window.lookupTackleBarcode(detectedBarcode, file);
+        }
+
+        // Step 3: If no barcode or database had no product title, read the box/label with Gemini Vision AI OCR!
+        if (!productFound) {
+            await window.scanTacklePackageWithAI(file, detectedBarcode);
+        }
+    };
+
+    // Gemini 2.0 Flash Vision AI OCR for Tackle Box, Packaging, Spool Labels & Rod Tubes
+    window.scanTacklePackageWithAI = async function(file, optionalBarcode) {
+        if (window.showSyncToast) window.showSyncToast("🤖 AI reading box/spool label text & specs...");
+
+        try {
+            const base64Data = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+
+            const geminiKey = window.DEFAULT_GEMINI_KEY || localStorage.getItem('gemini_api_key');
+            if (!geminiKey) {
+                alert("Please add a Gemini API key in Settings to use AI Box Reading.");
+                window.showAddTackleModal();
+                return false;
+            }
+
+            const prompt = `You are an expert fly fishing and fishing equipment identification assistant.
+Analyze this photo of a tackle box, packaging, line spool, rod tube, reel box, fly box, or tippet spool.
+Read all printed text, logos, ratings, and labels on the package.
+Extract the following information:
+1. Category: Must be exactly one of "rod", "reel", "flyline", "leader", "tippet", or "fly"
+2. Brand: The manufacturer / brand (e.g. Sage, Orvis, Rio, Scientific Anglers, Trouthunter, Stroft, Simms, Daiwa, Shimano, Hardy, Berkley, G.Loomis, Maxima, Loon Outdoors, Primal, Loop)
+3. Name: Model or product series (e.g. "Powerflex Plus Tippet", "Amplitude Smooth Infinity", "R8 Core", "Hydros Reel", "GTM Monofilament")
+4. Spec: Technical size / line weight / diameter / hook size (e.g. "4X 6.0lb 0.18mm", "WF5F", "9ft 5wt", "#14 Olive Emerger", "3000 Drag 10lb")
+5. Barcode: If any barcode / UPC number is visible, extract it, else "${optionalBarcode || ''}"
+6. Notes: Brief summary of features or specs visible on the box.
+
+Respond ONLY in valid JSON format:
+{
+  "category": "rod|reel|flyline|leader|tippet|fly",
+  "brand": "Brand Name",
+  "name": "Model Name",
+  "spec": "Line Wt / Hook Size / Tippet X rating",
+  "barcode": "Barcode if seen",
+  "notes": "Short notes"
+}`;
+
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [
+                            { text: prompt },
+                            {
+                                inline_data: {
+                                    mime_type: file.type || "image/jpeg",
+                                    data: base64Data
+                                }
+                            }
+                        ]
+                    }],
+                    generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+                })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                    const parsed = JSON.parse(text);
+                    window.showAddTackleModal();
+                    
+                    if (parsed.category) document.getElementById('tackle-type').value = parsed.category;
+                    if (parsed.brand) document.getElementById('tackle-brand').value = parsed.brand;
+                    if (parsed.name) document.getElementById('tackle-name').value = parsed.name;
+                    if (parsed.spec) document.getElementById('tackle-spec').value = parsed.spec;
+                    if (parsed.barcode || optionalBarcode) document.getElementById('tackle-barcode').value = parsed.barcode || optionalBarcode;
+                    if (parsed.notes) document.getElementById('tackle-notes').value = parsed.notes;
+
+                    playBeepAudio();
+                    if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+                    if (window.showSyncToast) window.showSyncToast(`✨ AI Read Box: ${parsed.brand} ${parsed.name} (${parsed.spec || parsed.category})`);
+                    return true;
+                }
+            }
+        } catch(err) {
+            console.error("AI package scan error:", err);
+        }
+
+        window.showAddTackleModal();
+        if (window.showSyncToast) window.showSyncToast("📦 Photo analyzed! Ready to complete details.");
+        return false;
     };
 
     window.submitManualBarcode = function() {
@@ -5852,8 +5979,8 @@ window.initMainApp = async function() {
     };
 
     // Master Barcode & UPC Auto-Lookup for Fly Tackle Products
-    window.lookupTackleBarcode = async function(barcodeText) {
-        if (!barcodeText) return;
+    window.lookupTackleBarcode = async function(barcodeText, optionalFile = null) {
+        if (!barcodeText) return false;
         const cleanCode = barcodeText.trim();
 
         // 1. Check if item already exists in user's Tackle Library
@@ -5863,7 +5990,7 @@ window.initMainApp = async function() {
             window.duplicateTackleUI(existingItem.id);
             const barcodeEl = document.getElementById('tackle-barcode');
             if (barcodeEl) barcodeEl.value = cleanCode;
-            return;
+            return true;
         }
 
         // 2. Open Add Tackle Modal & pre-fill Barcode
@@ -5982,6 +6109,10 @@ Respond ONLY in valid JSON format:
                 if (notesEl && productNotes && !notesEl.value) notesEl.value = productNotes;
 
                 if (window.showSyncToast) window.showSyncToast(`🎯 Identified: ${productBrand} ${productTitle} (${productSpec || productCategory})`);
+                return true;
+            } else if (optionalFile) {
+                // If barcode lookup returned no product title, fallback to Gemini Vision AI on the box image
+                return await window.scanTacklePackageWithAI(optionalFile, cleanCode);
             } else {
                 if (nameEl) {
                     nameEl.value = '';
@@ -5992,10 +6123,12 @@ Respond ONLY in valid JSON format:
                     notesEl.value = (notesEl.value ? notesEl.value + '\n' : '') + `UPC / Barcode: ${cleanCode}`;
                 }
                 if (window.showSyncToast) window.showSyncToast(`📷 Barcode #${cleanCode} scanned! Ready to save.`);
+                return false;
             }
         } catch (e) {
             console.warn("Barcode lookup network notice:", e);
             if (nameEl) nameEl.placeholder = "Type equipment name...";
+            return false;
         }
     };
 };
