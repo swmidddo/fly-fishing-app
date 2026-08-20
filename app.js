@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100880';
+window.APP_VERSION = 'v100890';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -5826,8 +5826,18 @@ window.initMainApp = async function() {
 
     async function startBarcodeDetectionLoop() {
         const video = document.getElementById('barcode-scanner-video');
+        const canvas = document.getElementById('barcode-scanner-canvas');
         const status = document.getElementById('barcode-scanner-status');
         if (!video || !isScanningActive) return;
+
+        let zxingReader = null;
+        if (window.ZXing && window.ZXing.BrowserMultiFormatReader) {
+            try {
+                zxingReader = new window.ZXing.BrowserMultiFormatReader();
+            } catch (e) {
+                console.warn("ZXing init warning", e);
+            }
+        }
 
         let detector = null;
         if ('BarcodeDetector' in window) {
@@ -5840,38 +5850,110 @@ window.initMainApp = async function() {
             }
         }
 
-        const scanFrame = async () => {
+        let lastScanTime = 0;
+
+        const scanFrame = async (timestamp) => {
             if (!isScanningActive) return;
 
-            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            if (video.readyState === video.HAVE_ENOUGH_DATA && timestamp - lastScanTime > 150) {
+                lastScanTime = timestamp;
+
+                // 1. Try Native BarcodeDetector (high speed)
                 if (detector) {
                     try {
                         const barcodes = await detector.detect(video);
                         if (barcodes && barcodes.length > 0) {
                             const rawVal = barcodes[0].rawValue;
                             if (rawVal) {
-                                isScanningActive = false;
-                                playBeepAudio();
-                                if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
-                                if (status) status.innerHTML = `✅ <strong style="color:#34d399;">Scanned: ${rawVal}</strong>`;
-                                setTimeout(() => {
-                                    window.closeBarcodeScanner();
-                                    window.lookupTackleBarcode(rawVal);
-                                }, 400);
+                                onBarcodeFound(rawVal);
                                 return;
                             }
                         }
-                    } catch (err) {
-                        // frame detection error
-                    }
+                    } catch (err) {}
+                }
+
+                // 2. Try ZXing Browser MultiFormat Reader Fallback
+                if (zxingReader && canvas && isScanningActive) {
+                    try {
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = video.videoWidth || 640;
+                        canvas.height = video.videoHeight || 480;
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        const result = zxingReader.decodeFromCanvas(canvas);
+                        if (result && result.getText()) {
+                            onBarcodeFound(result.getText());
+                            return;
+                        }
+                    } catch (err) {}
                 }
             }
 
             scannerAnimId = requestAnimationFrame(scanFrame);
         };
 
+        function onBarcodeFound(barcodeVal) {
+            isScanningActive = false;
+            playBeepAudio();
+            if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+            if (status) status.innerHTML = `✅ <strong style="color:#34d399;">Scanned: ${barcodeVal}</strong>`;
+            setTimeout(() => {
+                window.closeBarcodeScanner();
+                window.lookupTackleBarcode(barcodeVal);
+            }, 350);
+        }
+
         scannerAnimId = requestAnimationFrame(scanFrame);
     }
+
+    // Snap / Upload barcode photo fallback
+    window.handleBarcodePhotoUpload = async function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const status = document.getElementById('barcode-scanner-status');
+        if (status) status.textContent = "Analyzing photo for barcode...";
+
+        try {
+            const img = new Image();
+            img.src = URL.createObjectURL(file);
+            await img.decode();
+
+            // 1. Try Native BarcodeDetector on Image
+            if ('BarcodeDetector' in window) {
+                try {
+                    const detector = new window.BarcodeDetector({
+                        formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code', 'data_matrix']
+                    });
+                    const barcodes = await detector.detect(img);
+                    if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                        playBeepAudio();
+                        window.closeBarcodeScanner();
+                        window.lookupTackleBarcode(barcodes[0].rawValue);
+                        return;
+                    }
+                } catch (e) {}
+            }
+
+            // 2. Try ZXing Decoder on Image
+            if (window.ZXing && window.ZXing.BrowserMultiFormatReader) {
+                try {
+                    const reader = new window.ZXing.BrowserMultiFormatReader();
+                    const result = await reader.decodeFromImageUrl(img.src);
+                    if (result && result.getText()) {
+                        playBeepAudio();
+                        window.closeBarcodeScanner();
+                        window.lookupTackleBarcode(result.getText());
+                        return;
+                    }
+                } catch (e) {}
+            }
+
+            if (status) status.innerHTML = `<span style="color: var(--accent-orange);">⚠️ Could not detect barcode in photo. Please ensure clear focus or enter number below.</span>`;
+        } catch (err) {
+            console.error("Photo barcode error:", err);
+            if (status) status.innerHTML = `<span style="color: var(--accent-orange);">Error reading photo: ${err.message}</span>`;
+        }
+    };
 
     window.submitManualBarcode = function() {
         const input = document.getElementById('manual-barcode-input');
