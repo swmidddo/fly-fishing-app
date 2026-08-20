@@ -355,15 +355,14 @@ const WEATHER = {
 
         // Determine PWS / Observation station distance & name
         let pwsStationName = chosen.name;
+        // Always calculate TRUE Haversine distance from user GPS (lat, lon) to station location
         let pwsDistance = chosen.dist;
 
         if (wData.observational && wData.observational.stations) {
             const obsStation = wData.observational.stations.temperature || wData.observational.stations.wind;
             if (obsStation) {
                 pwsStationName = obsStation.name || chosen.name;
-                if (obsStation.distance !== undefined && obsStation.distance !== null) {
-                    pwsDistance = obsStation.distance;
-                } else if (obsStation.lat != null && obsStation.lng != null) {
+                if (obsStation.lat != null && obsStation.lng != null) {
                     const R = 6371;
                     const dLat = (obsStation.lat - lat) * Math.PI / 180;
                     const dLon = (obsStation.lng - lon) * Math.PI / 180;
@@ -425,18 +424,20 @@ const WEATHER = {
             };
         });
 
-        // PWS Hyper-Local Station Rule: Highlight Personal Weather Stations within 15km
+        // PWS Hyper-Local Station Rule: Highlight Personal Weather Stations within 15km / 30km
         const isWithin30kmPWS = pwsDistance <= 30.0;
         const isWithin15kmPWS = pwsDistance <= 15.0;
         const distFormatted = pwsDistance < 0.1 ? '<0.1' : pwsDistance.toFixed(1);
         const locationName = (wData.location ? wData.location.name : chosen.name);
         
-        let stationDisplayName = `WillyWeather (${locationName})`;
+        let stationDisplayName = `📡 Station: ${pwsStationName} (${distFormatted} km away)`;
         let pwsClarification = null;
 
         if (isWithin30kmPWS) {
             stationDisplayName = `📡 PWS: ${pwsStationName} (${distFormatted} km away)`;
             pwsClarification = `Verified via PWS: ${pwsStationName} (${distFormatted} km away)`;
+        } else {
+            pwsClarification = `Regional Weather Feed: ${pwsStationName} (${distFormatted} km away)`;
         }
 
         // Sunrise/Sunset formatting
@@ -475,34 +476,24 @@ const WEATHER = {
         };
     },
 
-    // Fetch weather forecast with Weather Underground PWS and live station observations
+    // Fetch weather forecast with WillyWeather + Keyless High-Res Observation Grid
     async fetchForecast(lat, lon) {
-        // 1. Try Weather Underground PWS if Station ID or API Key configured
-        try {
-            const wuData = await this.fetchWundergroundPWS(lat, lon);
-            if (wuData && wuData.current) {
-                return wuData;
-            }
-        } catch (e) {
-            console.warn("[Weather Underground PWS] Notice:", e);
-        }
-
-        // 2. Try WillyWeather if available
+        // 1. Primary: WillyWeather API (Tides, BOM Warnings, Observations & Moon Phase)
         try {
             const willyData = await this.fetchWillyWeather(lat, lon);
             if (willyData && willyData.current && willyData.current.condition !== "WillyWeather Offline") {
                 return willyData;
             }
         } catch (e) {
-            console.warn("[WillyWeather] Notice:", e);
+            console.warn("[WillyWeather Primary] Notice:", e);
         }
 
-        // 3. Live Weather Underground / High-Res Observation Station Engine (100% Online CORS Reliable)
+        // 2. Fallback: Keyless High-Resolution Australian Observation & PWS Grid (Zero API Key required)
         try {
             const openMeteoData = await this.fetchOpenMeteoWeather(lat, lon);
             if (openMeteoData) return openMeteoData;
         } catch (e) {
-            console.warn("[Observation Station] Fetch failed:", e);
+            console.warn("[Observation Grid] Fetch failed:", e);
         }
 
         return this.getWillyWeatherOfflineFallback(lat, lon);
@@ -950,60 +941,171 @@ const WEATHER = {
         };
     },
 
-    // Solunar Table Engine for Fly Fishing Prime Feeding Windows
-    getSolunarData(date = new Date(), lat = -25.27, lon = 133.77) {
+    // High-Precision Astronomical Solunar Engine for Fly Fishing Prime Feeding Windows
+    getSolunarData(date = new Date(), lat = -25.27, lon = 133.77, currentPressure = 1016) {
         const moon = this.getMoonPhase(date);
         
-        // 1. Calculate Activity Rating based on Moon Phase (0 = New, 0.5 = Full = Peak Solunar Activity)
-        let score = 50;
+        // 1. Calculate Base Activity Rating based on Moon Phase (0 = New, 0.5 = Full = Peak Solunar Activity)
+        let baseScore = 55;
         const phaseDist = Math.min(Math.abs(moon.phase - 0), Math.abs(moon.phase - 0.5), Math.abs(moon.phase - 1.0));
-        if (phaseDist < 0.08) score += 40; // Full / New Moon = 90%+ Activity
-        else if (phaseDist < 0.16) score += 25; // Crescent / Gibbous = 75%+
-        else if (phaseDist < 0.28) score += 10;
-        
-        score = Math.min(99, Math.max(35, Math.round(score)));
+        if (phaseDist < 0.06) baseScore += 35; // Full / New Moon = 90%+ Activity
+        else if (phaseDist < 0.14) baseScore += 22; // Crescent / Gibbous = 77%+
+        else if (phaseDist < 0.25) baseScore += 10;
+
+        // 2. Astronomical Lunar Ephemeris Calculation (Transit, Underfoot, Rise, Set)
+        const rad = Math.PI / 180;
+        const deg = 180 / Math.PI;
+
+        const dUtc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0));
+        const jd = (dUtc.getTime() / 86400000) + 2440587.5;
+        const t = (jd - 2451545.0) / 36525.0;
+
+        // Greenwich Mean Sidereal Time at 00:00 UTC
+        const gmst0 = (280.46061837 + 360.98564736629 * (jd - 2451545.0)) % 360;
+
+        // Fundamental Lunar Orbital Parameters (Meeus algorithm simplified)
+        const L_prime = (218.316 + 481267.8813 * t) % 360;
+        const D = (297.850 + 445267.1115 * t) % 360;
+        const M = (134.963 + 477198.8676 * t) % 360;
+        const M_prime = (357.529 + 35999.0503 * t) % 360;
+        const F = (93.272 + 483202.0175 * t) % 360;
+
+        // Ecliptic Longitude & Latitude
+        const lambda = (L_prime + 6.289 * Math.sin(M * rad) + 1.274 * Math.sin((2 * D - M) * rad) + 0.658 * Math.sin(2 * D * rad) - 0.214 * Math.sin(2 * M * rad) - 0.186 * Math.sin(M_prime * rad) - 0.114 * Math.sin(2 * F * rad)) * rad;
+        const beta = (5.128 * Math.sin(F * rad) + 0.281 * Math.sin((M + F) * rad) + 0.277 * Math.sin((M - F) * rad)) * rad;
+
+        // Obliquity of Ecliptic
+        const eps = (23.439291 - 0.0130042 * t) * rad;
+
+        // Convert to Equatorial Coordinates (Right Ascension & Declination)
+        const sinDelta = Math.sin(beta) * Math.cos(eps) + Math.cos(beta) * Math.sin(eps) * Math.sin(lambda);
+        const dec = Math.asin(sinDelta); // Declination in radians
+        const y = Math.sin(lambda) * Math.cos(eps) - Math.tan(beta) * Math.sin(eps);
+        const x = Math.cos(lambda);
+        let ra = Math.atan2(y, x) * deg; // RA in degrees
+        if (ra < 0) ra += 360;
+
+        // Local Sidereal Time & Transit Calculation
+        const tzOffsetHrs = -date.getTimezoneOffset() / 60;
+        const lst0 = (gmst0 + lon) % 360;
+
+        // Moon Upper Transit (Overhead) in Local Solar Time
+        let transitGmt = ((ra - lst0 + 360) % 360) / 360 * 24.84; // Lunar day ~24.84h
+        let transitLocal = (transitGmt + tzOffsetHrs + 24) % 24;
+
+        // Moon Lower Transit (Underfoot)
+        let underfootLocal = (transitLocal + 12.42) % 24;
+
+        // Hour Angle for Moonrise / Moonset
+        let h0 = 90;
+        const cosH0 = -Math.tan(lat * rad) * Math.tan(dec);
+        if (cosH0 >= -1 && cosH0 <= 1) {
+            h0 = Math.acos(cosH0) * deg;
+        }
+        const semiDiurnalHrs = (h0 / 15.0) * (24.84 / 24.0);
+
+        let riseLocal = (transitLocal - semiDiurnalHrs + 24) % 24;
+        let setLocal = (transitLocal + semiDiurnalHrs + 24) % 24;
+
+        // 3. Barometric Pressure Adjustment
+        let pressureBoost = 0;
+        let pressureNote = "Stable Barometer (Normal Feeding)";
+        if (currentPressure >= 1012 && currentPressure <= 1022) {
+            pressureBoost = 5;
+            pressureNote = "Optimal Barometer (1012-1022 hPa)";
+        } else if (currentPressure < 1010) {
+            pressureBoost = 8;
+            pressureNote = "Falling Pre-Frontal Barometer (Aggressive Bite Spike)";
+        } else if (currentPressure > 1025) {
+            pressureBoost = -5;
+            pressureNote = "High Pressure System (Slow, Technical Feeding)";
+        }
+
+        let overallScore = Math.min(99, Math.max(35, Math.round(baseScore + pressureBoost)));
 
         let rating = "Fair";
         let ratingColor = "var(--accent-orange)";
         let ratingIcon = "🟡";
-        if (score >= 85) { rating = "Prime / Peak"; ratingColor = "var(--accent-teal)"; ratingIcon = "🔥"; }
-        else if (score >= 70) { rating = "Excellent"; ratingColor = "var(--success)"; ratingIcon = "🟢"; }
-        else if (score >= 50) { rating = "Good"; ratingColor = "var(--accent-blue)"; ratingIcon = "🔵"; }
+        if (overallScore >= 85) { rating = "Prime / Peak"; ratingColor = "var(--accent-teal)"; ratingIcon = "🔥"; }
+        else if (overallScore >= 70) { rating = "Excellent"; ratingColor = "var(--success)"; ratingIcon = "🟢"; }
+        else if (overallScore >= 50) { rating = "Good"; ratingColor = "var(--accent-blue)"; ratingIcon = "🔵"; }
 
-        // 2. Compute Major & Minor Feeding Windows
-        const baseHour = (Math.abs(Math.sin(lat) + Math.cos(lon)) * 12) % 12;
-        
         const formatTime = (h) => {
             const hrs = Math.floor((h + 24) % 24);
-            const mins = Math.floor((h % 1) * 60);
-            return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+            const mins = Math.floor((((h + 24) % 24) % 1) * 60);
+            const ampm = hrs >= 12 ? 'PM' : 'AM';
+            const displayHrs = hrs % 12 === 0 ? 12 : hrs % 12;
+            return `${displayHrs}:${String(mins).padStart(2, '0')} ${ampm}`;
         };
 
-        const major1Start = (baseHour + 10) % 24;
-        const major1End = (major1Start + 2) % 24;
-        const major2Start = (major1Start + 12.4) % 24;
-        const major2End = (major2Start + 2) % 24;
+        const formatWindow = (centerHrs, halfDurationHrs) => {
+            const start = (centerHrs - halfDurationHrs + 24) % 24;
+            const end = (centerHrs + halfDurationHrs + 24) % 24;
+            return {
+                start: formatTime(start),
+                end: formatTime(end),
+                startDecimal: start,
+                endDecimal: end,
+                centerDecimal: centerHrs
+            };
+        };
 
-        const minor1Start = (baseHour + 4.5) % 24;
-        const minor1End = (minor1Start + 1) % 24;
-        const minor2Start = (minor1Start + 12.4) % 24;
-        const minor2End = (minor2Start + 1) % 24;
+        const major1 = formatWindow(transitLocal, 1.0); // 2-hour Major Window
+        const major2 = formatWindow(underfootLocal, 1.0); // 2-hour Major Window
+        const minor1 = formatWindow(riseLocal, 0.5); // 1-hour Minor Window
+        const minor2 = formatWindow(setLocal, 0.5); // 1-hour Minor Window
+
+        // 4. Generate 24-Hour Solunar Feeding Activity Timeline Array (00:00 to 23:00)
+        const hourlyTimeline = [];
+        const currentHourDec = date.getHours() + (date.getMinutes() / 60);
+
+        for (let hr = 0; hr < 24; hr++) {
+            let hrActivity = baseScore * 0.45; // Baseline activity floor
+
+            const distMajor1 = Math.min(Math.abs(hr - major1.centerDecimal), 24 - Math.abs(hr - major1.centerDecimal));
+            const distMajor2 = Math.min(Math.abs(hr - major2.centerDecimal), 24 - Math.abs(hr - major2.centerDecimal));
+            const distMinor1 = Math.min(Math.abs(hr - minor1.centerDecimal), 24 - Math.abs(hr - minor1.centerDecimal));
+            const distMinor2 = Math.min(Math.abs(hr - minor2.centerDecimal), 24 - Math.abs(hr - minor2.centerDecimal));
+
+            if (distMajor1 < 2.0) hrActivity += (1.0 - distMajor1 / 2.0) * 45;
+            if (distMajor2 < 2.0) hrActivity += (1.0 - distMajor2 / 2.0) * 40;
+            if (distMinor1 < 1.5) hrActivity += (1.0 - distMinor1 / 1.5) * 25;
+            if (distMinor2 < 1.5) hrActivity += (1.0 - distMinor2 / 1.5) * 25;
+
+            hrActivity += pressureBoost;
+            hrActivity = Math.min(99, Math.max(20, Math.round(hrActivity)));
+
+            hourlyTimeline.push({
+                hour: hr,
+                label: hr === 0 ? '12A' : hr === 12 ? '12P' : hr > 12 ? `${hr - 12}P` : `${hr}A`,
+                activity: hrActivity,
+                isCurrentHour: Math.floor(currentHourDec) === hr,
+                isPeak: hrActivity >= 75
+            });
+        }
 
         return {
-            score,
+            score: overallScore,
             rating,
             ratingColor,
             ratingIcon,
             moonPhase: moon.label,
             moonIcon: moon.icon,
+            moonIllum: moon.illumination || 0,
+            pressureNote,
+            moonTransit: formatTime(transitLocal),
+            moonUnderfoot: formatTime(underfootLocal),
+            moonRise: formatTime(riseLocal),
+            moonSet: formatTime(setLocal),
             majorWindows: [
-                { title: "Major Window 1", start: formatTime(major1Start), end: formatTime(major1End) },
-                { title: "Major Window 2", start: formatTime(major2Start), end: formatTime(major2End) }
+                { title: "Major Window 1 (Moon Overhead)", start: major1.start, end: major1.end, icon: "🌕" },
+                { title: "Major Window 2 (Moon Underfoot)", start: major2.start, end: major2.end, icon: "🌑" }
             ],
             minorWindows: [
-                { title: "Minor Window 1", start: formatTime(minor1Start), end: formatTime(minor1End) },
-                { title: "Minor Window 2", start: formatTime(minor2Start), end: formatTime(minor2End) }
-            ]
+                { title: "Minor Window 1 (Moonrise)", start: minor1.start, end: minor1.end, icon: "🌅" },
+                { title: "Minor Window 2 (Moonset)", start: minor2.start, end: minor2.end, icon: "🌇" }
+            ],
+            hourlyTimeline
         };
     },
 

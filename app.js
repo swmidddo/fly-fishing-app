@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100790';
+window.APP_VERSION = 'v100970';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -312,6 +312,25 @@ window.initMainApp = async function() {
         });
     }
 
+    window.toggleMobileNavDrawer = function(forceState) {
+        const backdrop = document.getElementById('mobile-nav-backdrop');
+        const drawer = document.getElementById('mobile-nav-drawer');
+        if (!backdrop || !drawer) return;
+
+        const isActive = drawer.classList.contains('active');
+        const shouldOpen = forceState !== undefined ? forceState : !isActive;
+
+        if (shouldOpen) {
+            backdrop.classList.add('active');
+            drawer.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        } else {
+            backdrop.classList.remove('active');
+            drawer.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    };
+
     window.switchTab = function(tabId) {
         if (!tabId) tabId = 'dashboard';
         AppState.activeTab = tabId;
@@ -319,7 +338,25 @@ window.initMainApp = async function() {
             localStorage.setItem('lastActiveTab', tabId);
         } catch(e){}
 
-        const navItems = document.querySelectorAll('.nav-item, .mobile-nav-item, [data-tab]');
+        const tabTitles = {
+            'dashboard': 'Dashboard',
+            'map': 'Interactive Map',
+            'catches': 'Catch Logs',
+            'tackle': 'Tackle Library',
+            'regulations': 'Fish Size Guide',
+            'weather': 'Weather & Tides',
+            'flybox': 'Virtual Fly Box',
+            'knots': 'Knots Guide',
+            'licenses': 'My Licenses',
+            'settings': 'Settings'
+        };
+
+        const mobileTabLabel = document.getElementById('mobile-current-tab-label');
+        if (mobileTabLabel) {
+            mobileTabLabel.textContent = tabTitles[tabId] || tabId;
+        }
+
+        const navItems = document.querySelectorAll('.nav-item, .mobile-nav-item, .mobile-drawer-card, [data-tab]');
         navItems.forEach(item => {
             if (item.getAttribute('data-tab') === tabId) {
                 item.classList.add('active');
@@ -1367,16 +1404,22 @@ window.initMainApp = async function() {
             else if (item.type === 'tippet') icon = '🪢';
             else if (item.type === 'fly') icon = '🪰';
 
+            const nicknameBadge = item.nickname ? `<div style="margin-top: 6px;"><span class="badge" style="background: rgba(0, 210, 255, 0.12); color: var(--accent-teal); border: 1px solid rgba(0, 210, 255, 0.25); font-size: 11px; padding: 2px 8px; border-radius: 4px;">🏷️ ${item.nickname}</span></div>` : '';
+
             card.innerHTML = `
                 <div class="card-content-body">
-                    <span class="card-badge" style="border-color: var(--accent-blue); color: var(--accent-blue);">${icon} ${item.type.toUpperCase()}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span class="card-badge" style="border-color: var(--accent-blue); color: var(--accent-blue);">${icon} ${item.type.toUpperCase()}</span>
+                    </div>
                     <h4 style="margin-top: 10px;">${item.name}</h4>
+                    ${nicknameBadge}
                     <div class="card-specs mt-10">
                         <span>Brand: <strong>${item.brand || 'N/A'}</strong></span>
                         <span>Spec: <strong>${item.spec || 'N/A'}</strong></span>
                     </div>
                     <p class="card-notes">${item.notes || 'No description provided.'}</p>
                     <div class="card-actions-row">
+                        <button class="btn btn-glass btn-sm" onclick="window.duplicateTackleUI(${item.id})" title="Quick copy brand & details for another size / weight class">📋 Duplicate</button>
                         <button class="btn btn-glass btn-sm" onclick="window.editTackleUI(${item.id})">Edit</button>
                         <button class="btn btn-glass btn-danger btn-sm" onclick="window.deleteTackleUI(${item.id})">Delete</button>
                     </div>
@@ -1384,6 +1427,33 @@ window.initMainApp = async function() {
             `;
             elements.tackleList.appendChild(card);
         });
+    }
+
+    // Helper to format tackle item labels with duplicate disambiguation
+    function getTackleDisambiguatedLabel(item, allTackleList) {
+        const specStr = item.spec ? ` (${item.spec})` : '';
+        const brandStr = item.brand ? `${item.brand} ` : '';
+        const baseName = `${brandStr}${item.name}${specStr}`.trim();
+
+        // 1. Explicit Nickname takes highest priority
+        if (item.nickname && item.nickname.trim()) {
+            return `${baseName} • [${item.nickname.trim()}]`;
+        }
+
+        // 2. Check for identical duplicates in the list
+        const duplicates = allTackleList.filter(t => 
+            t.type === item.type && 
+            (t.name || '').trim().toLowerCase() === (item.name || '').trim().toLowerCase() &&
+            (t.brand || '').trim().toLowerCase() === (item.brand || '').trim().toLowerCase() &&
+            (t.spec || '').trim().toLowerCase() === (item.spec || '').trim().toLowerCase()
+        );
+
+        if (duplicates.length > 1) {
+            const index = duplicates.findIndex(t => t.id === item.id);
+            return `${baseName} (#${index >= 0 ? index + 1 : 1})`;
+        }
+
+        return baseName;
     }
 
     // Bind sub-tabs for tackle filter
@@ -1407,9 +1477,7 @@ window.initMainApp = async function() {
         elements.rigFly.innerHTML = '<option value="">Select Fly/Lure...</option>';
 
         AppState.tackle.forEach(item => {
-            const specStr = item.spec ? ` (${item.spec})` : '';
-            const brandStr = item.brand ? `${item.brand} ` : '';
-            const labelText = `${brandStr}${item.name}${specStr}`;
+            const labelText = getTackleDisambiguatedLabel(item, AppState.tackle);
             const option = `<option value="${labelText}">${labelText}</option>`;
             
             if (item.type === 'rod') elements.rigRod.insertAdjacentHTML('beforeend', option);
@@ -1430,9 +1498,7 @@ window.initMainApp = async function() {
         elements.rigComboTippet.innerHTML = '<option value="">Select a Tippet...</option>';
 
         AppState.tackle.forEach(item => {
-            const specStr = item.spec ? ` (${item.spec})` : '';
-            const brandStr = item.brand ? `${item.brand} ` : '';
-            const labelText = `${brandStr}${item.name}${specStr}`;
+            const labelText = getTackleDisambiguatedLabel(item, AppState.tackle);
             const option = `<option value="${item.id}">${labelText}</option>`;
             
             if (item.type === 'rod') elements.rigComboRod.insertAdjacentHTML('beforeend', option);
@@ -1544,6 +1610,10 @@ window.initMainApp = async function() {
         document.getElementById('tackle-name').value = item.name;
         document.getElementById('tackle-brand').value = item.brand || '';
         document.getElementById('tackle-spec').value = item.spec || '';
+        const nicknameEl = document.getElementById('tackle-nickname');
+        if (nicknameEl) nicknameEl.value = item.nickname || '';
+        const barcodeEl = document.getElementById('tackle-barcode');
+        if (barcodeEl) barcodeEl.value = item.barcode || '';
         document.getElementById('tackle-notes').value = item.notes || '';
 
         // Update titles
@@ -1555,17 +1625,94 @@ window.initMainApp = async function() {
         window.showAddTackleModal();
     };
 
+    // Quick duplicate equipment (pre-fills form for another weight class / size)
+    window.duplicateTackleUI = (id) => {
+        const item = AppState.tackle.find(t => t.id === Number(id));
+        if (!item) return;
+
+        // Reset editing ID so it saves as a NEW item
+        AppState.editingTackleId = null;
+
+        // Pre-fill fields from template
+        document.getElementById('tackle-type').value = item.type;
+        document.getElementById('tackle-name').value = item.name;
+        document.getElementById('tackle-brand').value = item.brand || '';
+        document.getElementById('tackle-spec').value = item.spec || '';
+        const nicknameEl = document.getElementById('tackle-nickname');
+        if (nicknameEl) nicknameEl.value = item.nickname || '';
+        const barcodeEl = document.getElementById('tackle-barcode');
+        if (barcodeEl) barcodeEl.value = '';
+        document.getElementById('tackle-notes').value = item.notes || '';
+
+        // Update titles
+        const titleEl = document.getElementById('modal-tackle-title');
+        const submitBtn = document.getElementById('btn-tackle-submit');
+        if (titleEl) titleEl.textContent = "📋 Duplicate Equipment (Quick Copy)";
+        if (submitBtn) submitBtn.textContent = "Save New Item";
+
+        window.showAddTackleModal();
+
+        // Focus & select specification field so user can instantly type the new weight class
+        setTimeout(() => {
+            const specInput = document.getElementById('tackle-spec');
+            if (specInput) {
+                specInput.focus();
+                specInput.select();
+            }
+        }, 150);
+    };
+
+    // Save current item and immediately keep modal open for next weight class
+    window.saveTackleAndAddAnother = async function() {
+        const type = document.getElementById('tackle-type').value;
+        const name = document.getElementById('tackle-name').value.trim();
+        const brand = document.getElementById('tackle-brand').value.trim();
+        const spec = document.getElementById('tackle-spec').value.trim();
+        const nickname = document.getElementById('tackle-nickname') ? document.getElementById('tackle-nickname').value.trim() : '';
+        const barcode = document.getElementById('tackle-barcode') ? document.getElementById('tackle-barcode').value.trim() : '';
+        const notes = document.getElementById('tackle-notes').value.trim();
+
+        if (!name) {
+            alert("Please enter an equipment name first.");
+            return;
+        }
+
+        const item = { type, name, brand, spec, nickname, barcode, notes };
+        try {
+            await window.DB.addTackle(item);
+            await loadTackle();
+
+            // Clear spec, nickname & barcode for the next item, keep category, name, brand & notes
+            const specEl = document.getElementById('tackle-spec');
+            const nickEl = document.getElementById('tackle-nickname');
+            const barEl = document.getElementById('tackle-barcode');
+            if (specEl) {
+                specEl.value = '';
+                specEl.focus();
+            }
+            if (nickEl) nickEl.value = '';
+            if (barEl) barEl.value = '';
+
+            if (window.showSyncToast) window.showSyncToast(`✅ Saved ${spec || name}! Ready for next size.`);
+            else alert(`✅ Saved ${spec || name}! Enter next size / weight class.`);
+        } catch (err) {
+            alert("Error saving tackle: " + err.message);
+        }
+    };
+
     elements.formAddTackle.addEventListener('submit', async (e) => {
         e.preventDefault();
         const type = document.getElementById('tackle-type').value;
         const name = document.getElementById('tackle-name').value.trim();
         const brand = document.getElementById('tackle-brand').value.trim();
         const spec = document.getElementById('tackle-spec').value.trim();
+        const nickname = document.getElementById('tackle-nickname') ? document.getElementById('tackle-nickname').value.trim() : '';
+        const barcode = document.getElementById('tackle-barcode') ? document.getElementById('tackle-barcode').value.trim() : '';
         const notes = document.getElementById('tackle-notes').value.trim();
 
         if (!name) return;
 
-        const item = { type, name, brand, spec, notes };
+        const item = { type, name, brand, spec, nickname, barcode, notes };
         
         if (AppState.editingTackleId) {
             item.id = Number(AppState.editingTackleId);
@@ -2866,22 +3013,27 @@ window.initMainApp = async function() {
             dashTideDirEl.style.color = tides.tideDirection === 'Rising' ? 'var(--accent-teal)' : 'var(--accent-orange)';
         }
 
-        // Calculate Solunar Feeding Windows
+        // Calculate High-Precision Astronomical Solunar Feeding Windows & 24h Timeline
+        const currentPressure = (AppState.weatherData && AppState.weatherData.current && AppState.weatherData.current.pressure) ? AppState.weatherData.current.pressure : 1016;
         const solunar = (window.WEATHER && typeof window.WEATHER.getSolunarData === 'function')
-            ? window.WEATHER.getSolunarData(now, lat, lon)
+            ? window.WEATHER.getSolunarData(now, lat, lon, currentPressure)
             : {
                 score: 85,
                 rating: "Prime",
                 ratingIcon: "🔥",
                 ratingColor: "var(--accent-teal)",
-                majorWindows: [{ start: "07:15 AM", end: "09:15 AM" }, { start: "07:45 PM", end: "09:45 PM" }],
-                minorWindows: [{ start: "01:30 AM", end: "02:30 AM" }, { start: "01:55 PM", end: "02:55 PM" }]
+                pressureNote: "Normal Feeding",
+                majorWindows: [{ title: "Major Window 1", start: "07:15 AM", end: "09:15 AM" }, { title: "Major Window 2", start: "07:45 PM", end: "09:45 PM" }],
+                minorWindows: [{ title: "Minor Window 1", start: "01:30 AM", end: "02:30 AM" }, { title: "Minor Window 2", start: "01:55 PM", end: "02:55 PM" }],
+                hourlyTimeline: []
             };
 
         AppState.solunarData = solunar;
 
         const solunarBadge = document.getElementById('dash-solunar-badge');
         const solunarWindows = document.getElementById('dash-solunar-windows');
+        const solunarTimeline = document.getElementById('dash-solunar-timeline');
+        const solunarPressNote = document.getElementById('dash-solunar-pressure-note');
 
         if (solunarBadge) {
             solunarBadge.textContent = `${solunar.ratingIcon || '🔥'} ${solunar.rating || 'Prime'} ${solunar.score || 85}%`;
@@ -2889,21 +3041,41 @@ window.initMainApp = async function() {
             solunarBadge.style.borderColor = solunar.ratingColor || 'var(--accent-teal)';
         }
 
+        if (solunarPressNote && solunar.pressureNote) {
+            solunarPressNote.innerHTML = `🎈 ${solunar.pressureNote}`;
+        }
+
         if (solunarWindows && solunar.majorWindows && solunar.minorWindows) {
             solunarWindows.innerHTML = `
                 <div style="background: rgba(255,255,255,0.04); padding: 6px 8px; border-radius: 6px; border-left: 2px solid var(--accent-teal);">
-                    <strong>🔥 Major Window 1:</strong><br>${solunar.majorWindows[0].start} - ${solunar.majorWindows[0].end}
+                    <strong>🌕 Major 1 (Overhead):</strong><br><span style="color: var(--accent-teal); font-weight: 700;">${solunar.majorWindows[0].start} - ${solunar.majorWindows[0].end}</span>
                 </div>
                 <div style="background: rgba(255,255,255,0.04); padding: 6px 8px; border-radius: 6px; border-left: 2px solid var(--accent-teal);">
-                    <strong>🔥 Major Window 2:</strong><br>${solunar.majorWindows[1].start} - ${solunar.majorWindows[1].end}
+                    <strong>🌑 Major 2 (Underfoot):</strong><br><span style="color: var(--accent-teal); font-weight: 700;">${solunar.majorWindows[1].start} - ${solunar.majorWindows[1].end}</span>
                 </div>
                 <div style="background: rgba(255,255,255,0.04); padding: 6px 8px; border-radius: 6px; border-left: 2px solid var(--accent-orange);">
-                    <strong>⚡ Minor Window 1:</strong><br>${solunar.minorWindows[0].start} - ${solunar.minorWindows[0].end}
+                    <strong>🌅 Minor 1 (Moonrise):</strong><br><span style="color: var(--accent-orange); font-weight: 600;">${solunar.minorWindows[0].start} - ${solunar.minorWindows[0].end}</span>
                 </div>
                 <div style="background: rgba(255,255,255,0.04); padding: 6px 8px; border-radius: 6px; border-left: 2px solid var(--accent-orange);">
-                    <strong>⚡ Minor Window 2:</strong><br>${solunar.minorWindows[1].start} - ${solunar.minorWindows[1].end}
+                    <strong>🌇 Minor 2 (Moonset):</strong><br><span style="color: var(--accent-orange); font-weight: 600;">${solunar.minorWindows[1].start} - ${solunar.minorWindows[1].end}</span>
                 </div>
             `;
+        }
+
+        // Render 24-Hour Feeding Activity Bars
+        if (solunarTimeline && solunar.hourlyTimeline && solunar.hourlyTimeline.length > 0) {
+            solunarTimeline.innerHTML = solunar.hourlyTimeline.map(item => {
+                const heightPct = Math.max(15, Math.min(100, item.activity));
+                let barColor = 'rgba(0, 210, 255, 0.3)';
+                if (item.activity >= 85) barColor = 'var(--accent-teal)';
+                else if (item.activity >= 70) barColor = '#34d399';
+                else if (item.activity >= 50) barColor = '#60a5fa';
+
+                const borderStyle = item.isCurrentHour ? 'border: 1.5px solid #fff; box-shadow: 0 0 8px #fff;' : '';
+                return `
+                    <div style="flex: 1; height: ${heightPct}%; background: ${barColor}; border-radius: 2px 2px 0 0; ${borderStyle} transition: height 0.3s ease;" title="${item.label}: ${item.activity}% Feeding Activity${item.isCurrentHour ? ' (CURRENT TIME)' : ''}"></div>
+                `;
+            }).join('');
         }
 
         // Weather Tab detailed
@@ -2979,15 +3151,18 @@ window.initMainApp = async function() {
             if (stationLabel.startsWith('📡')) {
                 dashBadgeEl.innerHTML = stationLabel;
             } else {
-                dashBadgeEl.innerHTML = `📡 <b>Weather Underground PWS:</b> ${stationLabel}`;
+                dashBadgeEl.innerHTML = `📡 <b>WillyWeather Station:</b> ${stationLabel}`;
             }
         }
 
         if (dashPwsClarifEl) {
-            if (weather.isWithin30kmPWS && weather.pwsClarification) {
+            if (weather.isWithin15kmPWS && weather.pwsClarification) {
                 dashPwsClarifEl.innerHTML = `<span style="color: var(--accent-teal); font-weight: 600;">📍 PWS Active (&lt; 15km):</span> ${weather.pwsClarification}`;
+            } else if (weather.isWithin30kmPWS && weather.pwsClarification) {
+                dashPwsClarifEl.innerHTML = `<span style="color: var(--accent-teal); font-weight: 600;">📍 Local Station (&lt; 30km):</span> ${weather.pwsClarification}`;
             } else {
-                dashPwsClarifEl.innerHTML = `📡 <b>Weather Underground PWS Feed:</b> Live observation station forecast for ${weather.locationName || 'your fishing spot'}.`;
+                const distText = weather.pwsDistance ? `${weather.pwsDistance.toFixed(1)} km away` : 'Regional';
+                dashPwsClarifEl.innerHTML = `<span style="color: var(--accent-orange); font-weight: 600;">⚠️ Regional Feed (${distText}):</span> ${weather.pwsClarification || 'No local PWS within 30km.'}`;
             }
         }
 
@@ -3457,40 +3632,196 @@ window.initMainApp = async function() {
             });
         }
 
-        // Export Backup File Listener
-        const btnExport = document.getElementById('btn-export-backup-file');
-        if (btnExport) {
-            btnExport.addEventListener('click', async () => {
-                try {
-                    const catches = await window.DB.getAllCatches();
-                    const tackle = await window.DB.getAllTackle();
-                    const rigs = await window.DB.getAllRigs();
-                    const licenses = await window.DB.getAllLicenses();
-                    const fishingSpots = JSON.parse(localStorage.getItem('fishingSpots') || '[]');
-                    const carCoords = JSON.parse(localStorage.getItem('carCoords') || 'null');
+        // Master Vault Live Summary Update
+        window.updateVaultSummaryUI = async function() {
+            try {
+                const catches = await window.DB.getAllCatches();
+                const tackle = await window.DB.getAllTackle();
+                const licenses = await window.DB.getAllLicenses();
+                const spots = JSON.parse(localStorage.getItem('fishingSpots') || '[]');
+                const flies = (window.FlyBoxApp && window.FlyBoxApp.flies) ? window.FlyBoxApp.flies : JSON.parse(localStorage.getItem('user_fly_box') || '[]');
 
-                    const backupData = {
-                        catches,
-                        tackle,
-                        rigs,
-                        licenses,
-                        fishingSpots,
-                        carCoords,
-                        timestamp: new Date().toISOString()
+                const statCatches = document.getElementById('vault-stat-catches');
+                const statTackle = document.getElementById('vault-stat-tackle');
+                const statFlies = document.getElementById('vault-stat-flies');
+                const statSpots = document.getElementById('vault-stat-spots');
+                const statLicenses = document.getElementById('vault-stat-licenses');
+
+                if (statCatches) statCatches.textContent = `${catches ? catches.length : 0} Catches`;
+                if (statTackle) statTackle.textContent = `${tackle ? tackle.length : 0} Items`;
+                if (statFlies) statFlies.textContent = `${flies ? flies.length : 0} Patterns`;
+                if (statSpots) statSpots.textContent = `${spots ? spots.length : 0} Spots`;
+                if (statLicenses) statLicenses.textContent = `${licenses ? licenses.length : 0} Permits`;
+            } catch (e) {
+                console.warn("Failed to update vault summary counts:", e);
+            }
+        };
+
+        // Master Vault Backup Exporter
+        window.exportMasterVaultBackup = async function() {
+            try {
+                const catches = await window.DB.getAllCatches();
+                const tackle = await window.DB.getAllTackle();
+                const rigs = await window.DB.getAllRigs();
+                const licenses = await window.DB.getAllLicenses();
+                const fishingSpots = JSON.parse(localStorage.getItem('fishingSpots') || '[]');
+                const carCoords = JSON.parse(localStorage.getItem('carCoords') || 'null');
+                const userFlyBox = JSON.parse(localStorage.getItem('user_fly_box') || '[]');
+
+                const settings = {
+                    riverMode: localStorage.getItem('river_mode_enabled') === 'true',
+                    userCoords: AppState.userCoords || null,
+                    googleMapsApiKey: localStorage.getItem('googleMapsApiKey') || '',
+                    geminiApiKey: localStorage.getItem('geminiApiKey') || '',
+                    geminiActiveModel: localStorage.getItem('geminiActiveModel') || '',
+                    customWillyLocation: localStorage.getItem('customWillyLocation') || ''
+                };
+
+                const backupData = {
+                    version: "100840",
+                    app: "Middo's Fly Fishing Master Vault",
+                    timestamp: new Date().toISOString(),
+                    catches: catches || [],
+                    tackle: tackle || [],
+                    rigs: rigs || [],
+                    licenses: licenses || [],
+                    userFlyBox: userFlyBox || [],
+                    fishingSpots: fishingSpots || [],
+                    carCoords: carCoords,
+                    settings: settings
+                };
+
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+                const downloadAnchor = document.createElement('a');
+                downloadAnchor.setAttribute("href", dataStr);
+                downloadAnchor.setAttribute("download", `middos_fly_fishing_vault_backup_${new Date().toISOString().slice(0, 10)}.json`);
+                document.body.appendChild(downloadAnchor);
+                downloadAnchor.click();
+                downloadAnchor.remove();
+
+                if (window.showSyncToast) window.showSyncToast("💾 Vault backup downloaded successfully!");
+                else alert("Master Vault backup downloaded successfully!");
+            } catch (err) {
+                alert("Vault export failed: " + err.message);
+            }
+        };
+
+        // Master Vault Backup Importer
+        window.importMasterVaultFile = function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (evt) => {
+                try {
+                    const backup = JSON.parse(evt.target.result);
+                    if (!backup) throw new Error("Invalid JSON format");
+
+                    const db = await initDB();
+                    const importStore = async (storeName, list) => {
+                        if (!list || !Array.isArray(list)) return;
+                        const tx = db.transaction(storeName, 'readwrite');
+                        const store = tx.objectStore(storeName);
+                        store.clear();
+                        for (const item of list) {
+                            store.put(item);
+                        }
                     };
 
-                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
-                    const downloadAnchor = document.createElement('a');
-                    downloadAnchor.setAttribute("href", dataStr);
-                    downloadAnchor.setAttribute("download", `fly_fishing_app_backup_${new Date().toISOString().slice(0, 10)}.json`);
-                    document.body.appendChild(downloadAnchor);
-                    downloadAnchor.click();
-                    downloadAnchor.remove();
+                    if (backup.tackle) await importStore('tackle', backup.tackle);
+                    if (backup.catches) await importStore('catches', backup.catches);
+                    if (backup.rigs) await importStore('rigs', backup.rigs);
+                    if (backup.licenses) await importStore('licenses', backup.licenses);
+
+                    if (backup.userFlyBox) {
+                        localStorage.setItem('user_fly_box', JSON.stringify(backup.userFlyBox));
+                        if (window.FlyBoxApp) window.FlyBoxApp.loadFliesFromStorage();
+                    }
+                    if (backup.fishingSpots) localStorage.setItem('fishingSpots', JSON.stringify(backup.fishingSpots));
+                    if (backup.carCoords) localStorage.setItem('carCoords', JSON.stringify(backup.carCoords));
+
+                    if (backup.settings) {
+                        if (backup.settings.riverMode !== undefined) localStorage.setItem('river_mode_enabled', backup.settings.riverMode ? 'true' : 'false');
+                        if (backup.settings.googleMapsApiKey) localStorage.setItem('googleMapsApiKey', backup.settings.googleMapsApiKey);
+                        if (backup.settings.geminiApiKey) localStorage.setItem('geminiApiKey', backup.settings.geminiApiKey);
+                    }
+
+                    if (window.showSyncToast) window.showSyncToast("✅ Vault restored! Reloading library...");
+                    else alert("✅ Vault restored! Reloading library...");
+
+                    setTimeout(() => window.location.reload(), 500);
                 } catch (err) {
-                    alert("Export failed: " + err.message);
+                    alert("Vault restoration failed: " + err.message);
                 }
-            });
-        }
+            };
+            reader.readAsText(file);
+        };
+
+        // Direct Sync String Copy & Paste
+        window.copyDirectSyncString = async function() {
+            try {
+                const catches = await window.DB.getAllCatches();
+                const tackle = await window.DB.getAllTackle();
+                const rigs = await window.DB.getAllRigs();
+                const licenses = await window.DB.getAllLicenses();
+                const fishingSpots = JSON.parse(localStorage.getItem('fishingSpots') || '[]');
+                const userFlyBox = JSON.parse(localStorage.getItem('user_fly_box') || '[]');
+
+                const compactObj = {
+                    c: catches || [],
+                    t: tackle || [],
+                    r: rigs || [],
+                    l: licenses || [],
+                    f: userFlyBox || [],
+                    s: fishingSpots || []
+                };
+
+                const str = btoa(unescape(encodeURIComponent(JSON.stringify(compactObj))));
+                await navigator.clipboard.writeText(str);
+                if (window.showSyncToast) window.showSyncToast("📋 Direct Sync String copied to clipboard! Paste on any device.");
+                else alert("Direct Sync String copied to clipboard! Paste on any device.");
+            } catch (err) {
+                alert("Failed to copy sync string: " + err.message);
+            }
+        };
+
+        window.pasteDirectSyncString = async function() {
+            const rawStr = prompt("Paste your Direct Sync String below to restore all catches & gear:");
+            if (!rawStr || !rawStr.trim()) return;
+
+            try {
+                const jsonStr = decodeURIComponent(escape(atob(rawStr.trim())));
+                const obj = JSON.parse(jsonStr);
+                if (!obj) throw new Error("Invalid sync string");
+
+                const db = await initDB();
+                const importStore = async (storeName, list) => {
+                    if (!list || !Array.isArray(list)) return;
+                    const tx = db.transaction(storeName, 'readwrite');
+                    const store = tx.objectStore(storeName);
+                    store.clear();
+                    for (const item of list) {
+                        store.put(item);
+                    }
+                };
+
+                if (obj.c) await importStore('catches', obj.c);
+                if (obj.t) await importStore('tackle', obj.t);
+                if (obj.r) await importStore('rigs', obj.r);
+                if (obj.l) await importStore('licenses', obj.l);
+                if (obj.f) {
+                    localStorage.setItem('user_fly_box', JSON.stringify(obj.f));
+                    if (window.FlyBoxApp) window.FlyBoxApp.loadFliesFromStorage();
+                }
+                if (obj.s) localStorage.setItem('fishingSpots', JSON.stringify(obj.s));
+
+                if (window.showSyncToast) window.showSyncToast("✅ Sync code imported successfully! Reloading...");
+                else alert("✅ Sync code imported successfully! Reloading...");
+
+                setTimeout(() => window.location.reload(), 500);
+            } catch (err) {
+                alert("Sync string import failed: " + err.message);
+            }
+        };
 
         // Force Check for Updates Listener (Mobile Cache Purge)
         const btnCheckUpdates = document.getElementById('btn-force-check-updates');
@@ -3518,49 +3849,6 @@ window.initMainApp = async function() {
                 } finally {
                     btnCheckUpdates.textContent = "🔄 Check for Updates Now";
                 }
-            });
-        }
-
-        // Import Backup File Listener
-        const btnImportTrigger = document.getElementById('btn-import-backup-file-trigger');
-        const inputImport = document.getElementById('input-import-backup-file');
-        if (btnImportTrigger && inputImport) {
-            btnImportTrigger.addEventListener('click', () => inputImport.click());
-            inputImport.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = async (evt) => {
-                    try {
-                        const backup = JSON.parse(evt.target.result);
-                        if (!backup) throw new Error("Invalid JSON format");
-
-                        const db = await initDB();
-                        const importStore = async (storeName, list) => {
-                            if (!list) return;
-                            const tx = db.transaction(storeName, 'readwrite');
-                            const store = tx.objectStore(storeName);
-                            store.clear();
-                            for (const item of list) {
-                                store.put(item);
-                            }
-                        };
-
-                        if (backup.tackle) await importStore('tackle', backup.tackle);
-                        if (backup.catches) await importStore('catches', backup.catches);
-                        if (backup.rigs) await importStore('rigs', backup.rigs);
-                        if (backup.licenses) await importStore('licenses', backup.licenses);
-
-                        if (backup.fishingSpots) localStorage.setItem('fishingSpots', JSON.stringify(backup.fishingSpots));
-                        if (backup.carCoords) localStorage.setItem('carCoords', JSON.stringify(backup.carCoords));
-
-                        alert("Backup data imported successfully! All custom gear & catches loaded.");
-                        window.location.reload();
-                    } catch (err) {
-                        alert("Import failed: " + err.message);
-                    }
-                };
-                reader.readAsText(file);
             });
         }
     }
@@ -5028,11 +5316,12 @@ window.initMainApp = async function() {
         window.print();
     };
 
-    // Initialize FlyBox & Knots Apps & Analytics
+    // Initialize FlyBox & Knots Apps, Analytics & Master Vault Summary
     setTimeout(() => {
         if (window.FlyBoxApp) window.FlyBoxApp.init();
         if (window.KnotsApp) window.KnotsApp.renderKnotsUI();
         if (window.updateCatchAnalytics) window.updateCatchAnalytics();
+        if (window.updateVaultSummaryUI) window.updateVaultSummaryUI();
     }, 300);
 
     // --- 1. River Mode Toggle ---
@@ -5046,7 +5335,22 @@ window.initMainApp = async function() {
         document.body.classList.add('high-contrast-mode');
     }
 
-    // --- 2. Catch Analytics Calculation ---
+    // --- 2. Comprehensive Fly Success & Angler Analytics Calculation ---
+    window.switchAnalyticsSubTab = function(tabKey) {
+        const tabs = ['flies', 'moon', 'time', 'species'];
+        tabs.forEach(t => {
+            const btn = document.getElementById(`btn-analytics-tab-${t}`);
+            const pane = document.getElementById(`analytics-pane-${t}`);
+            if (btn) {
+                if (t === tabKey) btn.classList.add('active');
+                else btn.classList.remove('active');
+            }
+            if (pane) {
+                pane.style.display = (t === tabKey) ? 'block' : 'none';
+            }
+        });
+    };
+
     window.updateCatchAnalytics = async function(customCatches = null) {
         try {
             const elTrophy = document.getElementById('analytics-trophy');
@@ -5056,7 +5360,10 @@ window.initMainApp = async function() {
             const elPeak = document.getElementById('analytics-peak-hour');
             const elPeakSub = document.getElementById('analytics-peak-hour-sub');
 
-            if (!elTrophy) return;
+            const paneFlies = document.getElementById('analytics-pane-flies');
+            const paneMoon = document.getElementById('analytics-pane-moon');
+            const paneTime = document.getElementById('analytics-pane-time');
+            const paneSpecies = document.getElementById('analytics-pane-species');
 
             // Fetch catches list from argument, AppState, or IndexedDB
             let catchesList = customCatches;
@@ -5067,19 +5374,24 @@ window.initMainApp = async function() {
             }
 
             if (!catchesList || catchesList.length === 0) {
-                elTrophy.textContent = "--";
+                if (elTrophy) elTrophy.textContent = "--";
                 if (elTrophySub) elTrophySub.textContent = "Log catches to record trophy size";
                 if (elTopFly) elTopFly.textContent = "--";
                 if (elTopFlySub) elTopFlySub.textContent = "0 catches registered";
                 if (elPeak) elPeak.textContent = "--";
                 if (elPeakSub) elPeakSub.textContent = "Based on catch timestamps";
+
+                const emptyHtml = `<p class="placeholder-text" style="text-align: center; padding: 20px; font-size: 12px; color: var(--text-secondary);">No catches logged yet. Log your first catch to populate empirical analytics!</p>`;
+                if (paneFlies) paneFlies.innerHTML = emptyHtml;
+                if (paneMoon) paneMoon.innerHTML = emptyHtml;
+                if (paneTime) paneTime.innerHTML = emptyHtml;
+                if (paneSpecies) paneSpecies.innerHTML = emptyHtml;
                 return;
             }
 
             // Helper to dynamically scan all properties for fish length
             const parseLen = (c) => {
                 if (!c || typeof c !== 'object') return 0;
-                // 1. Direct explicit length keys
                 for (let k of ['length', 'size', 'fishLength', 'lengthCm', 'length_cm', 'len', 'fish_size']) {
                     if (c[k] !== undefined && c[k] !== null && c[k] !== '') {
                         const raw = String(c[k]);
@@ -5090,7 +5402,6 @@ window.initMainApp = async function() {
                         }
                     }
                 }
-                // 2. String search across all keys for regex patterns like "74cm", "74 cm", "74-cm"
                 for (let key in c) {
                     if (typeof c[key] === 'string') {
                         const match = c[key].match(/\b([0-9]{2,3})\s*(?:cm|centimeters|centimetres|inch|in|")\b/i);
@@ -5103,7 +5414,7 @@ window.initMainApp = async function() {
                 return 0;
             };
 
-            // Trophy Calculation
+            // 1. Trophy Calculation
             let trophy = null;
             let maxLen = 0;
             catchesList.forEach(c => {
@@ -5115,56 +5426,262 @@ window.initMainApp = async function() {
             });
 
             if (trophy && maxLen > 0) {
-                elTrophy.textContent = `${maxLen} cm ${trophy.species || 'Fish'}`;
+                if (elTrophy) elTrophy.textContent = `${maxLen} cm ${trophy.species || 'Fish'}`;
                 const dateStr = trophy.date ? new Date(trophy.date).toLocaleDateString() : '';
-                if (elTrophySub) elTrophySub.textContent = dateStr ? `Caught ${dateStr}` : 'Personal Record Trophy';
+                if (elTrophySub) elTrophySub.textContent = dateStr ? `Caught ${dateStr} on ${trophy.fly || 'Fly'}` : 'Personal Record Trophy';
             } else {
-                elTrophy.textContent = "--";
+                if (elTrophy) elTrophy.textContent = "--";
                 if (elTrophySub) elTrophySub.textContent = "Log length (cm) to record trophy size";
             }
 
-            // Top Producing Fly
-            const flyCounts = {};
+            // 2. Comprehensive Fly Performance Aggregation
+            const flyStats = {};
             catchesList.forEach(c => {
-                const flyName = (c.fly || c.lure || c.pattern || '').trim();
-                if (flyName && flyName !== 'N/A' && flyName !== '--') {
-                    flyCounts[flyName] = (flyCounts[flyName] || 0) + 1;
+                const flyName = (c.fly || c.lure || c.pattern || 'Standard Pattern').trim();
+                const len = parseLen(c);
+                const species = (c.species || 'Gamefish').trim();
+
+                if (!flyStats[flyName]) {
+                    flyStats[flyName] = {
+                        name: flyName,
+                        catches: 0,
+                        totalLen: 0,
+                        lenCount: 0,
+                        maxLen: 0,
+                        speciesCounts: {}
+                    };
                 }
+
+                flyStats[flyName].catches += 1;
+                if (len > 0) {
+                    flyStats[flyName].totalLen += len;
+                    flyStats[flyName].lenCount += 1;
+                    if (len > flyStats[flyName].maxLen) flyStats[flyName].maxLen = len;
+                }
+                flyStats[flyName].speciesCounts[species] = (flyStats[flyName].speciesCounts[species] || 0) + 1;
             });
 
-            const flyKeys = Object.keys(flyCounts);
-            if (flyKeys.length > 0) {
-                const topFly = flyKeys.reduce((a, b) => (flyCounts[a] > flyCounts[b] ? a : b), flyKeys[0]);
-                if (elTopFly) elTopFly.textContent = topFly;
-                if (elTopFlySub) elTopFlySub.textContent = `${flyCounts[topFly]} catch${flyCounts[topFly] > 1 ? 'es' : ''} logged`;
-            } else {
-                if (elTopFly) elTopFly.textContent = "--";
-                if (elTopFlySub) elTopFlySub.textContent = `${catchesList.length} total catches logged`;
+            const sortedFlies = Object.values(flyStats).sort((a, b) => b.catches - a.catches);
+            const totalCatchesCount = catchesList.length;
+
+            if (sortedFlies.length > 0) {
+                const topFly = sortedFlies[0];
+                if (elTopFly) elTopFly.textContent = topFly.name;
+                if (elTopFlySub) elTopFlySub.textContent = `${topFly.catches} catch${topFly.catches > 1 ? 'es' : ''} (${Math.round((topFly.catches / totalCatchesCount) * 100)}% of total)`;
             }
 
-            // Peak Hour
-            const hourCounts = {};
-            catchesList.forEach(c => {
-                if (c.date || c.time) {
-                    const dateObj = c.time ? new Date(`${c.date || '2026-01-01'}T${c.time}`) : new Date(c.date);
-                    if (!isNaN(dateObj.getTime())) {
-                        const hr = dateObj.getHours();
-                        hourCounts[hr] = (hourCounts[hr] || 0) + 1;
-                    }
-                }
-            });
+            // Render Pane 1: Fly Leaderboard & Podium
+            if (paneFlies) {
+                const podiumRanks = ['🥇 1st Place', '🥈 2nd Place', '🥉 3rd Place'];
+                const podiumColors = ['var(--accent-orange)', '#94a3b8', '#d97706'];
 
-            const hourKeys = Object.keys(hourCounts);
-            if (hourKeys.length > 0) {
-                const peakHr = hourKeys.reduce((a, b) => (hourCounts[a] > hourCounts[b] ? a : b), hourKeys[0]);
-                const hrNum = parseInt(peakHr);
-                const ampm = hrNum >= 12 ? 'PM' : 'AM';
-                const formattedHr = hrNum % 12 || 12;
-                if (elPeak) elPeak.textContent = `${formattedHr}:00 ${ampm}`;
-                if (elPeakSub) elPeakSub.textContent = `${hourCounts[peakHr]} catches recorded`;
-            } else {
-                if (elPeak) elPeak.textContent = "--";
-                if (elPeakSub) elPeakSub.textContent = "Based on catch timestamps";
+                let podiumHtml = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 16px;">
+                        ${sortedFlies.slice(0, 3).map((fly, idx) => {
+                            const avgLen = fly.lenCount > 0 ? (fly.totalLen / fly.lenCount).toFixed(1) : '--';
+                            const topSpecies = Object.keys(fly.speciesCounts).sort((a,b) => fly.speciesCounts[b] - fly.speciesCounts[a])[0] || 'Trout';
+                            return `
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-top: 3px solid ${podiumColors[idx]}; border-radius: 8px; padding: 12px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                        <strong style="font-size: 11.5px; color: ${podiumColors[idx]};">${podiumRanks[idx]}</strong>
+                                        <span class="badge" style="font-size: 10px; background: rgba(0, 210, 255, 0.1); color: var(--accent-teal);">${fly.catches} Fish</span>
+                                    </div>
+                                    <h4 style="margin: 0; font-size: 14px; color: var(--text-primary);">${fly.name}</h4>
+                                    <div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px;">
+                                        📏 Avg: <b>${avgLen} cm</b> • PB: <b>${fly.maxLen || '--'} cm</b><br>
+                                        🐟 Top: <b>${topSpecies}</b>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+
+                let tableHtml = `
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; font-size: 12px; border-collapse: collapse; text-align: left;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-secondary);">
+                                    <th style="padding: 8px 6px;">Rank & Pattern</th>
+                                    <th style="padding: 8px 6px;">Catches</th>
+                                    <th style="padding: 8px 6px;">Share</th>
+                                    <th style="padding: 8px 6px;">Avg Length</th>
+                                    <th style="padding: 8px 6px;">Trophy PB</th>
+                                    <th style="padding: 8px 6px;">Primary Target</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${sortedFlies.map((fly, idx) => {
+                                    const sharePct = Math.round((fly.catches / totalCatchesCount) * 100);
+                                    const avgLen = fly.lenCount > 0 ? (fly.totalLen / fly.lenCount).toFixed(1) + ' cm' : '--';
+                                    const topSpecies = Object.keys(fly.speciesCounts).sort((a,b) => fly.speciesCounts[b] - fly.speciesCounts[a])[0] || 'Gamefish';
+                                    const rankBadge = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+                                    return `
+                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                            <td style="padding: 8px 6px; font-weight: 600; color: var(--text-primary);">
+                                                <span style="margin-right: 6px;">${rankBadge}</span> ${fly.name}
+                                            </td>
+                                            <td style="padding: 8px 6px; color: var(--accent-teal); font-weight: 700;">${fly.catches}</td>
+                                            <td style="padding: 8px 6px;">
+                                                <div style="display: flex; align-items: center; gap: 6px;">
+                                                    <div style="flex: 1; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; max-width: 60px;">
+                                                        <div style="height: 100%; width: ${sharePct}%; background: var(--accent-teal); border-radius: 3px;"></div>
+                                                    </div>
+                                                    <span style="font-size: 10.5px; color: var(--text-secondary);">${sharePct}%</span>
+                                                </div>
+                                            </td>
+                                            <td style="padding: 8px 6px; color: var(--text-secondary);">${avgLen}</td>
+                                            <td style="padding: 8px 6px; color: var(--accent-orange); font-weight: 600;">${fly.maxLen ? fly.maxLen + ' cm' : '--'}</td>
+                                            <td style="padding: 8px 6px; color: #cbd5e1;">${topSpecies}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+                paneFlies.innerHTML = podiumHtml + tableHtml;
+            }
+
+            // Render Pane 2: Moon Phase Success Breakdown
+            if (paneMoon) {
+                const moonCounts = {
+                    'New Moon': { count: 0, icon: '🌑' },
+                    'Waxing Crescent': { count: 0, icon: '🌒' },
+                    'First Quarter': { count: 0, icon: '🌓' },
+                    'Waxing Gibbous': { count: 0, icon: '🌔' },
+                    'Full Moon': { count: 0, icon: '🌕' },
+                    'Waning Gibbous': { count: 0, icon: '🌖' },
+                    'Third Quarter': { count: 0, icon: '🌗' },
+                    'Waning Crescent': { count: 0, icon: '🌘' }
+                };
+
+                catchesList.forEach(c => {
+                    const phase = c.moonPhase || (window.WEATHER && c.date ? window.WEATHER.getMoonPhase(new Date(c.date)).label : 'New Moon');
+                    if (moonCounts[phase]) moonCounts[phase].count += 1;
+                    else moonCounts['New Moon'].count += 1;
+                });
+
+                paneMoon.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
+                        ${Object.entries(moonCounts).map(([phaseName, data]) => {
+                            const pct = totalCatchesCount > 0 ? Math.round((data.count / totalCatchesCount) * 100) : 0;
+                            const isTop = data.count > 0 && Math.max(...Object.values(moonCounts).map(m => m.count)) === data.count;
+                            const border = isTop ? 'border: 1px solid var(--accent-teal); background: rgba(0, 210, 255, 0.08);' : 'border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02);';
+                            return `
+                                <div style="border-radius: 8px; padding: 10px; text-align: center; ${border}">
+                                    <div style="font-size: 24px; margin-bottom: 2px;">${data.icon}</div>
+                                    <strong style="font-size: 11px; color: var(--text-primary); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${phaseName}</strong>
+                                    <div style="font-size: 14px; font-weight: 700; color: ${isTop ? 'var(--accent-teal)' : 'var(--text-secondary)'}; margin-top: 4px;">${data.count} Fish</div>
+                                    <div style="font-size: 9.5px; color: var(--text-secondary);">${pct}% of catches</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            }
+
+            // Render Pane 3: Time-of-Day & Peak Bite Hours
+            if (paneTime) {
+                const timeBlocks = {
+                    '🌅 Morning Dawn (5AM - 9AM)': { count: 0, hours: [5,6,7,8,9] },
+                    '☀️ Midday Sun (10AM - 2PM)': { count: 0, hours: [10,11,12,13,14] },
+                    '🌇 Evening Rise (3PM - 7PM)': { count: 0, hours: [15,16,17,18,19] },
+                    '🌙 Night / Twilight (8PM - 4AM)': { count: 0, hours: [20,21,22,23,0,1,2,3,4] }
+                };
+
+                const hourCounts = {};
+                catchesList.forEach(c => {
+                    if (c.date || c.time) {
+                        const dateObj = c.time ? new Date(`${c.date || '2026-01-01'}T${c.time}`) : new Date(c.date);
+                        if (!isNaN(dateObj.getTime())) {
+                            const hr = dateObj.getHours();
+                            hourCounts[hr] = (hourCounts[hr] || 0) + 1;
+                            for (let b in timeBlocks) {
+                                if (timeBlocks[b].hours.includes(hr)) {
+                                    timeBlocks[b].count += 1;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                });
+
+                const hourKeys = Object.keys(hourCounts);
+                if (hourKeys.length > 0) {
+                    const peakHr = hourKeys.reduce((a, b) => (hourCounts[a] > hourCounts[b] ? a : b), hourKeys[0]);
+                    const hrNum = parseInt(peakHr);
+                    const ampm = hrNum >= 12 ? 'PM' : 'AM';
+                    const formattedHr = hrNum % 12 || 12;
+                    if (elPeak) elPeak.textContent = `${formattedHr}:00 ${ampm}`;
+                    if (elPeakSub) elPeakSub.textContent = `${hourCounts[peakHr]} catches recorded`;
+                }
+
+                paneTime.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                        ${Object.entries(timeBlocks).map(([blockTitle, data]) => {
+                            const pct = totalCatchesCount > 0 ? Math.round((data.count / totalCatchesCount) * 100) : 0;
+                            return `
+                                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px;">
+                                    <div style="font-size: 11.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">${blockTitle}</div>
+                                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+                                        <strong style="font-size: 18px; color: var(--accent-orange);">${data.count} Fish</strong>
+                                        <span style="font-size: 11px; color: var(--text-secondary);">${pct}% Success</span>
+                                    </div>
+                                    <div style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+                                        <div style="height: 100%; width: ${pct}%; background: var(--accent-orange); border-radius: 3px;"></div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            }
+
+            // Render Pane 4: Species Personal Bests & Catch Tallies
+            if (paneSpecies) {
+                const speciesMap = {};
+                catchesList.forEach(c => {
+                    const sp = (c.species || 'Gamefish').trim();
+                    const len = parseLen(c);
+                    const fly = (c.fly || 'Standard Fly').trim();
+
+                    if (!speciesMap[sp]) {
+                        speciesMap[sp] = {
+                            name: sp,
+                            count: 0,
+                            maxLen: 0,
+                            flyCounts: {}
+                        };
+                    }
+
+                    speciesMap[sp].count += 1;
+                    if (len > speciesMap[sp].maxLen) speciesMap[sp].maxLen = len;
+                    speciesMap[sp].flyCounts[fly] = (speciesMap[sp].flyCounts[fly] || 0) + 1;
+                });
+
+                const sortedSpecies = Object.values(speciesMap).sort((a, b) => b.count - a.count);
+
+                paneSpecies.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px;">
+                        ${sortedSpecies.map(sp => {
+                            const topFly = Object.keys(sp.flyCounts).sort((a,b) => sp.flyCounts[b] - sp.flyCounts[a])[0] || 'Fly';
+                            return `
+                                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                        <h4 style="margin: 0; font-size: 14px; color: var(--text-primary);">🐟 ${sp.name}</h4>
+                                        <span class="badge" style="background: rgba(16, 185, 129, 0.12); color: #34d399; font-size: 10.5px;">${sp.count} Caught</span>
+                                    </div>
+                                    <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 6px; line-height: 1.4;">
+                                        🏆 Personal Best: <strong style="color: var(--accent-teal);">${sp.maxLen > 0 ? sp.maxLen + ' cm' : 'Recorded'}</strong><br>
+                                        🪰 Most Effective Fly: <strong style="color: var(--text-primary);">${topFly}</strong>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
             }
         } catch (e) {
             console.error("Analytics calc error", e);
@@ -5244,17 +5761,510 @@ window.initMainApp = async function() {
         if (btn) btn.style.display = 'inline-flex';
     });
 
-    window.installPwaApp = function() {
-        if (!deferredPrompt) return;
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then((choiceResult) => {
-            if (choiceResult.outcome === 'accepted') {
-                console.log('User accepted PWA prompt');
+    // --- 5. Phone Camera Barcode / UPC Scanner & Tackle Auto-Lookup Engine ---
+    let html5QrCodeScanner = null;
+    let scannerFacingMode = "environment";
+
+    function playBeepAudio() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1200, ctx.currentTime);
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.15);
+        } catch (e) {}
+    }
+
+    window.openBarcodeScanner = async function() {
+        const modal = document.getElementById('modal-barcode-scanner');
+        const status = document.getElementById('barcode-scanner-status');
+        if (!modal) return;
+
+        modal.classList.add('active');
+        if (status) status.textContent = "Starting in-app scanner...";
+
+        try {
+            if (typeof Html5Qrcode === 'undefined') {
+                throw new Error("Barcode scanner library loading, please wait a moment...");
             }
-            deferredPrompt = null;
-            const btn = document.getElementById('btn-pwa-install');
-            if (btn) btn.style.display = 'none';
+
+            if (!html5QrCodeScanner) {
+                html5QrCodeScanner = new Html5Qrcode("barcode-reader-viewport");
+            }
+
+            if (html5QrCodeScanner.isScanning) {
+                await html5QrCodeScanner.stop();
+            }
+
+            const config = { 
+                fps: 15, 
+                qrbox: { width: 250, height: 160 },
+                aspectRatio: 1.333334
+            };
+
+            await html5QrCodeScanner.start(
+                { facingMode: scannerFacingMode },
+                config,
+                (decodedText) => {
+                    if (decodedText) {
+                        playBeepAudio();
+                        if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+                        if (status) status.innerHTML = `✅ <strong style="color:#34d399;">Scanned: ${decodedText}</strong>`;
+                        setTimeout(async () => {
+                            await window.closeBarcodeScanner();
+                            window.lookupTackleBarcode(decodedText);
+                        }, 350);
+                    }
+                },
+                (errorMessage) => {
+                    // scanning frame
+                }
+            );
+            if (status) status.textContent = "Align barcode within the target box.";
+        } catch (err) {
+            console.error("Barcode scanner error:", err);
+            if (status) {
+                status.innerHTML = `<span style="color: var(--accent-orange);">Camera notice: ${err.message || 'Please allow camera permission or tap "Scan From Photo" below.'}</span>`;
+            }
+        }
+    };
+
+    window.closeBarcodeScanner = async function() {
+        try {
+            if (html5QrCodeScanner && html5QrCodeScanner.isScanning) {
+                await html5QrCodeScanner.stop();
+            }
+        } catch (e) {}
+        const modal = document.getElementById('modal-barcode-scanner');
+        if (modal) modal.classList.remove('active');
+    };
+
+    window.switchScannerCamera = async function() {
+        scannerFacingMode = (scannerFacingMode === "environment") ? "user" : "environment";
+        await window.openBarcodeScanner();
+    };
+
+    // Scan / Upload barcode photo fallback
+    window.handleBarcodePhotoUpload = async function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const status = document.getElementById('barcode-scanner-status');
+        if (status) status.textContent = "Scanning photo for barcode...";
+
+        try {
+            if (!html5QrCodeScanner) {
+                html5QrCodeScanner = new Html5Qrcode("barcode-reader-viewport");
+            }
+            const decodedText = await html5QrCodeScanner.scanFile(file, true);
+            if (decodedText) {
+                playBeepAudio();
+                if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+                await window.closeBarcodeScanner();
+                window.lookupTackleBarcode(decodedText);
+            } else {
+                throw new Error("No barcode detected");
+            }
+        } catch (err) {
+            console.warn("Scan file error:", err);
+            if (status) status.innerHTML = `<span style="color: var(--accent-orange);">Could not detect barcode in photo. Please ensure clear focus or enter number below.</span>`;
+        }
+    };
+
+    // Helper to resize iPhone/Android photos (up to 48MP) to lightweight 1200px JPEG for instant AI recognition
+    async function resizeImageForAI(file, maxDimension = 1200) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                img.onload = () => {
+                    let w = img.width;
+                    let h = img.height;
+                    if (w > maxDimension || h > maxDimension) {
+                        if (w > h) {
+                            h = Math.round((h * maxDimension) / w);
+                            w = maxDimension;
+                        } else {
+                            w = Math.round((w * maxDimension) / h);
+                            h = maxDimension;
+                        }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+                    resolve(base64);
+                };
+                img.onerror = reject;
+                img.src = e.target.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
         });
+    }
+
+    // Pure Photo Capture Trigger (Guaranteed Still Image, Never Video)
+    window.triggerTacklePackageCapture = function() {
+        // Stop any background camera stream immediately
+        window.closeBarcodeScanner();
+        const input = document.getElementById('tackle-package-camera-input');
+        if (input) {
+            input.value = '';
+            input.click();
+        }
+    };
+
+    // Master Photo Handler: Takes still photo of box/spool, extracts barcode, and cross-references via Gemini AI
+    window.handleTacklePackagePhoto = async function(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+
+        window.closeBarcodeScanner();
+        const badge = document.getElementById('tackle-scan-status-badge');
+        if (badge) {
+            badge.style.display = 'inline-block';
+            badge.textContent = "⏳ Analyzing Photo & Barcode...";
+        }
+        if (window.showSyncToast) window.showSyncToast("🔍 Reading photo & cross-referencing product...");
+
+        // Step 1: Attempt Barcode extraction from the photo
+        let detectedBarcode = null;
+        try {
+            if (typeof Html5Qrcode !== 'undefined') {
+                if (!html5QrCodeScanner) {
+                    html5QrCodeScanner = new Html5Qrcode("barcode-reader-viewport");
+                }
+                detectedBarcode = await html5QrCodeScanner.scanFile(file, true);
+            }
+        } catch(e) {}
+
+        // Step 2: If barcode is already in the user's personal tackle library, open it immediately
+        if (detectedBarcode) {
+            const existingItem = AppState.tackle.find(t => t.barcode === detectedBarcode || (t.notes && t.notes.includes(detectedBarcode)));
+            if (existingItem) {
+                playBeepAudio();
+                if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+                if (window.showSyncToast) window.showSyncToast(`🎯 Found existing ${existingItem.name} in library! Opening for duplicate...`);
+                window.duplicateTackleUI(existingItem.id);
+                const barcodeEl = document.getElementById('tackle-barcode');
+                if (barcodeEl) barcodeEl.value = detectedBarcode;
+                if (badge) badge.style.display = 'none';
+                return;
+            }
+        }
+
+        // Step 3: Run Gemini AI on the box/label photo and cross-reference with detected barcode
+        await window.scanTacklePackageWithAI(file, detectedBarcode);
+    };
+
+    // Gemini AI OCR & Product Resolver for Tackle Box, Packaging, Spool Labels & Rod Tubes
+    window.scanTacklePackageWithAI = async function(file, optionalBarcode) {
+        const badge = document.getElementById('tackle-scan-status-badge');
+        if (badge) {
+            badge.style.display = 'inline-block';
+            badge.textContent = "🤖 Cross-Referencing Product...";
+        }
+        if (window.showSyncToast) window.showSyncToast("🤖 AI identifying tackle brand, name & spec...");
+
+        try {
+            const base64Data = await resizeImageForAI(file, 1200);
+
+            // Use the exact same Gemini API Key stored in Settings for Fish Identification
+            let geminiKey = localStorage.getItem('geminiApiKey') || localStorage.getItem('gemini_api_key') || window.DEFAULT_GEMINI_KEY;
+            if (!geminiKey) {
+                try {
+                    const resp = await fetch('session_backup.json');
+                    if (resp.ok) {
+                        const backup = await resp.json();
+                        if (backup && backup.settings && backup.settings.geminiApiKey) {
+                            geminiKey = backup.settings.geminiApiKey.trim();
+                            if (geminiKey) localStorage.setItem('geminiApiKey', geminiKey);
+                        }
+                    }
+                } catch(e){}
+            }
+
+            if (!geminiKey) {
+                alert("Please add your Gemini API key in Settings (or connect your account) to use AI Tackle Box Scanning.");
+                window.showAddTackleModal();
+                if (badge) badge.style.display = 'none';
+                return false;
+            }
+
+            const prompt = `You are an expert fishing tackle identification and retail product recognition assistant.
+Examine this photograph of fishing tackle packaging, box, spool label, rod tube, or leader packet.
+If a barcode number is present in the image or provided as "${optionalBarcode || ''}", cross-reference it with the visible product details.
+Extract and identify the following information:
+1. Category: Must be exactly one of "rod", "reel", "flyline", "leader", "tippet", or "fly"
+2. Brand: The manufacturer / brand name (e.g. Sage, Orvis, Rio, Scientific Anglers, Trouthunter, Stroft, Simms, Daiwa, Shimano, Hardy, Berkley, G.Loomis, Maxima, Loon Outdoors, Primal, Loop)
+3. Name: The exact model or product line (e.g. "Powerflex Plus Tippet", "Amplitude Smooth Infinity", "R8 Core", "Hydros Reel", "GTM Monofilament", "Flies Assortment")
+4. Spec: Technical size / line weight / diameter / hook size (e.g. "4X 6.0lb 0.18mm", "WF5F", "9ft 5wt", "#14 Olive Emerger", "3000 Drag 10lb")
+5. Barcode: The barcode / UPC number if visible, else "${optionalBarcode || ''}"
+6. Notes: Important features or packaging specifications.
+
+Respond ONLY in valid JSON format:
+{
+  "category": "rod|reel|flyline|leader|tippet|fly",
+  "brand": "Brand Name",
+  "name": "Model Name",
+  "spec": "Line Wt / Hook Size / Tippet X rating",
+  "barcode": "Barcode number",
+  "notes": "Short description"
+}`;
+
+            const activeModel = localStorage.getItem('geminiActiveModel');
+            const modelsToTry = [activeModel, 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-flash-latest', 'gemini-pro-latest'].filter(Boolean);
+            const tried = new Set();
+
+            for (const modelName of modelsToTry) {
+                if (tried.has(modelName)) continue;
+                tried.add(modelName);
+
+                try {
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(geminiKey)}`;
+                    const res = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [
+                                    { text: prompt },
+                                    {
+                                        inline_data: {
+                                            mime_type: "image/jpeg",
+                                            data: base64Data
+                                        }
+                                    }
+                                ]
+                            }],
+                            generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+                        })
+                    });
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if (text) {
+                            let parsed = null;
+                            try {
+                                parsed = JSON.parse(text);
+                            } catch(e) {
+                                const jsonMatch = text.match(/\{[\s\S]*\}/);
+                                if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+                            }
+
+                            if (parsed) {
+                                window.showAddTackleModal();
+                                
+                                if (parsed.category) document.getElementById('tackle-type').value = parsed.category;
+                                if (parsed.brand) document.getElementById('tackle-brand').value = parsed.brand;
+                                if (parsed.name) document.getElementById('tackle-name').value = parsed.name;
+                                if (parsed.spec) document.getElementById('tackle-spec').value = parsed.spec;
+                                if (parsed.barcode || optionalBarcode) document.getElementById('tackle-barcode').value = parsed.barcode || optionalBarcode;
+                                if (parsed.notes) document.getElementById('tackle-notes').value = parsed.notes;
+
+                                playBeepAudio();
+                                if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+                                if (badge) {
+                                    badge.textContent = `✅ ${parsed.brand} ${parsed.name}`;
+                                    setTimeout(() => { if (badge) badge.style.display = 'none'; }, 4000);
+                                }
+                                if (window.showSyncToast) window.showSyncToast(`🎯 Cross-Referenced: ${parsed.brand} ${parsed.name} (${parsed.spec || parsed.category})`);
+                                return true;
+                            }
+                        }
+                    }
+                } catch (mErr) {
+                    console.warn(`Tackle scan model ${modelName} notice:`, mErr);
+                }
+            }
+        } catch(err) {
+            console.error("AI tackle package scan error:", err);
+        }
+
+        window.showAddTackleModal();
+        if (badge) badge.style.display = 'none';
+        if (window.showSyncToast) window.showSyncToast("📦 Package analyzed! Ready to complete details.");
+        return false;
+    };
+
+    window.submitManualBarcode = function() {
+        const input = document.getElementById('manual-barcode-input');
+        if (!input || !input.value.trim()) {
+            alert("Please type or paste a barcode / UPC number.");
+            return;
+        }
+        const barcode = input.value.trim();
+        window.closeBarcodeScanner();
+        window.lookupTackleBarcode(barcode);
+    };
+
+    // Master Barcode & UPC Auto-Lookup with Gemini AI Cross-Referencing
+    window.lookupTackleBarcode = async function(barcodeText, optionalFile = null) {
+        if (!barcodeText) return false;
+        const cleanCode = barcodeText.trim();
+
+        // 1. Check if item already exists in user's Tackle Library
+        const existingItem = AppState.tackle.find(t => t.barcode === cleanCode || (t.notes && t.notes.includes(cleanCode)));
+        if (existingItem) {
+            if (window.showSyncToast) window.showSyncToast(`🎯 Found existing ${existingItem.name} in library! Opening for duplicate...`);
+            window.duplicateTackleUI(existingItem.id);
+            const barcodeEl = document.getElementById('tackle-barcode');
+            if (barcodeEl) barcodeEl.value = cleanCode;
+            return true;
+        }
+
+        // 2. Open Add Tackle Modal & pre-fill Barcode
+        window.showAddTackleModal();
+        const barcodeEl = document.getElementById('tackle-barcode');
+        const nameEl = document.getElementById('tackle-name');
+        const brandEl = document.getElementById('tackle-brand');
+        const specEl = document.getElementById('tackle-spec');
+        const typeEl = document.getElementById('tackle-type');
+        const notesEl = document.getElementById('tackle-notes');
+
+        if (barcodeEl) barcodeEl.value = cleanCode;
+        if (nameEl) nameEl.placeholder = "Cross-referencing product details online...";
+
+        // 3. Multi-Database & Gemini AI Tackle Identification Engine
+        try {
+            let productTitle = '';
+            let productBrand = '';
+            let productCategory = '';
+            let productSpec = '';
+            let productNotes = '';
+
+            // Step A: Query UPCitemdb API (millions of sports & fishing items)
+            try {
+                const upcRes = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${cleanCode}`);
+                if (upcRes.ok) {
+                    const upcData = await upcRes.json();
+                    if (upcData && upcData.items && upcData.items.length > 0) {
+                        const item = upcData.items[0];
+                        productTitle = item.title || '';
+                        productBrand = item.brand || '';
+                        productNotes = item.description || '';
+                    }
+                }
+            } catch (e) {}
+
+            // Step B: Query Open Products / Open Food Database
+            if (!productTitle) {
+                try {
+                    const openRes = await fetch(`https://world.openproductsfacts.org/api/v0/product/${cleanCode}.json`);
+                    if (openRes.ok) {
+                        const data = await openRes.json();
+                        if (data && data.product) {
+                            productTitle = data.product.product_name || data.product.generic_name || '';
+                            productBrand = data.product.brands || '';
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            // Step C: Match against Master Fly Tackle Database (tackle_db.js)
+            if (window.TACKLE_DATABASE) {
+                const searchLower = (productTitle + ' ' + productBrand + ' ' + cleanCode).toLowerCase();
+                for (let cat in window.TACKLE_DATABASE) {
+                    const dbCat = window.TACKLE_DATABASE[cat];
+                    if (dbCat.models) {
+                        const found = dbCat.models.find(m => searchLower.includes(m.name.toLowerCase()) || (m.barcode && m.barcode === cleanCode));
+                        if (found) {
+                            if (!productBrand) productBrand = found.brand;
+                            if (!productTitle) productTitle = found.name;
+                            if (!productSpec) productSpec = found.spec;
+                            productCategory = cat;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Step D: Use unified Gemini AI to cross-reference barcode number to brand, model name, and spec
+            let geminiKey = localStorage.getItem('geminiApiKey') || localStorage.getItem('gemini_api_key') || window.DEFAULT_GEMINI_KEY;
+            if (geminiKey) {
+                try {
+                    const aiPrompt = `Identify the fishing equipment/tackle for UPC/Barcode "${cleanCode}"${productTitle ? ` (Online Match: "${productTitle}")` : ''}${productBrand ? ` (Brand: "${productBrand}")` : ''}.
+Classify accurately into one category: "rod", "reel", "flyline", "leader", "tippet", or "fly".
+Identify the Brand, Model Name, and Specification (e.g. 9ft 5wt, WF5F, 4X 6lb, #14 Olive Emerger).
+Respond ONLY in valid JSON format:
+{
+  "category": "rod|reel|flyline|leader|tippet|fly",
+  "brand": "Brand Name",
+  "name": "Model or Product Name",
+  "spec": "Specification / Weight / Hook Size",
+  "notes": "Short description"
+}`;
+                    const modelsToTry = [localStorage.getItem('geminiActiveModel'), 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-flash-latest'].filter(Boolean);
+                    for (const mName of modelsToTry) {
+                        try {
+                            const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${encodeURIComponent(geminiKey)}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    contents: [{ parts: [{ text: aiPrompt }] }],
+                                    generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+                                })
+                            });
+
+                            if (aiRes.ok) {
+                                const aiData = await aiRes.json();
+                                const candidate = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
+                                if (candidate) {
+                                    const parsed = JSON.parse(candidate);
+                                    if (parsed.brand) productBrand = parsed.brand;
+                                    if (parsed.name) productTitle = parsed.name;
+                                    if (parsed.spec) productSpec = parsed.spec;
+                                    if (parsed.category) productCategory = parsed.category;
+                                    if (parsed.notes) productNotes = parsed.notes;
+                                    break;
+                                }
+                            }
+                        } catch (e) {}
+                    }
+                } catch (aiErr) {
+                    console.warn("AI Barcode lookup notice:", aiErr);
+                }
+            }
+
+            // Step E: Populate Form Fields
+            if (productTitle || productBrand) {
+                if (brandEl && productBrand) brandEl.value = productBrand;
+                if (nameEl && productTitle) nameEl.value = productTitle;
+                if (specEl && productSpec) specEl.value = productSpec;
+                if (typeEl && productCategory) typeEl.value = productCategory;
+                if (notesEl && productNotes && !notesEl.value) notesEl.value = productNotes;
+
+                if (window.showSyncToast) window.showSyncToast(`🎯 Identified: ${productBrand} ${productTitle} (${productSpec || productCategory})`);
+                return true;
+            } else if (optionalFile) {
+                // If barcode lookup returned no product title, fallback to Gemini Vision AI on the box image
+                return await window.scanTacklePackageWithAI(optionalFile, cleanCode);
+            } else {
+                if (nameEl) {
+                    nameEl.value = '';
+                    nameEl.placeholder = "Type equipment name...";
+                    nameEl.focus();
+                }
+                if (notesEl && !notesEl.value.includes(cleanCode)) {
+                    notesEl.value = (notesEl.value ? notesEl.value + '\n' : '') + `UPC / Barcode: ${cleanCode}`;
+                }
+                if (window.showSyncToast) window.showSyncToast(`📷 Barcode #${cleanCode} scanned! Ready to save.`);
+                return false;
+            }
+        } catch (e) {
+            console.warn("Barcode lookup network notice:", e);
+            if (nameEl) nameEl.placeholder = "Type equipment name...";
+            return false;
+        }
     };
 };
 
