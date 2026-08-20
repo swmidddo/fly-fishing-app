@@ -2300,6 +2300,7 @@ window.initMainApp = async function() {
 
         elements.modalLogCatch.classList.add('active');
     };
+    window.openLogCatchModal = window.showLogCatchModal;
 
     window.hideLogCatchModal = () => {
         elements.modalLogCatch.classList.remove('active');
