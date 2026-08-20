@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v100920';
+window.APP_VERSION = 'v100930';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -5837,6 +5837,9 @@ window.initMainApp = async function() {
         } catch (err) {
             console.warn("Scan file error:", err);
             if (status) status.innerHTML = `<span style="color: var(--accent-orange);">Could not detect barcode in photo. Please ensure clear focus or enter number below.</span>`;
+        }
+    };
+
     // Pure Photo Capture Trigger (Guaranteed Still Image, Never Video)
     window.triggerTacklePackageCapture = function() {
         const input = document.getElementById('tackle-package-camera-input');
