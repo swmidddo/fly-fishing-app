@@ -437,6 +437,10 @@ const FlyBoxApp = {
         this.renderHatchGuideUI();
         if (window.showSyncToast) window.showSyncToast(`🌊 Auto-synced with live stream conditions (Month: ${now.toLocaleDateString(undefined, {month:'short'})}, Air/Water: ~${temp}°C)!`);
         else alert(`Auto-synced with live stream conditions (Month: ${now.toLocaleDateString(undefined, {month:'short'})}, Air/Water: ~${temp}°C)!`);
+    },
+
+    renderHatchMatcherUI() {
+        this.renderHatchGuideUI();
     }
 };
 

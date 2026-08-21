@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101010';
+window.APP_VERSION = 'v101020';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -376,23 +376,29 @@ window.initMainApp = async function() {
             }
         });
 
-        if (tabId === 'flybox' && window.FlyBoxApp) {
-            window.FlyBoxApp.renderFlyBoxUI();
-            window.FlyBoxApp.renderHatchMatcherUI();
-        } else if (tabId === 'knots' && window.KnotsApp) {
-            window.KnotsApp.renderKnotsUI();
-        } else if (tabId === 'licenses' && typeof renderLicensesList === 'function') {
-            renderLicensesList();
-        } else if (tabId === 'map') {
-            setTimeout(() => {
-                if (window.AppMap && window.AppMap.map) {
-                    if (!window.AppMap.isGoogleMaps) {
-                        window.AppMap.map.invalidateSize();
+        // Safe per-tab render hooks
+        try {
+            if (tabId === 'flybox' && window.FlyBoxApp) {
+                if (typeof window.FlyBoxApp.renderFlyBoxUI === 'function') window.FlyBoxApp.renderFlyBoxUI();
+                if (typeof window.FlyBoxApp.renderHatchGuideUI === 'function') window.FlyBoxApp.renderHatchGuideUI();
+                if (typeof window.recommendFlyPattern === 'function') window.recommendFlyPattern();
+            } else if (tabId === 'knots' && window.KnotsApp) {
+                if (typeof window.KnotsApp.renderKnotsUI === 'function') window.KnotsApp.renderKnotsUI();
+            } else if (tabId === 'licenses' && typeof renderLicensesList === 'function') {
+                renderLicensesList();
+            } else if (tabId === 'map') {
+                setTimeout(() => {
+                    if (window.AppMap && window.AppMap.map) {
+                        if (!window.AppMap.isGoogleMaps) {
+                            window.AppMap.map.invalidateSize();
+                        }
                     }
-                }
-            }, 100);
-        } else if (tabId === 'weather') {
-            drawTideChart();
+                }, 100);
+            } else if (tabId === 'weather') {
+                if (typeof drawTideChart === 'function') drawTideChart();
+            }
+        } catch (tabHookErr) {
+            console.warn(`Tab hook notice for "${tabId}":`, tabHookErr);
         }
     };
 
