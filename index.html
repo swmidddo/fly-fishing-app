@@ -17,7 +17,7 @@
         // Backcountry Offline PWA Service Worker Registration
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=101000')
+                navigator.serviceWorker.register('sw.js?v=101010')
                     .then(function(reg) {
                         console.log('[Backcountry SW] Registered successfully with scope:', reg.scope);
                         window.__BACKCOUNTRY_SW_ACTIVE__ = true;
@@ -265,7 +265,7 @@
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
-                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v101000</span>
+                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v101010</span>
                     </div>
                 </div>
             </div>
@@ -854,6 +854,77 @@
                     </div>
                 </div>
 
+                <!-- Solunar Feeding Times & 7-Day Peak Bite Prediction Calendar -->
+                <div class="card glass mb-20" style="border-left: 4px solid #a3e635; padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                        <div>
+                            <h3 style="margin: 0; font-size: 18px; display: flex; align-items: center; gap: 8px;">
+                                <span>🎣</span> Solunar Feeding Times &amp; 7-Day Peak Bite Calendar
+                            </h3>
+                            <p style="font-size: 12px; color: var(--text-secondary); margin: 3px 0 0 0;">
+                                Astronomical lunar transit calculations &amp; barometric feeding spikes for river and estuary gamefish.
+                            </p>
+                        </div>
+                        <span id="solunar-hero-badge" class="badge" style="background: rgba(163, 230, 53, 0.15); color: #a3e635; border: 1px solid #a3e635; font-size: 12px; font-weight: 700; padding: 6px 12px;">
+                            🔥 Prime Solunar Day (94%)
+                        </span>
+                    </div>
+
+                    <!-- Selected Day Summary Card -->
+                    <div id="solunar-selected-day-banner" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span id="solunar-selected-moon-icon" style="font-size: 32px;">🌕</span>
+                                <div>
+                                    <strong id="solunar-selected-day-title" style="font-size: 15px; color: var(--text-primary);">Today's Feeding Outlook</strong>
+                                    <span id="solunar-selected-moon-phase" style="display: block; font-size: 11.5px; color: var(--accent-teal);">Full Moon (100% Illumination)</span>
+                                </div>
+                            </div>
+                            <div id="solunar-live-status-pill" style="font-size: 12px; background: rgba(46, 213, 115, 0.15); color: #2ed573; border-radius: 20px; padding: 4px 12px; font-weight: 600;">
+                                🟢 Active Feeding Window
+                            </div>
+                        </div>
+
+                        <!-- 4 Feeding Windows Grid -->
+                        <div id="solunar-windows-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 14px;">
+                            <!-- Populated dynamically -->
+                        </div>
+
+                        <!-- 24-Hour Solunar Feeding Activity Timeline -->
+                        <div style="margin-top: 14px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;">
+                                <span><b>24-Hour Feeding Intensity Heatmap</b></span>
+                                <span>Hover/tap bar for exact hour %</span>
+                            </div>
+                            <div id="solunar-timeline-bars" style="display: flex; align-items: flex-end; gap: 3px; height: 55px; background: rgba(0,0,0,0.3); border-radius: 8px; padding: 6px 8px; border: 1px solid rgba(255,255,255,0.05);">
+                                <!-- Populated dynamically -->
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 9.5px; color: var(--text-secondary); margin-top: 4px; padding: 0 4px;">
+                                <span>12 AM</span>
+                                <span>4 AM</span>
+                                <span>8 AM</span>
+                                <span>12 PM</span>
+                                <span>4 PM</span>
+                                <span>8 PM</span>
+                                <span>11 PM</span>
+                            </div>
+                        </div>
+
+                        <!-- Tactical Advice -->
+                        <div id="solunar-tactic-box" style="margin-top: 12px; background: rgba(163, 230, 53, 0.08); border-left: 3px solid #a3e635; border-radius: 6px; padding: 10px 12px; font-size: 12px; color: #e2e8f0;">
+                            💡 <b>Tactical River Tip:</b> Target holding pools &amp; bubble lines during major transit windows.
+                        </div>
+                    </div>
+
+                    <!-- 7-Day Solunar Calendar Cards Horizontal Strip -->
+                    <h4 style="margin: 0 0 10px 0; font-size: 13px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">
+                        📅 7-Day Solunar Forecast &amp; Trip Planner (Tap any day to inspect)
+                    </h4>
+                    <div id="solunar-7day-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
+                        <!-- Populated dynamically with 7 day cards -->
+                    </div>
+                </div>
+
                 <div class="weather-detailed-grid">
                     <!-- Forecast Details -->
                     <div class="card glass card-forecast-detail">
@@ -1387,7 +1458,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
                             <div>
                                 <strong style="font-size: 13px; color: var(--text-primary);">Installed Version:</strong>
-                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101000 (Latest Build)</span>
+                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101010 (Latest Build)</span>
                             </div>
                             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                                 <button class="btn btn-glass btn-sm" id="btn-precache-backcountry" onclick="window.downloadFullBackcountryPack()">
@@ -2107,16 +2178,16 @@
     <!-- Scripts -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
-    <script src="db.js?v=101000"></script>
-    <script src="regulations.js?v=101000"></script>
-    <script src="weather.js?v=101000"></script>
-    <script src="exif.js?v=101000"></script>
-    <script src="map.js?v=101000"></script>
-    <script src="tackle_db.js?v=101000"></script>
-    <script src="fish_db.js?v=101000"></script>
-    <script src="fly_box.js?v=101000"></script>
-    <script src="knots.js?v=101000"></script>
-    <script src="auth.js?v=101000"></script>
-    <script src="app.js?v=101000"></script>
+    <script src="db.js?v=101010"></script>
+    <script src="regulations.js?v=101010"></script>
+    <script src="weather.js?v=101010"></script>
+    <script src="exif.js?v=101010"></script>
+    <script src="map.js?v=101010"></script>
+    <script src="tackle_db.js?v=101010"></script>
+    <script src="fish_db.js?v=101010"></script>
+    <script src="fly_box.js?v=101010"></script>
+    <script src="knots.js?v=101010"></script>
+    <script src="auth.js?v=101010"></script>
+    <script src="app.js?v=101010"></script>
 </body>
 </html>

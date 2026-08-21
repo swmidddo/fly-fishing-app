@@ -1109,6 +1109,41 @@ const WEATHER = {
         };
     },
 
+    // 7-Day Solunar Feeding & Peak Bite Prediction Calendar Engine
+    get7DaySolunarForecast(lat = -25.27, lon = 133.77, startDate = new Date()) {
+        const days = [];
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const fullDayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
+            const solunar = this.getSolunarData(date, lat, lon, 1016);
+            const dayName = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : dayNames[date.getDay()];
+            const fullDayName = fullDayNames[date.getDay()];
+            const dateFormatted = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+
+            let tactic = "Match active hatches with standard nymphs & dries.";
+            if (solunar.score >= 85) {
+                tactic = "Target predatory gamefish with aggressive streamers and big dry flies during Major windows.";
+            } else if (solunar.score >= 70) {
+                tactic = "Focus on riffles, drop-offs, and foam lines around Major and Minor transit periods.";
+            } else if (solunar.score < 55) {
+                tactic = "Technical slow bite: Downsize tippet to 6X/7X and dead-drift micro-midges or soft hackles.";
+            }
+
+            days.push({
+                dayIndex: i,
+                dayName,
+                fullDayName,
+                dateFormatted,
+                dateObj: date,
+                solunar,
+                tactic
+            });
+        }
+        return days;
+    },
+
     async fetchHistoricalWeather(lat, lon, dateStr, timeStr) {
         // Find if date is in the past (more than 7 days ago, we use archive-api. Otherwise we use forecast api)
         const dateObj = new Date(dateStr);

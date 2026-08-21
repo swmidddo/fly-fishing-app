@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101000';
+window.APP_VERSION = 'v101010';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -3203,7 +3203,7 @@ window.initMainApp = async function() {
         if (elements.moonDetailedPhase) elements.moonDetailedPhase.textContent = moon.label;
         if (elements.moonDetailedIllum) elements.moonDetailedIllum.textContent = `${moon.illumination}% Illumination`;
 
-        if (elements.tideEventsList) {
+            if (elements.tideEventsList) {
             elements.tideEventsList.innerHTML = '';
             tides.nextEvents.forEach(e => {
                 const cls = e.type === 'High' ? 'high-tide' : 'low-tide';
@@ -3214,6 +3214,177 @@ window.initMainApp = async function() {
                     </li>
                 `);
             });
+        }
+
+        // Render Interactive Solunar Feeding Times & 7-Day Peak Bite Calendar
+        renderSolunarInteractiveCalendar(lat, lon);
+    }
+
+    let currentSolunarForecast = null;
+    let selectedSolunarDayIndex = 0;
+
+    window.selectSolunarDay = function(dayIndex) {
+        selectedSolunarDayIndex = dayIndex;
+        if (currentSolunarForecast && currentSolunarForecast[dayIndex]) {
+            renderSolunarSelectedDay(currentSolunarForecast[dayIndex]);
+            updateSolunarCalendarActiveCards(dayIndex);
+        }
+    };
+
+    function renderSolunarInteractiveCalendar(lat, lon) {
+        if (!window.WEATHER || typeof window.WEATHER.get7DaySolunarForecast !== 'function') return;
+        
+        currentSolunarForecast = window.WEATHER.get7DaySolunarForecast(lat, lon, new Date());
+        if (!currentSolunarForecast || currentSolunarForecast.length === 0) return;
+
+        // Render 7-Day cards
+        const cardsContainer = document.getElementById('solunar-7day-cards');
+        if (cardsContainer) {
+            cardsContainer.innerHTML = currentSolunarForecast.map((day, idx) => {
+                const isSelected = idx === selectedSolunarDayIndex;
+                const score = day.solunar.score;
+                const badgeColor = score >= 85 ? '#a3e635' : score >= 70 ? '#34d399' : score >= 50 ? '#60a5fa' : '#fbbf24';
+                const activeBorder = isSelected ? 'border: 2px solid #a3e635; background: rgba(163, 230, 53, 0.12);' : 'border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.25);';
+
+                return `
+                    <div class="solunar-day-card" onclick="window.selectSolunarDay(${idx})" style="padding: 10px; border-radius: 10px; ${activeBorder} cursor: pointer; text-align: center; transition: all 0.2s ease;">
+                        <div style="font-size: 11px; font-weight: 700; color: ${isSelected ? '#a3e635' : 'var(--text-primary)'}; text-transform: uppercase;">${day.dayName}</div>
+                        <div style="font-size: 9.5px; color: var(--text-secondary); margin-bottom: 6px;">${day.dateFormatted}</div>
+                        <div style="font-size: 24px; line-height: 1; margin-bottom: 4px;">${day.solunar.moonIcon}</div>
+                        <span class="badge" style="background: rgba(0,0,0,0.4); color: ${badgeColor}; border: 1px solid ${badgeColor}; font-size: 10px; font-weight: 700; padding: 2px 6px;">
+                            ${day.solunar.ratingIcon} ${score}%
+                        </span>
+                        <div style="font-size: 9px; color: var(--text-secondary); margin-top: 6px;">
+                            ${day.solunar.majorWindows[0].start}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        renderSolunarSelectedDay(currentSolunarForecast[selectedSolunarDayIndex] || currentSolunarForecast[0]);
+    }
+
+    function updateSolunarCalendarActiveCards(selectedIndex) {
+        const cards = document.querySelectorAll('.solunar-day-card');
+        cards.forEach((card, idx) => {
+            if (idx === selectedIndex) {
+                card.style.border = '2px solid #a3e635';
+                card.style.background = 'rgba(163, 230, 53, 0.12)';
+            } else {
+                card.style.border = '1px solid rgba(255,255,255,0.08)';
+                card.style.background = 'rgba(0,0,0,0.25)';
+            }
+        });
+    }
+
+    function renderSolunarSelectedDay(dayData) {
+        if (!dayData) return;
+        const solunar = dayData.solunar;
+
+        const heroBadge = document.getElementById('solunar-hero-badge');
+        if (heroBadge) {
+            heroBadge.innerHTML = `${solunar.ratingIcon} ${solunar.rating} Solunar Day (${solunar.score}%)`;
+            heroBadge.style.color = solunar.score >= 85 ? '#a3e635' : solunar.score >= 70 ? '#34d399' : '#60a5fa';
+            heroBadge.style.borderColor = heroBadge.style.color;
+        }
+
+        const dayTitle = document.getElementById('solunar-selected-day-title');
+        if (dayTitle) {
+            dayTitle.textContent = `${dayData.dayName} (${dayData.fullDayName}, ${dayData.dateFormatted}) - ${solunar.rating} Bite Index (${solunar.score}%)`;
+        }
+
+        const moonIcon = document.getElementById('solunar-selected-moon-icon');
+        if (moonIcon) moonIcon.textContent = solunar.moonIcon;
+
+        const moonPhase = document.getElementById('solunar-selected-moon-phase');
+        if (moonPhase) {
+            moonPhase.textContent = `${solunar.moonPhase} • ${solunar.moonIllum}% Illumination • Transit: ${solunar.moonTransit}`;
+        }
+
+        // Live Status Pill
+        const statusPill = document.getElementById('solunar-live-status-pill');
+        if (statusPill) {
+            const now = new Date();
+            const curHour = now.getHours() + (now.getMinutes() / 60);
+            const isToday = dayData.dayIndex === 0;
+            
+            if (isToday) {
+                const inMajor = solunar.majorWindows.some(w => {
+                    return Math.abs(curHour - (w.startDecimal || 12)) < 1.0;
+                });
+                const inMinor = solunar.minorWindows.some(w => {
+                    return Math.abs(curHour - (w.startDecimal || 12)) < 0.5;
+                });
+
+                if (inMajor) {
+                    statusPill.innerHTML = `🔥 IN ACTIVE MAJOR FEEDING WINDOW`;
+                    statusPill.style.background = 'rgba(239, 68, 68, 0.2)';
+                    statusPill.style.color = '#f87171';
+                } else if (inMinor) {
+                    statusPill.innerHTML = `🟢 IN MINOR FEEDING WINDOW`;
+                    statusPill.style.background = 'rgba(46, 213, 115, 0.2)';
+                    statusPill.style.color = '#2ed573';
+                } else {
+                    statusPill.innerHTML = `⏳ Standby (Next Major at ${solunar.majorWindows[0].start})`;
+                    statusPill.style.background = 'rgba(255, 255, 255, 0.08)';
+                    statusPill.style.color = 'var(--text-secondary)';
+                }
+            } else {
+                statusPill.innerHTML = `📅 ${dayData.dayName} Trip Target`;
+                statusPill.style.background = 'rgba(0, 210, 255, 0.15)';
+                statusPill.style.color = 'var(--accent-teal)';
+            }
+        }
+
+        // 4 Feeding Windows Grid
+        const windowsGrid = document.getElementById('solunar-windows-grid');
+        if (windowsGrid && solunar.majorWindows && solunar.minorWindows) {
+            windowsGrid.innerHTML = `
+                <div style="background: rgba(163, 230, 53, 0.08); border: 1px solid rgba(163, 230, 53, 0.3); border-radius: 8px; padding: 10px;">
+                    <div style="font-size: 11px; color: #a3e635; font-weight: 700; text-transform: uppercase;">🌕 Major 1 (Overhead)</div>
+                    <div style="font-size: 14px; font-weight: 700; color: #fff; margin-top: 2px;">${solunar.majorWindows[0].start} - ${solunar.majorWindows[0].end}</div>
+                    <div style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">Peak 2-Hour Feeding Spike</div>
+                </div>
+                <div style="background: rgba(163, 230, 53, 0.08); border: 1px solid rgba(163, 230, 53, 0.3); border-radius: 8px; padding: 10px;">
+                    <div style="font-size: 11px; color: #a3e635; font-weight: 700; text-transform: uppercase;">🌑 Major 2 (Underfoot)</div>
+                    <div style="font-size: 14px; font-weight: 700; color: #fff; margin-top: 2px;">${solunar.majorWindows[1].start} - ${solunar.majorWindows[1].end}</div>
+                    <div style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">Opposite Hemisphere Transit</div>
+                </div>
+                <div style="background: rgba(0, 210, 255, 0.08); border: 1px solid rgba(0, 210, 255, 0.25); border-radius: 8px; padding: 10px;">
+                    <div style="font-size: 11px; color: var(--accent-teal); font-weight: 700; text-transform: uppercase;">🌅 Minor 1 (Moonrise)</div>
+                    <div style="font-size: 14px; font-weight: 700; color: #fff; margin-top: 2px;">${solunar.minorWindows[0].start} - ${solunar.minorWindows[0].end}</div>
+                    <div style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">1-Hour Activity Rise</div>
+                </div>
+                <div style="background: rgba(0, 210, 255, 0.08); border: 1px solid rgba(0, 210, 255, 0.25); border-radius: 8px; padding: 10px;">
+                    <div style="font-size: 11px; color: var(--accent-teal); font-weight: 700; text-transform: uppercase;">🌇 Minor 2 (Moonset)</div>
+                    <div style="font-size: 14px; font-weight: 700; color: #fff; margin-top: 2px;">${solunar.minorWindows[1].start} - ${solunar.minorWindows[1].end}</div>
+                    <div style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">1-Hour Dusk/Dawn Window</div>
+                </div>
+            `;
+        }
+
+        // Timeline Bars
+        const timelineBars = document.getElementById('solunar-timeline-bars');
+        if (timelineBars && solunar.hourlyTimeline && solunar.hourlyTimeline.length > 0) {
+            timelineBars.innerHTML = solunar.hourlyTimeline.map(item => {
+                const heightPct = Math.max(15, Math.min(100, item.activity));
+                let barColor = 'rgba(0, 210, 255, 0.3)';
+                if (item.activity >= 85) barColor = '#a3e635';
+                else if (item.activity >= 70) barColor = '#34d399';
+                else if (item.activity >= 50) barColor = '#60a5fa';
+
+                const borderStyle = (dayData.dayIndex === 0 && item.isCurrentHour) ? 'border: 1.5px solid #fff; box-shadow: 0 0 8px #fff;' : '';
+                return `
+                    <div style="flex: 1; height: ${heightPct}%; background: ${barColor}; border-radius: 2px 2px 0 0; ${borderStyle} transition: height 0.3s ease;" title="${item.label}: ${item.activity}% Feeding Activity${(dayData.dayIndex === 0 && item.isCurrentHour) ? ' (CURRENT LIVE HOUR)' : ''}"></div>
+                `;
+            }).join('');
+        }
+
+        // Tactic Box
+        const tacticBox = document.getElementById('solunar-tactic-box');
+        if (tacticBox) {
+            tacticBox.innerHTML = `💡 <b>Tactical River &amp; Estuary Advice:</b> ${dayData.tactic}`;
         }
     }
 

@@ -2386,5 +2386,11 @@ body.high-contrast-mode .badge {
     100% { transform: translateY(-60px); opacity: 0.2; }
 }
 
+.solunar-day-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(163, 230, 53, 0.2);
+    border-color: #a3e635 !important;
+}
+
 
 
