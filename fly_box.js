@@ -519,6 +519,405 @@ window.recommendFlyPattern = function() {
     `;
 };
 
+// =========================================================================
+// 🔬 GEMINI AI "MATCH THE HATCH" & ENTOMOLOGY LENS ENGINE
+// =========================================================================
+
+// Image compressor helper for AI Vision
+async function resizeHatchImage(file, maxDimension = 1200) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            img.onload = () => {
+                let w = img.width;
+                let h = img.height;
+                if (w > maxDimension || h > maxDimension) {
+                    if (w > h) {
+                        h = Math.round((h * maxDimension) / w);
+                        w = maxDimension;
+                    } else {
+                        w = Math.round((w * maxDimension) / h);
+                        h = maxDimension;
+                    }
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                resolve({ base64: dataUrl.split(',')[1], dataUrl });
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+// Trigger Camera or File Picker
+window.triggerHatchPhotoCapture = function(isCamera = false) {
+    const inputId = isCamera ? 'hatch-camera-input' : 'hatch-gallery-input';
+    const input = document.getElementById(inputId);
+    if (input) {
+        input.value = '';
+        input.click();
+    }
+};
+
+// Handle Photo File Upload
+window.handleHatchPhotoUpload = async function(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    await window.analyzeHatchPhotoWithAI(file);
+};
+
+// Analyze insect photograph via Gemini Multimodal Vision API
+window.analyzeHatchPhotoWithAI = async function(file) {
+    const resultContainer = document.getElementById('hatch-ai-result-card');
+    if (!resultContainer) return;
+
+    // Show animated scanning state
+    resultContainer.style.display = 'block';
+    resultContainer.innerHTML = `
+        <div style="text-align: center; padding: 30px 20px;">
+            <div class="spinner" style="margin: 0 auto 15px auto; width: 44px; height: 44px; border: 3px solid rgba(0, 210, 255, 0.2); border-top-color: var(--accent-teal); border-radius: 50%; animation: spin 1s infinite linear;"></div>
+            <h4 style="margin: 0; font-size: 16px; color: var(--text-primary);">🤖 Gemini AI Analyzing Insect Specimen...</h4>
+            <p style="font-size: 12.5px; color: var(--text-secondary); margin: 6px 0 0 0;">
+                Identifying aquatic order, life stage (nymph/emerger/dun/spinner), and cross-referencing fly box patterns...
+            </p>
+        </div>
+    `;
+
+    try {
+        const { base64, dataUrl } = await resizeHatchImage(file, 1200);
+
+        // Retrieve Gemini API Key
+        let geminiKey = localStorage.getItem('geminiApiKey') || localStorage.getItem('gemini_api_key') || window.DEFAULT_GEMINI_KEY;
+        if (!geminiKey) {
+            try {
+                const resp = await fetch('session_backup.json');
+                if (resp.ok) {
+                    const backup = await resp.json();
+                    if (backup && backup.settings && backup.settings.geminiApiKey) {
+                        geminiKey = backup.settings.geminiApiKey.trim();
+                        if (geminiKey) localStorage.setItem('geminiApiKey', geminiKey);
+                    }
+                }
+            } catch(e){}
+        }
+
+        if (!geminiKey) {
+            alert("Please add your Gemini API key in Settings (or connect your account) to use AI Match the Hatch.");
+            window.renderAIHatchOfflineFallback(dataUrl);
+            return;
+        }
+
+        const prompt = `You are an expert aquatic entomologist and master fly fishing guide specializing in Australian (Snowy Mountains, Victoria High Country, Tasmania, Murrumbidgee, Eucumbene) and global trout/bass/fly fishing waters.
+Examine this photograph of an insect, aquatic nymph, riverbed larva, mayfly dun/spinner, caddis, midge, stonefly, beetle, grasshopper, mudeye, or baitfish.
+
+Identify the following with maximum entomological precision:
+1. commonName: Common species or hatch name (e.g. "Kosciuszko Dun / Highland Mayfly", "Snowflake Caddis", "March Brown", "Blue-Winged Olive", "Australian Gum Beetle", "Black Spinner", "Zebra Midge", "Mudeye Dragonfly Nymph", "Galaxias Minnow")
+2. scientificOrder: Scientific Order and Family (e.g. "Ephemeroptera (Mayfly)", "Trichoptera (Caddis)", "Plecoptera (Stonefly)", "Diptera (Midge)", "Coleoptera (Beetle)", "Orthoptera (Grasshopper/Cicada)", "Odonata (Mudeye)")
+3. lifeStage: Exactly one of "Nymph", "Larva", "Pupa", "Emerger", "Dun (Subimago)", "Spinner (Spent)", "Adult Terrestrial", "Forage / Baitfish"
+4. sizeMm: Approximate length (e.g. "10mm - 14mm")
+5. colorProfile: Color description (e.g. "Mottled olive-brown body, pale smoky dun upright wings, amber legs")
+6. matchedFlyPattern: The standard imitation fly pattern (e.g. "Kosciuszko Dun / Parachute Adams", "Pheasant Tail Nymph (Tungsten)", "Elk Hair Caddis", "Gum Beetle Foam", "Copper John", "Gold Ribbed Hare's Ear", "Zebra Midge", "Woolly Bugger")
+7. category: Exactly one of "Dry Fly", "Nymph", "Streamer", "Saltwater"
+8. hookSize: Recommended hook size range (e.g. "#14 - #16")
+9. tippet: Recommended tippet size and material (e.g. "5X Nylon Monofilament (4.75 lb)" or "5X Fluorocarbon")
+10. presentationTip: Riverbank tactical advice on drift, depth, or retrieve (e.g. "Dead drift along surface foam lines as duns dry their wings before taking flight.")
+11. confidence: Confidence percentage string (e.g. "95%")
+12. icon: Single emoji icon representing the insect (e.g. "🦟", "🦋", "🪱", "🪲", "🦗", "🦎", "🐟")
+
+Respond ONLY with valid JSON matching this exact format:
+{
+  "commonName": "Kosciuszko Dun",
+  "scientificOrder": "Ephemeroptera (Mayfly)",
+  "lifeStage": "Dun (Subimago)",
+  "sizeMm": "12mm",
+  "colorProfile": "Olive-dun abdomen with translucent upright wings",
+  "matchedFlyPattern": "Kosciuszko Dun / Parachute Adams",
+  "category": "Dry Fly",
+  "hookSize": "#14",
+  "tippet": "5X Nylon (4.75 lb)",
+  "presentationTip": "Dead-drift on surface foam lines as duns ride the water drying their wings.",
+  "confidence": "96%",
+  "icon": "🦟"
+}`;
+
+        const activeModel = localStorage.getItem('geminiActiveModel');
+        const modelsToTry = [activeModel, 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-flash-latest', 'gemini-pro-latest'].filter(Boolean);
+        const tried = new Set();
+        let parsedResult = null;
+
+        for (const modelName of modelsToTry) {
+            if (tried.has(modelName)) continue;
+            tried.add(modelName);
+
+            try {
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(geminiKey)}`;
+                const res = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [
+                                { text: prompt },
+                                {
+                                    inline_data: {
+                                        mime_type: "image/jpeg",
+                                        data: base64
+                                    }
+                                }
+                            ]
+                        }],
+                        generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (text) {
+                        try {
+                            parsedResult = JSON.parse(text);
+                        } catch(e) {
+                            const jsonMatch = text.match(/\{[\s\S]*\}/);
+                            if (jsonMatch) parsedResult = JSON.parse(jsonMatch[0]);
+                        }
+                        if (parsedResult) break;
+                    }
+                }
+            } catch(mErr) {
+                console.warn(`Hatch AI model ${modelName} notice:`, mErr);
+            }
+        }
+
+        if (parsedResult) {
+            window.renderAIHatchResult(parsedResult, dataUrl);
+            if (window.showSyncToast) window.showSyncToast(`🎯 AI Hatch Match: ${parsedResult.commonName} (${parsedResult.confidence})`);
+        } else {
+            window.renderAIHatchOfflineFallback(dataUrl);
+        }
+    } catch(err) {
+        console.error("AI Hatch Matcher exception:", err);
+        window.renderAIHatchOfflineFallback(null);
+    }
+};
+
+// Render AI Entomology Analysis Card
+window.renderAIHatchResult = function(data, photoUrl = null) {
+    const resultContainer = document.getElementById('hatch-ai-result-card');
+    if (!resultContainer) return;
+
+    // Check if user already owns this fly pattern in their Fly Box
+    const userFlies = FlyBoxApp.flies || [];
+    const basePatternName = (data.matchedFlyPattern || '').split('/')[0].trim().toLowerCase();
+    const isStockedInBox = userFlies.some(f => f.name.toLowerCase().includes(basePatternName) || basePatternName.includes(f.name.toLowerCase()));
+
+    const cleanFlyName = (data.matchedFlyPattern || 'Parachute Adams').split('/')[0].trim();
+    const cleanHookSize = (data.hookSize || '#14').split('-')[0].trim();
+
+    resultContainer.style.display = 'block';
+    resultContainer.innerHTML = `
+        <div class="card glass shadow-lg" style="border-left: 4px solid var(--accent-teal); border-top: 1px solid rgba(0, 210, 255, 0.3); padding: 20px; background: rgba(15, 28, 48, 0.95); position: relative;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    ${photoUrl ? `<img src="${photoUrl}" alt="Specimen" style="width: 64px; height: 64px; border-radius: 12px; object-fit: cover; border: 2px solid var(--accent-teal); box-shadow: 0 4px 12px rgba(0,0,0,0.5);">` : `<span style="font-size: 42px;">${data.icon || '🦟'}</span>`}
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <h3 style="margin: 0; font-size: 19px; color: var(--text-primary);">${data.commonName}</h3>
+                            <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #34d399; font-size: 11px; font-weight: 700;">
+                                🎯 ${data.confidence || '95%'} Match
+                            </span>
+                        </div>
+                        <div style="font-size: 12px; color: var(--accent-teal); font-weight: 600; margin-top: 3px;">
+                            ${data.scientificOrder} • <span style="color: #cbd5e1;">Stage: <b>${data.lifeStage}</b></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 6px;">
+                    <button class="btn btn-sm btn-glass" onclick="window.triggerHatchPhotoCapture(true)" style="font-size: 11.5px;">📸 Scan Another</button>
+                    <button class="btn btn-sm btn-glass" onclick="document.getElementById('hatch-ai-result-card').style.display='none'" style="font-size: 11.5px;">✖ Close</button>
+                </div>
+            </div>
+
+            <!-- Insect Specimen Breakdown -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 16px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 12px;">
+                <div>
+                    <span style="font-size: 10.5px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; display: block;">📏 Specimen Size:</span>
+                    <strong style="font-size: 13px; color: var(--text-primary);">${data.sizeMm || '~12mm'}</strong>
+                </div>
+                <div>
+                    <span style="font-size: 10.5px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; display: block;">🎨 Color Profile:</span>
+                    <strong style="font-size: 12px; color: #cbd5e1;">${data.colorProfile || 'Olive / Dun'}</strong>
+                </div>
+                <div>
+                    <span style="font-size: 10.5px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; display: block;">📦 Fly Box Status:</span>
+                    ${isStockedInBox ? `<span class="badge badge-active" style="font-size: 11px; background: rgba(46, 213, 115, 0.15); color: #2ed573; border: 1px solid #2ed573;">✅ In Your Fly Box</span>` : `<span class="badge" style="font-size: 11px; background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid #f59e0b;">⚠️ Not Stocked Yet</span>`}
+                </div>
+            </div>
+
+            <!-- Matched Fly Recommendation Card -->
+            <div style="background: linear-gradient(135deg, rgba(0, 210, 255, 0.1), rgba(0, 114, 255, 0.08)); border: 1.5px solid var(--accent-teal); border-radius: 12px; padding: 16px; margin-bottom: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 8px;">
+                    <div>
+                        <span style="font-size: 11px; color: var(--accent-teal); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">✨ Recommended Imitation Fly Pattern:</span>
+                        <div style="font-size: 18px; font-weight: 700; color: #ffffff; margin-top: 2px;">
+                            ${data.icon || '🪰'} ${data.matchedFlyPattern}
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <span class="badge" style="background: rgba(163, 230, 53, 0.15); color: #a3e635; border: 1px solid #a3e635; padding: 5px 10px; font-size: 12px; font-weight: 600;">
+                            🎣 Hook: ${data.hookSize || '#14'}
+                        </span>
+                        <span class="badge" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-blue); border: 1px solid var(--accent-blue); padding: 5px 10px; font-size: 12px; font-weight: 600;">
+                            💡 Tippet: ${data.tippet || '5X Nylon'}
+                        </span>
+                    </div>
+                </div>
+
+                <p style="font-size: 12.5px; color: #e2e8f0; margin: 8px 0 0 0; line-height: 1.4;">
+                    🎯 <b>Tactical River Presentation:</b> ${data.presentationTip || 'Dead drift on surface foam lines.'}
+                </p>
+            </div>
+
+            <!-- Action Buttons -->
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end;">
+                <button class="btn btn-glass" onclick="window.selectHatchFlyForCatchLog('${cleanFlyName}', '${cleanHookSize}')" style="display: flex; align-items: center; gap: 6px;">
+                    <span>🎣</span> Log Catch with this Fly
+                </button>
+                <button class="btn btn-primary" onclick="FlyBoxApp.quickAddFromHatch('${cleanFlyName}', '${data.category || 'Dry Fly'}', '${cleanHookSize}', '${data.presentationTip || data.commonName}')" style="display: flex; align-items: center; gap: 6px;">
+                    <span>➕</span> Stock Pattern in My Fly Box
+                </button>
+            </div>
+        </div>
+    `;
+};
+
+// Offline Fallback for AI Hatch Matcher
+window.renderAIHatchOfflineFallback = function(photoUrl = null) {
+    const resultContainer = document.getElementById('hatch-ai-result-card');
+    if (!resultContainer) return;
+
+    // Use current month hatch recommendation from local database
+    const currentMonth = new Date().getMonth() + 1;
+    const localHatch = AQUATIC_INSECT_HATCHES.find(h => h.months.includes(currentMonth)) || AQUATIC_INSECT_HATCHES[0];
+    const topStage = localHatch.stages[0];
+
+    resultContainer.style.display = 'block';
+    resultContainer.innerHTML = `
+        <div class="card glass shadow-lg" style="border-left: 4px solid #f59e0b; padding: 18px; background: rgba(15, 28, 48, 0.95);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 32px;">${localHatch.icon}</span>
+                    <div>
+                        <h3 style="margin: 0; font-size: 17px; color: var(--text-primary);">${localHatch.name} (Seasonal Match)</h3>
+                        <span style="font-size: 11.5px; color: var(--accent-teal); font-weight: 600;">${localHatch.order} • Offline Heuristic Engine</span>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-glass" onclick="document.getElementById('hatch-ai-result-card').style.display='none'">✖ Close</button>
+            </div>
+            <p style="font-size: 12.5px; color: var(--text-secondary); margin: 0 0 12px 0;">
+                Connected to offline backcountry guide. Active seasonal hatch for current month (${new Date().toLocaleDateString(undefined, {month:'short'})}):
+            </p>
+            <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+                <strong style="color: var(--accent-teal); font-size: 14px;">Recommended Fly: ${topStage.pattern} (${topStage.sizes})</strong>
+                <p style="font-size: 12px; color: #cbd5e1; margin: 4px 0 0 0;">🎯 ${topStage.tip} • Tippet: ${topStage.tippet}</p>
+            </div>
+            <div style="text-align: right;">
+                <button class="btn btn-primary btn-sm" onclick="FlyBoxApp.quickAddFromHatch('${topStage.pattern.split('/')[0].trim()}', 'Dry Fly', '${topStage.sizes.split('-')[0].trim()}', '${topStage.tip}')">
+                    ➕ Stock in Fly Box
+                </button>
+            </div>
+        </div>
+    `;
+};
+
+// Helper to prefill Catch Log modal with selected match
+window.selectHatchFlyForCatchLog = function(flyName, hookSize) {
+    if (window.showLogCatchModal) {
+        window.showLogCatchModal();
+        setTimeout(() => {
+            const flyInput = document.getElementById('catch-fly-used') || document.getElementById('catch-fly');
+            if (flyInput) {
+                flyInput.value = `${flyName} (${hookSize || '#14'})`;
+            }
+        }, 150);
+        if (window.showSyncToast) window.showSyncToast(`🎣 Pre-selected "${flyName}" for your catch log!`);
+    }
+};
+
+// Quick sample specimen loader for testing AI Hatch Matcher
+window.loadSampleHatchSpecimen = function(specimenKey) {
+    const specimens = {
+        kosciusko_dun: {
+            commonName: "Kosciuszko Dun (Highland Mayfly)",
+            scientificOrder: "Ephemeroptera (Coloburiscidae)",
+            lifeStage: "Dun (Subimago)",
+            sizeMm: "12mm - 14mm",
+            colorProfile: "Mottled olive-grey body, dark veins on smoky upright wings",
+            matchedFlyPattern: "Kosciuszko Dun / Parachute Adams",
+            category: "Dry Fly",
+            hookSize: "#12 - #14",
+            tippet: "5X Nylon Monofilament (4.75 lb)",
+            presentationTip: "Dead-drift on surface foam lines and bubble seams as duns dry their wings before taking flight.",
+            confidence: "97%",
+            icon: "🦟"
+        },
+        snowflake_caddis: {
+            commonName: "Snowflake Caddis (Evening Sedge)",
+            scientificOrder: "Trichoptera (Hydropsychidae)",
+            lifeStage: "Adult (Sedge)",
+            sizeMm: "10mm - 12mm",
+            colorProfile: "Tent-shaped ginger-tan mottled wings, pale amber legs",
+            matchedFlyPattern: "Elk Hair Caddis / Snowflake Caddis",
+            category: "Dry Fly",
+            hookSize: "#14 - #16",
+            tippet: "5X Nylon Monofilament (4.75 lb)",
+            presentationTip: "Skate or twitch across fast current riffles during dusk rises to trigger predatory strikes.",
+            confidence: "95%",
+            icon: "🦋"
+        },
+        gum_beetle: {
+            commonName: "Australian Gum Beetle",
+            scientificOrder: "Coleoptera (Scarabaeidae)",
+            lifeStage: "Adult Terrestrial",
+            sizeMm: "8mm - 11mm",
+            colorProfile: "Iridescent metallic green-bronze hard shell, dark brown underbody",
+            matchedFlyPattern: "Gum Beetle Foam / Red Tag Dry",
+            category: "Dry Fly",
+            hookSize: "#14 - #16",
+            tippet: "5X Nylon Monofilament (4.75 lb)",
+            presentationTip: "Cast tight under overhanging eucalyptus gum trees with distinct 'plop' landing.",
+            confidence: "98%",
+            icon: "🪲"
+        },
+        pheasant_nymph: {
+            commonName: "Mayfly Crawler Nymph",
+            scientificOrder: "Ephemeroptera (Leptophlebiidae)",
+            lifeStage: "Nymph (Riverbed Crawler)",
+            sizeMm: "8mm - 12mm",
+            colorProfile: "Dark brown mottled thorax, copper ribbing, tungsten bead",
+            matchedFlyPattern: "Pheasant Tail Nymph (Tungsten) / Frenchie",
+            category: "Nymph",
+            hookSize: "#14 - #18",
+            tippet: "5X - 6X Fluorocarbon (4.5 - 5.5 lb)",
+            presentationTip: "Euro-nymph deep gravel runs and boulder seams along the bottom substrate.",
+            confidence: "96%",
+            icon: "🪱"
+        }
+    };
+
+    const specimen = specimens[specimenKey] || specimens.kosciusko_dun;
+    window.renderAIHatchResult(specimen, null);
+    if (window.showSyncToast) window.showSyncToast(`🔬 Loaded sample specimen: ${specimen.commonName}`);
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         if (window.FlyBoxApp) window.FlyBoxApp.init();
