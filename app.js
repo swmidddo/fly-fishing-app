@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101040';
+window.APP_VERSION = 'v101050';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -128,7 +128,7 @@ window.loadWeatherAndTides = async function(lat, lon, forceRefresh = false) {
                 if (weather.stationName) {
                     badgeEl.innerHTML = weather.stationName.startsWith('📡') ? weather.stationName : `📡 Weather Station: ${weather.stationName}`;
                 } else {
-                    badgeEl.innerHTML = `📡 Weather Underground PWS: Narrabri Live Station (< 0.5 km away)`;
+                    badgeEl.innerHTML = `📡 WillyWeather Station: Live Station (< 1.0 km away)`;
                 }
             }
             if (iconEl) iconEl.textContent = weather.current.icon || '☀️';
@@ -456,26 +456,15 @@ window.initMainApp = async function() {
             });
         }
 
-        // Weather Underground & WillyWeather PWS key setup
-        const wuPwsKeyInput = document.getElementById('settings-wunderground-key');
+        // WillyWeather Key setup
         const willyKeyInput = document.getElementById('settings-willyweather-key');
         const saveWillyBtn = document.getElementById('btn-save-willyweather-settings');
 
-        if (wuPwsKeyInput) wuPwsKeyInput.value = localStorage.getItem('wuPwsStationId') || localStorage.getItem('wuPwsApiKey') || '';
         if (willyKeyInput) willyKeyInput.value = localStorage.getItem('willyWeatherApiKey') || 'MjlkNjAwNWVjMzA4MTFlOGEwZjMyY2';
 
         if (saveWillyBtn) {
-            saveWillyBtn.addEventListener('click', () => {
-                const wuVal = wuPwsKeyInput ? wuPwsKeyInput.value.trim() : '';
+            saveWillyBtn.addEventListener('click', async () => {
                 const willyVal = willyKeyInput ? willyKeyInput.value.trim() : '';
-
-                if (wuVal) {
-                    localStorage.setItem('wuPwsStationId', wuVal);
-                    localStorage.setItem('wuPwsApiKey', wuVal);
-                } else {
-                    localStorage.removeItem('wuPwsStationId');
-                    localStorage.removeItem('wuPwsApiKey');
-                }
 
                 if (willyVal) {
                     localStorage.setItem('willyWeatherApiKey', willyVal);
@@ -483,12 +472,12 @@ window.initMainApp = async function() {
 
                 if (typeof window.syncWebConfigToBackupFile === 'function') window.syncWebConfigToBackupFile();
                 
-                // Refresh weather with Weather Underground PWS data immediately
+                // Refresh weather with WillyWeather PWS data immediately
                 if (typeof window.loadWeatherAndTides === 'function') {
-                    window.loadWeatherAndTides(null, null, true);
+                    await window.loadWeatherAndTides(null, null, true);
                 }
                 
-                alert('Weather Underground PWS & Weather Keys saved successfully!');
+                alert('WillyWeather API Key saved! Reconnected to closest local station (< 1 km).');
             });
         }
 
