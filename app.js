@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101060';
+window.APP_VERSION = 'v101070';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -729,36 +729,59 @@ window.initMainApp = async function() {
 
     // 3. Location Tracking (GPS & Location Manager)
     window.requestGpsLocation = function() {
-        const fallbackLat = -30.3622; // Default Narrabri NSW Coords
+        const fallbackLat = -30.3622; // Default Australian Inland Fallback Coords
         const fallbackLon = 149.8336;
 
-        // Retrieve last saved location or default to exact Narrabri coords
         const savedCoordsStr = localStorage.getItem('user_last_coords');
         const isCustom = localStorage.getItem('user_is_custom_location') === 'true';
         AppState.isCustomLocation = isCustom;
 
-        const saved = savedCoordsStr ? JSON.parse(savedCoordsStr) : { lat: fallbackLat, lng: fallbackLon };
-        AppState.userCoords = saved;
-        const savedState = getStateFromCoords(saved.lat, saved.lng);
-
-        // Instantly display active GPS badge on startup matching online format
-        const initialLabel = isCustom ? `📍 Loc: ${saved.lat.toFixed(4)}, ${saved.lng.toFixed(4)} (${savedState})` : `📍 GPS: ${saved.lat.toFixed(4)}, ${saved.lng.toFixed(4)} (${savedState})`;
-        updateGpsStatus(true, initialLabel);
-
-        // IMMEDIATELY load weather & tides with active/saved coordinates so UI NEVER hangs!
-        if (typeof window.loadWeatherAndTides === 'function') {
-            window.loadWeatherAndTides(saved.lat, saved.lng);
-        } else if (typeof loadWeatherAndTides === 'function') {
-            loadWeatherAndTides(saved.lat, saved.lng);
+        // 1. Pinned Custom Inspection Mode: Restore user's pinned destination immediately
+        if (isCustom && savedCoordsStr) {
+            try {
+                const saved = JSON.parse(savedCoordsStr);
+                AppState.userCoords = saved;
+                const savedState = getStateFromCoords(saved.lat, saved.lng);
+                updateGpsStatus(true, `📍 Pinned: ${saved.lat.toFixed(4)}, ${saved.lng.toFixed(4)} (${savedState})`);
+                if (typeof window.loadWeatherAndTides === 'function') {
+                    window.loadWeatherAndTides(saved.lat, saved.lng);
+                }
+                console.log("[Location Engine] Custom inspection location restored:", saved);
+                return;
+            } catch(e){}
         }
 
-        if (isCustom) {
-            console.log("[Location Engine] Custom inspection location active. Background GPS auto-override disabled.");
-            return;
+        // 2. Warm Cache Start if previous user coordinates exist
+        let hasWarmCoords = false;
+        if (savedCoordsStr) {
+            try {
+                const saved = JSON.parse(savedCoordsStr);
+                if (saved && saved.lat && saved.lng) {
+                    AppState.userCoords = saved;
+                    const savedState = getStateFromCoords(saved.lat, saved.lng);
+                    updateGpsStatus(true, `📍 GPS: ${saved.lat.toFixed(4)}, ${saved.lng.toFixed(4)} (${savedState})`);
+                    if (typeof window.loadWeatherAndTides === 'function') {
+                        window.loadWeatherAndTides(saved.lat, saved.lng);
+                    }
+                    hasWarmCoords = true;
+                }
+            } catch(e){}
+        }
+
+        if (!hasWarmCoords) {
+            updateGpsStatus(true, `📍 Acquiring Live GPS...`);
+            const badgeEl = document.getElementById('dash-weather-station-badge');
+            if (badgeEl) badgeEl.innerHTML = `📡 Locating Local BOM Weather Station...`;
         }
 
         if (!navigator.geolocation) {
-            console.warn("Geolocation API unavailable. Using active location.");
+            console.warn("Geolocation API unavailable. Using fallback location.");
+            if (!hasWarmCoords) {
+                AppState.userCoords = { lat: fallbackLat, lng: fallbackLon };
+                if (typeof window.loadWeatherAndTides === 'function') {
+                    window.loadWeatherAndTides(fallbackLat, fallbackLon);
+                }
+            }
             return;
         }
 
@@ -799,11 +822,13 @@ window.initMainApp = async function() {
             if (gpsResolved) return;
             gpsResolved = true;
             console.warn("Geolocation request notice:", err);
-            updateGpsStatus(true, `📍 GPS: ${saved.lat.toFixed(4)}, ${saved.lng.toFixed(4)} (${savedState})`);
-            if (typeof window.loadWeatherAndTides === 'function') {
-                window.loadWeatherAndTides(saved.lat, saved.lng);
-            } else if (typeof loadWeatherAndTides === 'function') {
-                loadWeatherAndTides(saved.lat, saved.lng);
+            if (!hasWarmCoords) {
+                AppState.userCoords = { lat: fallbackLat, lng: fallbackLon };
+                const st = getStateFromCoords(fallbackLat, fallbackLon);
+                updateGpsStatus(true, `📍 GPS: ${fallbackLat.toFixed(4)}, ${fallbackLon.toFixed(4)} (${st})`);
+                if (typeof window.loadWeatherAndTides === 'function') {
+                    window.loadWeatherAndTides(fallbackLat, fallbackLon);
+                }
             }
         };
 
