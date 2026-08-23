@@ -17,7 +17,7 @@
         // Backcountry Offline PWA Service Worker Registration
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=101030')
+                navigator.serviceWorker.register('sw.js?v=101040')
                     .then(function(reg) {
                         console.log('[Backcountry SW] Registered successfully with scope:', reg.scope);
                         window.__BACKCOUNTRY_SW_ACTIVE__ = true;
@@ -265,7 +265,7 @@
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
-                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v101030</span>
+                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v101040</span>
                     </div>
                 </div>
             </div>
@@ -313,7 +313,7 @@
                 </button>
             </nav>
             <div class="sidebar-footer">
-                <div class="gps-indicator" id="gps-status" title="Click to set or change your location" style="cursor: pointer;" onclick="if(window.promptChangeLocation){window.promptChangeLocation();}else if(window.requestGpsLocation){window.requestGpsLocation();}">
+                <div class="gps-indicator" id="gps-status" title="Click to set or change your location" style="cursor: pointer;" onclick="window.openLocationModal()">
                     <span class="pulse-dot green"></span>
                     <span class="gps-text">📍 GPS: -30.3622, 149.8336 (NSW)</span>
                 </div>
@@ -371,7 +371,7 @@
                     <div class="card glass shadow-lg card-weather-summary">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                             <h3 style="margin: 0;">Local Weather</h3>
-                            <button class="btn btn-glass btn-sm" onclick="window.promptChangeLocation()" style="font-size: 11px; padding: 3px 8px;">📍 Location</button>
+                            <button class="btn btn-glass btn-sm" onclick="window.openLocationModal()" style="font-size: 11px; padding: 3px 8px;">📍 Location</button>
                         </div>
                         <div id="dash-weather-station-badge" style="font-size: 11px; color: var(--accent-teal); font-weight: 600; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                             📡 PWS: Narrabri Airport (0.5 km away)
@@ -1501,7 +1501,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
                             <div>
                                 <strong style="font-size: 13px; color: var(--text-primary);">Installed Version:</strong>
-                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101030 (Latest Build)</span>
+                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101040 (Latest Build)</span>
                             </div>
                             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                                 <button class="btn btn-glass btn-sm" id="btn-precache-backcountry" onclick="window.downloadFullBackcountryPack()">
@@ -2150,6 +2150,132 @@
         </div>
     </div>
 
+    <!-- Dedicated Location & GPS Manager Modal -->
+    <div class="modal" id="modal-location-manager" style="display: none;">
+        <div class="modal-content glass" style="max-width: 620px; max-height: 90vh; overflow-y: auto; padding: 24px;">
+            <span class="modal-close" onclick="window.closeLocationModal()">&times;</span>
+            
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+                <span style="font-size: 28px;">📍</span>
+                <div>
+                    <h2 style="margin: 0; font-size: 20px;">Fishing Location &amp; GPS Manager</h2>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin: 2px 0 0 0;">
+                        Set your active fishing river, lake, or coastline for live weather, solunar feeding times, radar &amp; maps.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Active Coordinates Banner -->
+            <div id="loc-current-banner" style="background: rgba(0, 210, 255, 0.08); border: 1px solid var(--accent-teal); border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <div style="font-size: 11px; color: var(--accent-teal); font-weight: 700; text-transform: uppercase;">Current Active Location:</div>
+                    <div style="font-size: 14px; font-weight: 700; color: var(--text-primary); margin-top: 2px;" id="loc-active-name-coords">
+                        📍 Narrabri NSW (-30.3622, 149.8336)
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-acquire-gps" onclick="window.acquireLiveGpsLocation()" style="display: flex; align-items: center; gap: 6px; box-shadow: 0 0 12px rgba(0, 210, 255, 0.4);">
+                    <span>🎯</span> Use Live GPS
+                </button>
+            </div>
+
+            <!-- Search Autocomplete Input -->
+            <div style="margin-bottom: 18px;">
+                <label style="font-size: 11.5px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 6px;">
+                    🔍 Search Australian Town, River, Lake, or Postcode:
+                </label>
+                <div style="position: relative;">
+                    <input type="text" id="loc-search-input" class="form-input" placeholder="e.g. Jindabyne, Eucumbene, Goulburn River, Bright, Narrabri..." oninput="window.searchLocationAutocomplete(this.value)" autocomplete="off">
+                    <div id="loc-search-spinner" style="display: none; position: absolute; right: 12px; top: 12px; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2); border-top-color: var(--accent-teal); border-radius: 50%; animation: spin 1s infinite linear;"></div>
+                </div>
+                <!-- Search Results Dropdown List -->
+                <div id="loc-search-results" style="display: none; background: rgba(15, 23, 42, 0.98); border: 1px solid var(--accent-teal); border-radius: 8px; margin-top: 6px; max-height: 180px; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.6);">
+                    <!-- Dynamically populated -->
+                </div>
+            </div>
+
+            <!-- Famous Australian Fly Fishing Hotspots (Quick Presets) -->
+            <div style="margin-bottom: 18px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label style="font-size: 11.5px; font-weight: 700; color: var(--accent-teal); text-transform: uppercase; letter-spacing: 0.5px;">
+                        🔥 1-Click Australian Fly Fishing Hotspots:
+                    </label>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <!-- Snowy Mountains & NSW Highlands -->
+                    <div>
+                        <span style="font-size: 10.5px; color: #94a3b8; font-weight: 600;">🏔️ Snowy Mountains &amp; Alpine Waters:</span>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-35.9890, 148.6517, 'Lake Eucumbene (Adaminaby NSW)')" style="font-size: 11px; padding: 4px 8px;">Lake Eucumbene</button>
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-36.4172, 148.6214, 'Lake Jindabyne (NSW)')" style="font-size: 11px; padding: 4px 8px;">Lake Jindabyne</button>
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-36.5028, 148.3056, 'Thredbo River (Alpine NSW)')" style="font-size: 11px; padding: 4px 8px;">Thredbo River</button>
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-35.3039, 148.2227, 'Tumut River (Blowering NSW)')" style="font-size: 11px; padding: 4px 8px;">Tumut River</button>
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-36.2239, 148.1278, 'Swampy Plains River (Khancoban)')" style="font-size: 11px; padding: 4px 8px;">Swampy Plains</button>
+                        </div>
+                    </div>
+
+                    <!-- Victoria High Country -->
+                    <div>
+                        <span style="font-size: 10.5px; color: #94a3b8; font-weight: 600;">🌲 Victoria High Country &amp; Tailwaters:</span>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-37.2344, 145.9133, 'Goulburn River (Eildon VIC)')" style="font-size: 11px; padding: 4px 8px;">Goulburn River (Eildon)</button>
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-36.7289, 146.9600, 'Ovens River (Bright VIC)')" style="font-size: 11px; padding: 4px 8px;">Ovens River (Bright)</button>
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-37.3117, 145.8344, 'Rubicon River (Thornton VIC)')" style="font-size: 11px; padding: 4px 8px;">Rubicon River</button>
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-36.5333, 147.3667, 'Mitta Mitta River (VIC)')" style="font-size: 11px; padding: 4px 8px;">Mitta Mitta</button>
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-36.7417, 147.1667, 'Kiewa River (Mt Beauty VIC)')" style="font-size: 11px; padding: 4px 8px;">Kiewa River</button>
+                        </div>
+                    </div>
+
+                    <!-- Tasmania Highland Trout -->
+                    <div>
+                        <span style="font-size: 10.5px; color: #94a3b8; font-weight: 600;">🛶 Tasmania Highland Waters:</span>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-41.9750, 146.7167, 'Great Lake (Miena TAS)')" style="font-size: 11px; padding: 4px 8px;">Great Lake (Miena)</button>
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-41.9833, 146.9500, 'Arthurs Lake (TAS)')" style="font-size: 11px; padding: 4px 8px;">Arthurs Lake</button>
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-41.8333, 146.4667, 'Western Lakes (19 Lagoons TAS)')" style="font-size: 11px; padding: 4px 8px;">Western Lakes</button>
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-41.5167, 147.2500, 'South Esk River (TAS)')" style="font-size: 11px; padding: 4px 8px;">South Esk River</button>
+                        </div>
+                    </div>
+
+                    <!-- NSW Inland & Northern Rivers -->
+                    <div>
+                        <span style="font-size: 10.5px; color: #94a3b8; font-weight: 600;">🌾 NSW Inland &amp; Northern Waters:</span>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-30.3622, 149.8336, 'Namoi River (Narrabri NSW)')" style="font-size: 11px; padding: 4px 8px;">Namoi / Narrabri</button>
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-33.4193, 149.5775, 'Macquarie River (Bathurst NSW)')" style="font-size: 11px; padding: 4px 8px;">Macquarie River</button>
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-30.5130, 151.6681, 'New England Trout Streams (Armidale NSW)')" style="font-size: 11px; padding: 4px 8px;">New England Streams</button>
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-31.0905, 150.9320, 'Peel River (Tamworth NSW)')" style="font-size: 11px; padding: 4px 8px;">Peel River</button>
+                        </div>
+                    </div>
+
+                    <!-- Estuary & Saltwater Flats -->
+                    <div>
+                        <span style="font-size: 10.5px; color: #94a3b8; font-weight: 600;">🌊 Estuary &amp; Saltwater Flats:</span>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-33.8688, 151.2093, 'Sydney Harbour / Middle Harbour (NSW)')" style="font-size: 11px; padding: 4px 8px;">Sydney Harbour</button>
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-33.0833, 151.6333, 'Lake Macquarie / Swansea (NSW)')" style="font-size: 11px; padding: 4px 8px;">Lake Macquarie</button>
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-36.8972, 149.9000, 'Merimbula Estuary Flats (NSW)')" style="font-size: 11px; padding: 4px 8px;">Merimbula Flats</button>
+                            <button type="button" class="btn btn-sm btn-glass" onclick="window.applyLocationCoordinates(-27.9500, 153.4167, 'Gold Coast Broadwater (QLD)')" style="font-size: 11px; padding: 4px 8px;">Gold Coast Flats</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manual Custom Coordinates & Map Action -->
+            <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 14px;">
+                <label style="font-size: 11.5px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 8px;">
+                    📐 Custom GPS Coordinates (Backcountry / Secret Mark):
+                </label>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                    <input type="number" id="loc-custom-lat" class="form-input" placeholder="Latitude (e.g. -36.4172)" step="0.0001" style="flex: 1; min-width: 140px;">
+                    <input type="number" id="loc-custom-lng" class="form-input" placeholder="Longitude (e.g. 148.6214)" step="0.0001" style="flex: 1; min-width: 140px;">
+                    <button type="button" class="btn btn-glass" onclick="window.applyCustomCoords()">Apply Coords</button>
+                    <button type="button" class="btn btn-glass" onclick="window.pickLocationOnMap()" title="Switch to Map tab to pin location">🗺️ Pick on Map</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Mobile Slide-Out Navigation Drawer Backdrop & Sheet (Option 1 Header Navigation) -->
     <div id="mobile-nav-backdrop" class="mobile-drawer-backdrop" onclick="window.toggleMobileNavDrawer(false)"></div>
     <div id="mobile-nav-drawer" class="mobile-drawer-sheet">
@@ -2207,7 +2333,7 @@
                 <span class="mobile-drawer-icon">⚙️</span>
                 <span class="mobile-drawer-label">Settings</span>
             </button>
-            <button class="mobile-drawer-card" onclick="window.promptChangeLocation(); window.toggleMobileNavDrawer(false);">
+            <button class="mobile-drawer-card" onclick="window.openLocationModal(); window.toggleMobileNavDrawer(false);">
                 <span class="mobile-drawer-icon">📍</span>
                 <span class="mobile-drawer-label">Set Location</span>
             </button>
@@ -2221,16 +2347,16 @@
     <!-- Scripts -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
-    <script src="db.js?v=101030"></script>
-    <script src="regulations.js?v=101030"></script>
-    <script src="weather.js?v=101030"></script>
-    <script src="exif.js?v=101030"></script>
-    <script src="map.js?v=101030"></script>
-    <script src="tackle_db.js?v=101030"></script>
-    <script src="fish_db.js?v=101030"></script>
-    <script src="fly_box.js?v=101030"></script>
-    <script src="knots.js?v=101030"></script>
-    <script src="auth.js?v=101030"></script>
-    <script src="app.js?v=101030"></script>
+    <script src="db.js?v=101040"></script>
+    <script src="regulations.js?v=101040"></script>
+    <script src="weather.js?v=101040"></script>
+    <script src="exif.js?v=101040"></script>
+    <script src="map.js?v=101040"></script>
+    <script src="tackle_db.js?v=101040"></script>
+    <script src="fish_db.js?v=101040"></script>
+    <script src="fly_box.js?v=101040"></script>
+    <script src="knots.js?v=101040"></script>
+    <script src="auth.js?v=101040"></script>
+    <script src="app.js?v=101040"></script>
 </body>
 </html>

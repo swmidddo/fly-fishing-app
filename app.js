@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101030';
+window.APP_VERSION = 'v101040';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -3726,53 +3726,270 @@ window.initMainApp = async function() {
         }, 1500);
     };
 
-    window.promptChangeLocation = async function() {
-        const input = prompt("Enter an Australian town, suburb, or postcode for WillyWeather (or type 'gps' to lock exact GPS location):");
-        if (!input || !input.trim()) return;
+    // =========================================================================
+    // 📍 DEDICATED LOCATION & GPS MANAGER ENGINE
+    // =========================================================================
 
-        const query = input.trim();
-        if (query.toLowerCase() === 'gps') {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        const lat = pos.coords.latitude;
-                        const lng = pos.coords.longitude;
-                        AppState.userCoords = { lat, lng };
-                        localStorage.setItem('user_last_coords', JSON.stringify({ lat, lng }));
-                        loadWeatherAndTides(lat, lng, true);
-                    },
-                    (err) => alert("GPS lock failed: " + err.message)
-                );
-            } else {
-                alert("Geolocation is not supported by your browser.");
+    // Curated Australian Fly Fishing Locations Fast Directory (Instant Offline Geocoding)
+    const AUSTRALIAN_FISHING_DIRECTORIES = [
+        { name: "Lake Eucumbene (Adaminaby)", state: "NSW", lat: -35.9890, lng: 148.6517, desc: "Trophy brown & rainbow trout lake" },
+        { name: "Lake Jindabyne", state: "NSW", lat: -36.4172, lng: 148.6214, desc: "Snowy Mountains trout lake" },
+        { name: "Thredbo River", state: "NSW", lat: -36.5028, lng: 148.3056, desc: "Alpine freestone river & spawning run" },
+        { name: "Tumut River (Blowering)", state: "NSW", lat: -35.3039, lng: 148.2227, desc: "Cold tailwater drift boat river" },
+        { name: "Swampy Plains River (Khancoban)", state: "NSW", lat: -36.2239, lng: 148.1278, desc: "Fast freestone alpine river" },
+        { name: "Namoi River (Narrabri)", state: "NSW", lat: -30.3622, lng: 149.8336, desc: "Murray Cod & Yellowbelly native river" },
+        { name: "Macquarie River (Bathurst)", state: "NSW", lat: -33.4193, lng: 149.5775, desc: "Central tablelands trout & cod" },
+        { name: "Peel River (Tamworth)", state: "NSW", lat: -31.0905, lng: 150.9320, desc: "Northern inland native fishery" },
+        { name: "New England Streams (Armidale)", state: "NSW", lat: -30.5130, lng: 151.6681, desc: "Highland trout streams & gorges" },
+        { name: "Sydney Harbour / Middle Harbour", state: "NSW", lat: -33.8688, lng: 151.2093, desc: "Kingfish, Australian salmon & flats" },
+        { name: "Lake Macquarie (Swansea)", state: "NSW", lat: -33.0833, lng: 151.6333, desc: "Estuary flats, flathead & bream" },
+        { name: "Merimbula Estuary Flats", state: "NSW", lat: -36.8972, lng: 149.9000, desc: "South coast sight casting flats" },
+        { name: "Goulburn River (Eildon)", state: "VIC", lat: -37.2344, lng: 145.9133, desc: "Premier Victorian trout tailwater" },
+        { name: "Ovens River (Bright)", state: "VIC", lat: -36.7289, lng: 146.9600, desc: "High country freestone trout stream" },
+        { name: "Rubicon River (Thornton)", state: "VIC", lat: -37.3117, lng: 145.8344, desc: "Famous mayfly dry fly river" },
+        { name: "Mitta Mitta River", state: "VIC", lat: -36.5333, lng: 147.3667, desc: "Dartmouth tailwater trout run" },
+        { name: "Kiewa River (Mt Beauty)", state: "VIC", lat: -36.7417, lng: 147.1667, desc: "Alpine valley stream" },
+        { name: "Great Lake (Miena)", state: "TAS", lat: -41.9750, lng: 146.7167, desc: "Tasmanian highland midge & beetle rises" },
+        { name: "Arthurs Lake", state: "TAS", lat: -41.9833, lng: 146.9500, desc: "Highland brown trout lake" },
+        { name: "Western Lakes (19 Lagoons)", state: "TAS", lat: -41.8333, lng: 146.4667, desc: "Wilderness sight-fishing polaroiding" },
+        { name: "South Esk River", state: "TAS", lat: -41.5167, lng: 147.2500, desc: "Northern Tasmanian river" },
+        { name: "Gold Coast Broadwater", state: "QLD", lat: -27.9500, lng: 153.4167, desc: "Sub-tropical flats & trevally" },
+        { name: "Cairns Inlet / Russell River", state: "QLD", lat: -16.9200, lng: 145.7700, desc: "Tropical saltwater & jungle perch" },
+        { name: "Darwin Harbour", state: "NT", lat: -12.4634, lng: 130.8456, desc: "Barramundi & queenfish tidal flats" }
+    ];
+
+    window.openLocationModal = function() {
+        const modal = document.getElementById('modal-location-manager');
+        if (!modal) return;
+
+        // Populate current active location
+        const coords = AppState.userCoords || { lat: -30.3622, lng: 149.8336 };
+        const stateStr = getStateFromCoords(coords.lat, coords.lng);
+        const nameEl = document.getElementById('loc-active-name-coords');
+        if (nameEl) {
+            nameEl.textContent = `📍 ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)} (${stateStr})`;
+        }
+
+        // Prefill custom coordinate inputs
+        const customLat = document.getElementById('loc-custom-lat');
+        const customLng = document.getElementById('loc-custom-lng');
+        if (customLat) customLat.value = coords.lat.toFixed(4);
+        if (customLng) customLng.value = coords.lng.toFixed(4);
+
+        // Clear search
+        const searchInput = document.getElementById('loc-search-input');
+        if (searchInput) searchInput.value = '';
+        const searchResults = document.getElementById('loc-search-results');
+        if (searchResults) {
+            searchResults.innerHTML = '';
+            searchResults.style.display = 'none';
+        }
+
+        modal.style.display = 'flex';
+    };
+
+    window.closeLocationModal = function() {
+        const modal = document.getElementById('modal-location-manager');
+        if (modal) modal.style.display = 'none';
+    };
+
+    window.promptChangeLocation = window.openLocationModal;
+
+    // Apply chosen coordinates across the entire application
+    window.applyLocationCoordinates = async function(lat, lng, localityName = null) {
+        if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) {
+            alert("Invalid coordinates. Please enter valid latitude and longitude numbers.");
+            return;
+        }
+
+        lat = parseFloat(lat);
+        lng = parseFloat(lng);
+
+        AppState.userCoords = { lat, lng };
+        localStorage.setItem('user_last_coords', JSON.stringify({ lat, lng }));
+
+        const st = getStateFromCoords(lat, lng);
+        const label = localityName ? `${localityName} (${st})` : `📍 GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)} (${st})`;
+
+        updateGpsStatus(true, `📍 GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)} (${st})`);
+
+        const bannerNameEl = document.getElementById('loc-active-name-coords');
+        if (bannerNameEl) bannerNameEl.textContent = `📍 ${localityName || `${lat.toFixed(4)}, ${lng.toFixed(4)}`} (${st})`;
+
+        // Update dashboard weather station text
+        const stationBadge = document.getElementById('dash-weather-station-badge');
+        if (stationBadge) {
+            stationBadge.textContent = `📡 Locality: ${localityName || `${lat.toFixed(4)}, ${lng.toFixed(4)}`}`;
+        }
+
+        // Close modal
+        window.closeLocationModal();
+
+        // Update Map position & center
+        if (window.AppMap && window.AppMap.map) {
+            window.AppMap.updateUserLocation(lat, lng);
+            if (typeof window.AppMap.reCenter === 'function') window.AppMap.reCenter();
+        }
+
+        // Reload Weather, Tides, Solunar and Radar
+        if (typeof window.loadWeatherAndTides === 'function') {
+            await window.loadWeatherAndTides(lat, lng, true);
+        }
+
+        if (window.showSyncToast) {
+            window.showSyncToast(`📍 Location updated: ${localityName || `${lat.toFixed(4)}, ${lng.toFixed(4)}`}!`);
+        }
+    };
+
+    // Live GPS button handler
+    window.acquireLiveGpsLocation = function() {
+        const btn = document.getElementById('btn-acquire-gps');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<span>⏳</span> Locking GPS...`;
+        }
+
+        if (!navigator.geolocation) {
+            alert("Geolocation is not supported by your browser/device.");
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<span>🎯</span> Use Live GPS`;
             }
             return;
         }
 
-        try {
-            const apiKey = localStorage.getItem('willyWeatherApiKey') || 'MjlkNjAwNWVjMzA4MTFlOGEwZjMyY2';
-            const searchUrl = `https://api.willyweather.com.au/v2/${apiKey}/search.json?query=${encodeURIComponent(query)}`;
-            const res = await window.WEATHER.willyFetch(searchUrl);
-            if (res.ok) {
-                const data = await res.json();
-                let chosen = null;
-                if (Array.isArray(data) && data.length > 0) chosen = data[0];
-                else if (data && data.location) chosen = data.location;
+        navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<span>🎯</span> Use Live GPS`;
+                }
+                await window.applyLocationCoordinates(lat, lng, "Live Device GPS");
+            },
+            (err) => {
+                console.warn("GPS acquire notice:", err);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<span>🎯</span> Use Live GPS`;
+                }
+                alert("GPS location failed or permission denied: " + err.message + "\nPlease select a town or hotspot from the list below.");
+            },
+            { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+        );
+    };
 
-                if (chosen && chosen.lat != null && chosen.lng != null) {
-                    const lat = chosen.lat;
-                    const lng = chosen.lng;
-                    AppState.userCoords = { lat, lng };
-                    localStorage.setItem('user_last_coords', JSON.stringify({ lat, lng }));
-                    await loadWeatherAndTides(lat, lng, true);
-                    alert(`Connected to WillyWeather: ${chosen.name || query}!`);
-                } else {
-                    alert(`Could not find WillyWeather location for '${query}'. Please try another town name.`);
+    // Live search autocomplete with debouncing
+    let locSearchTimer = null;
+    window.searchLocationAutocomplete = function(query) {
+        if (locSearchTimer) clearTimeout(locSearchTimer);
+        const resultsEl = document.getElementById('loc-search-results');
+        const spinner = document.getElementById('loc-search-spinner');
+
+        if (!query || query.trim().length < 2) {
+            if (resultsEl) {
+                resultsEl.innerHTML = '';
+                resultsEl.style.display = 'none';
+            }
+            if (spinner) spinner.style.display = 'none';
+            return;
+        }
+
+        if (spinner) spinner.style.display = 'block';
+
+        locSearchTimer = setTimeout(async () => {
+            const cleanQuery = query.trim().toLowerCase();
+            const matches = [];
+
+            // 1. Search Built-in Curated Directory
+            for (const item of AUSTRALIAN_FISHING_DIRECTORIES) {
+                if (item.name.toLowerCase().includes(cleanQuery) || item.state.toLowerCase().includes(cleanQuery) || item.desc.toLowerCase().includes(cleanQuery)) {
+                    matches.push({
+                        name: item.name,
+                        state: item.state,
+                        lat: item.lat,
+                        lng: item.lng,
+                        sub: item.desc
+                    });
                 }
             }
-        } catch (e) {
-            console.error("Location search failed:", e);
-            alert("Error connecting to WillyWeather search.");
+
+            // 2. Query Open-Meteo Free Geocoding API (Worldwide + Australia)
+            try {
+                const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query.trim())}&count=6&language=en&format=json`;
+                const res = await fetch(geoUrl);
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json && json.results && Array.isArray(json.results)) {
+                        for (const r of json.results) {
+                            const isDup = matches.some(m => Math.abs(m.lat - r.latitude) < 0.05 && Math.abs(m.lng - r.longitude) < 0.05);
+                            if (!isDup) {
+                                matches.push({
+                                    name: r.name,
+                                    state: r.admin1 || r.country || 'AU',
+                                    lat: r.latitude,
+                                    lng: r.longitude,
+                                    sub: `${r.country || 'Australia'} (${r.latitude.toFixed(3)}, ${r.longitude.toFixed(3)})`
+                                });
+                            }
+                        }
+                    }
+                }
+            } catch(e) {
+                console.warn("Geocoding API notice:", e);
+            }
+
+            if (spinner) spinner.style.display = 'none';
+
+            if (!resultsEl) return;
+
+            if (matches.length === 0) {
+                resultsEl.innerHTML = `
+                    <div style="padding: 12px; font-size: 12px; color: var(--text-secondary); text-align: center;">
+                        No matching locations found. Try searching for a nearby town or enter coordinates below.
+                    </div>
+                `;
+                resultsEl.style.display = 'block';
+                return;
+            }
+
+            resultsEl.innerHTML = matches.map(m => `
+                <div class="loc-search-item" onclick="window.applyLocationCoordinates(${m.lat}, ${m.lng}, '${m.name.replace(/'/g, "\\'")} ${m.state}')" style="padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.06); cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;" onmouseover="this.style.background='rgba(0, 210, 255, 0.15)'" onmouseout="this.style.background='transparent'">
+                    <div>
+                        <strong style="font-size: 13px; color: var(--text-primary); display: block;">📍 ${m.name}</strong>
+                        <span style="font-size: 11px; color: var(--accent-teal);">${m.state} • ${m.sub || ''}</span>
+                    </div>
+                    <span class="badge" style="font-size: 10px; background: rgba(0, 210, 255, 0.12); color: var(--accent-blue);">Select</span>
+                </div>
+            `).join('');
+            resultsEl.style.display = 'block';
+        }, 250);
+    };
+
+    // Apply custom coordinates from number inputs
+    window.applyCustomCoords = function() {
+        const latInput = document.getElementById('loc-custom-lat');
+        const lngInput = document.getElementById('loc-custom-lng');
+        if (!latInput || !lngInput) return;
+
+        const lat = parseFloat(latInput.value);
+        const lng = parseFloat(lngInput.value);
+
+        if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+            alert("Please enter valid decimal coordinates (Latitude -90 to 90, Longitude -180 to 180).");
+            return;
+        }
+
+        window.applyLocationCoordinates(lat, lng, "Custom GPS Coordinates");
+    };
+
+    // Pick location on interactive map
+    window.pickLocationOnMap = function() {
+        window.closeLocationModal();
+        window.switchTab('map');
+        if (window.showSyncToast) {
+            window.showSyncToast("🗺️ Map opened! Drag the map or tap to set your fishing spot.");
         }
     };
 
