@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101100';
+window.APP_VERSION = 'v101110';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -4143,20 +4143,6 @@ window.initMainApp = async function() {
     });
 
     function initSettings() {
-        const roboflowInput = document.getElementById('settings-roboflow-key');
-        const btnSaveRoboflow = document.getElementById('btn-save-roboflow-settings');
-        
-        if (roboflowInput) {
-            roboflowInput.value = localStorage.getItem('roboflowApiKey') || '';
-        }
-        if (btnSaveRoboflow && roboflowInput) {
-            btnSaveRoboflow.addEventListener('click', () => {
-                const val = roboflowInput.value.trim();
-                localStorage.setItem('roboflowApiKey', val);
-                alert("Roboflow API Key saved successfully!");
-            });
-        }
-
         // WillyWeather Settings
         const willyInput = document.getElementById('settings-willyweather-key');
         const btnSaveWilly = document.getElementById('btn-save-willyweather-settings');
@@ -5279,7 +5265,6 @@ window.initMainApp = async function() {
             }
         }, 9000);
 
-        let roboflowKey = (localStorage.getItem('roboflowApiKey') || '').trim();
         let geminiKey = (localStorage.getItem('geminiApiKey') || window.DEFAULT_GEMINI_KEY || '').trim();
 
         // Render interactive visual AI candidate chips
@@ -5552,62 +5537,7 @@ window.initMainApp = async function() {
             console.warn("iNaturalist Vision API note:", inatErr);
         }
 
-        // 3. Query Roboflow Computer Vision AI
-        if (roboflowKey && roboflowKey.length > 5) {
-            try {
-                if (statusLabel) statusLabel.textContent = "👁️ 3/3 Querying Roboflow Computer Vision AI...";
-                let base64Data = photoSrc.startsWith('data:image') ? photoSrc.split(',')[1] : null;
-                if (!base64Data && photoSrc) {
-                    base64Data = await new Promise((resolve) => {
-                        const timeout = setTimeout(() => resolve(null), 2500);
-                        convertImageUrlToBase64(photoSrc, (b64) => {
-                            clearTimeout(timeout);
-                            if (b64 && b64.startsWith('data:image')) resolve(b64.split(',')[1]);
-                            else resolve(null);
-                        });
-                    });
-                }
-
-                if (base64Data) {
-                    const modelsToTry = ['fish-recognition/1', 'fish-species/1', 'fish-detection/1'];
-                    for (const modelPath of modelsToTry) {
-                        try {
-                            const rfUrl = `https://detect.roboflow.com/${modelPath}?api_key=${encodeURIComponent(roboflowKey)}&confidence=1`;
-                            const rfResponse = await fetch(rfUrl, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                                body: base64Data
-                            });
-
-                            if (rfResponse.ok) {
-                                const rfData = await rfResponse.json();
-                                if (rfData && rfData.predictions && rfData.predictions.length > 0) {
-                                    rfData.predictions.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
-                                    const top = rfData.predictions[0];
-                                    if (top && top.class) {
-                                        const formattedName = top.class
-                                            .replace(/_/g, ' ')
-                                            .replace(/\-/g, ' ')
-                                            .split(' ')
-                                            .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-                                            .join(' ');
-
-                                        finish(formattedName, `Identified with Roboflow Neural Model (${modelPath}, Match Confidence: ${confPercent}%).`);
-                                        return;
-                                    }
-                                }
-                            }
-                        } catch (mErr) {
-                            console.warn(`Model ${modelPath} query note:`, mErr);
-                        }
-                    }
-                }
-            } catch (rfErr) {
-                console.warn("Roboflow Inference query note:", rfErr);
-            }
-        }
-
-        // 4. Fallback Visual Candidate Matcher (Analyzes Image Features & Database Species)
+        // 3. Fallback Visual Candidate Matcher (Analyzes Image Features & Database Species)
         if (statusLabel) statusLabel.textContent = "🔍 Analyzing image features & candidate matches...";
         setTimeout(() => {
             let identifiedSpecies = null;
