@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101050';
+window.APP_VERSION = 'v101060';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -734,18 +734,27 @@ window.initMainApp = async function() {
 
         // Retrieve last saved location or default to exact Narrabri coords
         const savedCoordsStr = localStorage.getItem('user_last_coords');
+        const isCustom = localStorage.getItem('user_is_custom_location') === 'true';
+        AppState.isCustomLocation = isCustom;
+
         const saved = savedCoordsStr ? JSON.parse(savedCoordsStr) : { lat: fallbackLat, lng: fallbackLon };
         AppState.userCoords = saved;
         const savedState = getStateFromCoords(saved.lat, saved.lng);
 
         // Instantly display active GPS badge on startup matching online format
-        updateGpsStatus(true, `📍 GPS: ${saved.lat.toFixed(4)}, ${saved.lng.toFixed(4)} (${savedState})`);
+        const initialLabel = isCustom ? `📍 Loc: ${saved.lat.toFixed(4)}, ${saved.lng.toFixed(4)} (${savedState})` : `📍 GPS: ${saved.lat.toFixed(4)}, ${saved.lng.toFixed(4)} (${savedState})`;
+        updateGpsStatus(true, initialLabel);
 
         // IMMEDIATELY load weather & tides with active/saved coordinates so UI NEVER hangs!
         if (typeof window.loadWeatherAndTides === 'function') {
             window.loadWeatherAndTides(saved.lat, saved.lng);
         } else if (typeof loadWeatherAndTides === 'function') {
             loadWeatherAndTides(saved.lat, saved.lng);
+        }
+
+        if (isCustom) {
+            console.log("[Location Engine] Custom inspection location active. Background GPS auto-override disabled.");
+            return;
         }
 
         if (!navigator.geolocation) {
@@ -757,6 +766,10 @@ window.initMainApp = async function() {
 
         const handlePosition = (position) => {
             gpsResolved = true;
+            // CRITICAL GUARD: If user is inspecting a custom location, DO NOT overwrite!
+            if (AppState.isCustomLocation) {
+                return;
+            }
             const lat = position.coords.latitude;
             const lon = position.coords.longitude;
             AppState.userCoords = { lat, lng: lon };
@@ -3785,7 +3798,7 @@ window.initMainApp = async function() {
     window.promptChangeLocation = window.openLocationModal;
 
     // Apply chosen coordinates across the entire application
-    window.applyLocationCoordinates = async function(lat, lng, localityName = null) {
+    window.applyLocationCoordinates = async function(lat, lng, localityName = null, isLiveGps = false) {
         if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) {
             alert("Invalid coordinates. Please enter valid latitude and longitude numbers.");
             return;
@@ -3794,16 +3807,30 @@ window.initMainApp = async function() {
         lat = parseFloat(lat);
         lng = parseFloat(lng);
 
+        if (isLiveGps) {
+            AppState.isCustomLocation = false;
+            localStorage.removeItem('user_is_custom_location');
+        } else {
+            AppState.isCustomLocation = true;
+            localStorage.setItem('user_is_custom_location', 'true');
+            if (AppState.gpsWatchId) {
+                try { navigator.geolocation.clearWatch(AppState.gpsWatchId); } catch(e){}
+                AppState.gpsWatchId = null;
+            }
+        }
+
         AppState.userCoords = { lat, lng };
         localStorage.setItem('user_last_coords', JSON.stringify({ lat, lng }));
 
         const st = getStateFromCoords(lat, lng);
-        const label = localityName ? `${localityName} (${st})` : `📍 GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)} (${st})`;
+        const label = isLiveGps 
+            ? `📍 GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)} (${st})`
+            : (localityName ? `📍 ${localityName} (${st})` : `📍 Loc: ${lat.toFixed(4)}, ${lng.toFixed(4)} (${st})`);
 
-        updateGpsStatus(true, `📍 GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)} (${st})`);
+        updateGpsStatus(true, label);
 
         const bannerNameEl = document.getElementById('loc-active-name-coords');
-        if (bannerNameEl) bannerNameEl.textContent = `📍 ${localityName || `${lat.toFixed(4)}, ${lng.toFixed(4)}`} (${st})`;
+        if (bannerNameEl) bannerNameEl.textContent = label;
 
         // Update dashboard weather station text
         const stationBadge = document.getElementById('dash-weather-station-badge');
@@ -3826,7 +3853,7 @@ window.initMainApp = async function() {
         }
 
         if (window.showSyncToast) {
-            window.showSyncToast(`📍 Location updated: ${localityName || `${lat.toFixed(4)}, ${lng.toFixed(4)}`}!`);
+            window.showSyncToast(`📍 Location set: ${localityName || `${lat.toFixed(4)}, ${lng.toFixed(4)}`}!`);
         }
     };
 
@@ -3855,7 +3882,9 @@ window.initMainApp = async function() {
                     btn.disabled = false;
                     btn.innerHTML = `<span>🎯</span> Use Live GPS`;
                 }
-                await window.applyLocationCoordinates(lat, lng, "Live Device GPS");
+                AppState.isCustomLocation = false;
+                localStorage.removeItem('user_is_custom_location');
+                await window.applyLocationCoordinates(lat, lng, "Live Device GPS", true);
             },
             (err) => {
                 console.warn("GPS acquire notice:", err);
