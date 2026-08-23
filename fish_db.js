@@ -139,8 +139,6 @@ window.FISH_DATABASE = [
     { name: "Great Hammerhead Shark", sciName: "Sphyrna mokarran", waterType: "saltwater", category: "Endangered Shark", image: "images/dpi_illustrations/great_hammerhead_shark.jpg" },
     { name: "Black Rockcod", sciName: "Epinephelus daemelii", waterType: "saltwater", category: "Protected Coastal Groper", image: "images/dpi_illustrations/black_rockcod.jpg" },
     { name: "Ballina Angelfish", sciName: "Chaetodontoplus ballinae", waterType: "saltwater", category: "Protected Marine Fish", image: "images/dpi_illustrations/ballina_angelfish.jpg" },
-    { name: "Weedy Seadragon", sciName: "Phyllopteryx taeniolatus", waterType: "saltwater", category: "Protected Syngnathid", image: "images/dpi_illustrations/weedy_seadragon.jpg" },
-    { name: "White's Seahorse (Sydney Seahorse)", sciName: "Hippocampus whitei", waterType: "saltwater", category: "Endangered Syngnathid", image: "images/dpi_illustrations/white_s_seahorse.jpg" },
     { name: "Bonefish", sciName: "Albula vulpes", waterType: "saltwater", category: "Tropical Flats Speedster", image: "images/dpi_illustrations/bonefish.jpg" },
     { name: "Tarpon", sciName: "Megalops atlanticus", waterType: "saltwater", category: "Tropical Megalops / Estuary", image: "images/dpi_illustrations/tarpon.jpg" },
     { name: "Permit", sciName: "Trachinotus falcatus", waterType: "saltwater", category: "Tropical Flats Gamefish", image: "images/dpi_illustrations/permit.jpg" }

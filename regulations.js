@@ -118,9 +118,7 @@ const REGULATIONS = {
             { name: "Scalloped Hammerhead Shark", minSize: "Protected", maxSize: "N/A", bagLimit: "0", possessionLimit: "0", season: "Endangered. Total prohibition" },
             { name: "Great Hammerhead Shark", minSize: "Protected", maxSize: "N/A", bagLimit: "0", possessionLimit: "0", season: "Endangered. Total prohibition" },
             { name: "Black Rockcod", minSize: "Protected", maxSize: "N/A", bagLimit: "0", possessionLimit: "0", season: "Protected marine fish. Total prohibition in all NSW waters" },
-            { name: "Ballina Angelfish", minSize: "Protected", maxSize: "N/A", bagLimit: "0", possessionLimit: "0", season: "Protected marine fish. Total prohibition" },
-            { name: "Weedy Seadragon", minSize: "Protected", maxSize: "N/A", bagLimit: "0", possessionLimit: "0", season: "Protected marine syngnathid. Total prohibition" },
-            { name: "White's Seahorse (Sydney Seahorse)", minSize: "Protected", maxSize: "N/A", bagLimit: "0", possessionLimit: "0", season: "Endangered marine syngnathid. Total prohibition" }
+            { name: "Ballina Angelfish", minSize: "Protected", maxSize: "N/A", bagLimit: "0", possessionLimit: "0", season: "Protected marine fish. Total prohibition" }
         ]
     },
     VIC: {
