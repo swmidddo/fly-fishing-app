@@ -17,7 +17,7 @@
         // Backcountry Offline PWA Service Worker Registration
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=101190')
+                navigator.serviceWorker.register('sw.js?v=101200')
                     .then(function(reg) {
                         console.log('[Backcountry SW] Registered successfully with scope:', reg.scope);
                         window.__BACKCOUNTRY_SW_ACTIVE__ = true;
@@ -265,7 +265,7 @@
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
-                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v101190</span>
+                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v101200</span>
                     </div>
                 </div>
             </div>
@@ -1484,7 +1484,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
                             <div>
                                 <strong style="font-size: 13px; color: var(--text-primary);">Installed Version:</strong>
-                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101190 (Latest Build)</span>
+                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101200 (Latest Build)</span>
                             </div>
                             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                                 <button class="btn btn-glass btn-sm" id="btn-precache-backcountry" onclick="window.downloadFullBackcountryPack()">
@@ -2330,16 +2330,16 @@
     <!-- Scripts -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
-    <script src="db.js?v=101190"></script>
-    <script src="regulations.js?v=101190"></script>
-    <script src="weather.js?v=101190"></script>
-    <script src="exif.js?v=101190"></script>
-    <script src="map.js?v=101190"></script>
-    <script src="tackle_db.js?v=101190"></script>
-    <script src="fish_db.js?v=101190"></script>
-    <script src="fly_box.js?v=101190"></script>
-    <script src="knots.js?v=101190"></script>
-    <script src="auth.js?v=101190"></script>
-    <script src="app.js?v=101190"></script>
+    <script src="db.js?v=101200"></script>
+    <script src="regulations.js?v=101200"></script>
+    <script src="weather.js?v=101200"></script>
+    <script src="exif.js?v=101200"></script>
+    <script src="map.js?v=101200"></script>
+    <script src="tackle_db.js?v=101200"></script>
+    <script src="fish_db.js?v=101200"></script>
+    <script src="fly_box.js?v=101200"></script>
+    <script src="knots.js?v=101200"></script>
+    <script src="auth.js?v=101200"></script>
+    <script src="app.js?v=101200"></script>
 </body>
 </html>

@@ -187,4 +187,5 @@ window.FISH_DATABASE = [
     { name: "Common Sawshark (Sawshark)", sciName: "Pristiophorus cirratus", waterType: "saltwater", category: "Temperate Shelf Sawshark", image: "images/dpi_illustrations/common_sawshark.jpg" },
     { name: "Barracouta (Snoek)", sciName: "Thyrsites atun", waterType: "saltwater", category: "Temperate Oceanic Pelagic", image: "images/dpi_illustrations/barracouta.jpg" },
     { name: "Jack Mackerel", sciName: "Trachurus declivis", waterType: "saltwater", category: "Temperate Pelagic Schooling Fish", image: "images/dpi_illustrations/jack_mackerel.jpg" },
+    { name: "Australian Grayling", sciName: "Prototroctes maraena", waterType: "freshwater", category: "Protected Native Freshwater Fish", image: "images/dpi_illustrations/australian_grayling.jpg" },
 ];
