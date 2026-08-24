@@ -165,4 +165,12 @@ window.FISH_DATABASE = [
     { name: "Longnose Emperor", sciName: "Lethrinus olivaceus", waterType: "saltwater", category: "Coral Reef Fin Fish", image: "images/dpi_illustrations/longnose_emperor.jpg" },
     { name: "Speartooth Shark", sciName: "Glyphis glyphis", waterType: "freshwater", category: "Critically Endangered River Shark", image: "images/dpi_illustrations/speartooth_shark.jpg" },
     { name: "Sawfish (Freshwater & Green)", sciName: "Pristis pristis", waterType: "freshwater", category: "Critically Endangered Sawfish", image: "images/dpi_illustrations/sawfish.jpg" },
+    { name: "Australian Herring (Tommy Ruff)", sciName: "Arripis georgianus", waterType: "saltwater", category: "Coastal / Estuary Schooling Fish", image: "images/dpi_illustrations/australian_herring.jpg" },
+    { name: "Blue Warehou", sciName: "Seriolella brama", waterType: "saltwater", category: "Southern Coastal / Offshore", image: "images/dpi_illustrations/blue_warehou.jpg" },
+    { name: "Yellow-eye Mullet", sciName: "Aldrichetta forsteri", waterType: "saltwater", category: "Estuary / Coastal Schooling Fish", image: "images/dpi_illustrations/yellow_eye_mullet.jpg" },
+    { name: "Snook (Australian Pike)", sciName: "Sphyraena novaehollandiae", waterType: "saltwater", category: "Coastal / Estuary Predator", image: "images/dpi_illustrations/snook.jpg" },
+    { name: "Blue-throated Wrasse", sciName: "Notolabrus tetricus", waterType: "saltwater", category: "Reef / Kelp Bed Fish", image: "images/dpi_illustrations/blue_throated_wrasse.jpg" },
+    { name: "Elephant Fish", sciName: "Callorhinchus milii", waterType: "saltwater", category: "Southern Estuary / Bay Chimaera", image: "images/dpi_illustrations/elephant_fish.jpg" },
+    { name: "Australian Pilchard (Sardine)", sciName: "Sardinops sagax", waterType: "saltwater", category: "Coastal / Bay Forage Fish", image: "images/dpi_illustrations/australian_pilchard.jpg" },
+    { name: "Australian Anchovy", sciName: "Engraulis australis", waterType: "saltwater", category: "Estuary / Bay Forage Fish", image: "images/dpi_illustrations/australian_anchovy.jpg" },
 ];
