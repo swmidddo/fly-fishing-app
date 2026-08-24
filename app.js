@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101310';
+window.APP_VERSION = 'v101320';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -2753,6 +2753,12 @@ window.initMainApp = async function() {
     if (elements.catchLatInput) elements.catchLatInput.addEventListener('input', triggerRegUpdateOnCoordChange);
     if (elements.catchLngInput) elements.catchLngInput.addEventListener('input', triggerRegUpdateOnCoordChange);
 
+    const catchSpeciesInput = document.getElementById('catch-species');
+    if (catchSpeciesInput) {
+        catchSpeciesInput.addEventListener('input', triggerRegUpdateOnCoordChange);
+        catchSpeciesInput.addEventListener('change', triggerRegUpdateOnCoordChange);
+    }
+
     elements.useGpsBtn.addEventListener('click', () => {
         if (AppState.userCoords) {
             elements.catchLatInput.value = AppState.userCoords.lat.toFixed(6);
@@ -5410,29 +5416,40 @@ window.initMainApp = async function() {
     function getStateFromCoords(lat, lng) {
         if (lat === null || lat === undefined || lng === null || lng === undefined) return null;
         
-        // 1. Queensland (-29.0 to -10.0, 138.0 to 154.0)
-        if (lat >= -29.0 && lat <= -10.0 && lng >= 138.0 && lng <= 154.0) return 'QLD';
+        // 1. Australian Capital Territory (ACT) (-35.92 to -35.12, 148.75 to 149.40)
+        if (lat >= -35.92 && lat <= -35.12 && lng >= 148.75 && lng <= 149.40) return 'ACT';
 
-        // 2. Northern Territory (-26.0 to -10.0, 129.0 to 138.0)
-        if (lat >= -26.0 && lat <= -10.0 && lng >= 129.0 && lng <= 138.0) return 'NT';
+        // 2. Tasmania (TAS) (-44.0 to -39.5, 143.5 to 149.0)
+        if (lat >= -44.0 && lat <= -39.5 && lng >= 143.5 && lng <= 149.0) return 'TAS';
 
-        // 3. Western Australia (-35.5 to -13.5, 112.5 to 129.0)
+        // 3. Western Australia (WA) (-35.5 to -13.5, 112.5 to 129.0)
         if (lat >= -35.5 && lat <= -13.5 && lng >= 112.5 && lng <= 129.0) return 'WA';
 
-        // 4. South Australia (-38.0 to -26.0, 129.0 to 141.0)
-        if (lat >= -38.0 && lat <= -26.0 && lng >= 129.0 && lng <= 141.0) return 'SA';
+        // 4. Northern Territory (NT) (-26.0 to -10.0, 129.0 to 138.0)
+        if (lat >= -26.0 && lat <= -10.0 && lng >= 129.0 && lng <= 138.0) return 'NT';
 
-        // 5. Tasmania (-44.0 to -40.5, 144.0 to 149.0)
-        if (lat >= -44.0 && lat <= -40.5 && lng >= 144.0 && lng <= 149.0) return 'TAS';
+        // 5. South Australia (SA) (-38.5 to -26.0, 129.0 to 141.0)
+        if (lat >= -38.5 && lat <= -26.0 && lng >= 129.0 && lng <= 141.0) return 'SA';
 
-        // 6. ACT (-35.9 to -35.1, 148.7 to 149.4)
-        if (lat >= -35.9 && lat <= -35.1 && lng >= 148.7 && lng <= 149.4) return 'ACT';
+        // 6. Queensland (QLD) (-29.0 to -10.0, 138.0 to 154.0)
+        if (lat >= -29.0 && lat <= -10.0 && lng >= 138.0 && lng <= 154.0) return 'QLD';
 
-        // 7. New South Wales (-37.5 to -28.1, 141.0 to 153.6)
-        if (lat >= -37.5 && lat <= -28.1 && lng >= 141.0 && lng <= 153.6) return 'NSW';
+        // 7. Victoria (VIC) vs New South Wales (NSW)
+        if (lng >= 140.9 && lng <= 150.2) {
+            // Murray River & Black-Allan Line boundary model: Longitude 141 (-34.1S) to Longitude 150 (-37.5S)
+            const borderLat = -34.1 - ((lng - 141.0) / (150.0 - 141.0)) * 3.4;
+            if (lat >= -39.3 && lat <= borderLat) {
+                return 'VIC';
+            } else if (lat > borderLat && lat <= -28.1) {
+                return 'NSW';
+            }
+        }
 
-        // 8. Victoria (-39.2 to -35.8, 140.9 to 150.0)
-        if (lat >= -39.2 && lat <= -35.8 && lng >= 140.9 && lng <= 150.0) return 'VIC';
+        // Fallback NSW (East Coast & Lord Howe)
+        if (lat >= -37.5 && lat <= -28.1 && lng >= 141.0 && lng <= 159.2) return 'NSW';
+
+        // Fallback VIC
+        if (lat >= -39.3 && lat <= -34.0 && lng >= 140.9 && lng <= 150.2) return 'VIC';
 
         return null;
     }
@@ -5526,7 +5543,7 @@ window.initMainApp = async function() {
                     <strong>🔍 Identified: <span style="color: var(--accent-teal);">${speciesName}</span></strong>
                     ${badgeHtml}
                 </div>
-                <div>📍 <b>Australian Rules (${matchedStateName || 'General'}):</b></div>
+                <div>📍 <b>Official ${matchedStateName || 'Australian'} Regulations (${stateCode || 'General'}):</b></div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 4px; font-size: 11.5px;">
                     <span>📏 <b>Size Limit:</b> ${sizeText}</span>
                     <span>🎒 <b>Bag Limit:</b> ${matchedRule.bagLimit}</span>
@@ -5591,11 +5608,15 @@ window.initMainApp = async function() {
             hasFinished = true;
             if (safetyTimer) clearTimeout(safetyTimer);
 
+            // Dynamic real-time coordinate resolution (picks up EXIF GPS set in parallel)
+            const liveLat = (elements.catchLatInput && elements.catchLatInput.value) ? parseFloat(elements.catchLatInput.value) : lat;
+            const liveLng = (elements.catchLngInput && elements.catchLngInput.value) ? parseFloat(elements.catchLngInput.value) : lng;
+
             if (species && species.toLowerCase() !== 'unidentified') {
                 if (document.getElementById('catch-species')) {
                     document.getElementById('catch-species').value = species;
                 }
-                displayRegulationBox(species, lat, lng, notes);
+                displayRegulationBox(species, liveLat, liveLng, notes);
                 if (statusLabel) statusLabel.textContent = "✅ Species identified & rules calculated!";
             } else {
                 const spInput = document.getElementById('catch-species');
