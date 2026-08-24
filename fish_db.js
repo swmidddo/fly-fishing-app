@@ -173,4 +173,10 @@ window.FISH_DATABASE = [
     { name: "Elephant Fish", sciName: "Callorhinchus milii", waterType: "saltwater", category: "Southern Estuary / Bay Chimaera", image: "images/dpi_illustrations/elephant_fish.jpg" },
     { name: "Australian Pilchard (Sardine)", sciName: "Sardinops sagax", waterType: "saltwater", category: "Coastal / Bay Forage Fish", image: "images/dpi_illustrations/australian_pilchard.jpg" },
     { name: "Australian Anchovy", sciName: "Engraulis australis", waterType: "saltwater", category: "Estuary / Bay Forage Fish", image: "images/dpi_illustrations/australian_anchovy.jpg" },
+    { name: "Chinook Salmon (Quinnat Salmon)", sciName: "Oncorhynchus tshawytscha", waterType: "freshwater", category: "Crater Lake Salmonid", image: "images/dpi_illustrations/chinook_salmon.jpg" },
+    { name: "Tiger Trout", sciName: "Salmo trutta x Salvelinus fontinalis", waterType: "freshwater", category: "Stocked Hybrid Trout", image: "images/dpi_illustrations/tiger_trout.jpg" },
+    { name: "Cheetah Trout", sciName: "Salmo trutta x Oncorhynchus mykiss", waterType: "freshwater", category: "Stocked Hybrid Trout", image: "images/dpi_illustrations/cheetah_trout.jpg" },
+    { name: "Tench", sciName: "Tinca tinca", waterType: "freshwater", category: "Freshwater Naturalised", image: "images/dpi_illustrations/tench.jpg" },
+    { name: "Roach", sciName: "Rutilus rutilus", waterType: "freshwater", category: "Freshwater Naturalised", image: "images/dpi_illustrations/roach.jpg" },
+    { name: "Common Galaxias (Jollytail)", sciName: "Galaxias maculatus", waterType: "freshwater", category: "Native Galaxiid / Forage Fish", image: "images/dpi_illustrations/common_galaxias.jpg" },
 ];
