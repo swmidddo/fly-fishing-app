@@ -100,7 +100,7 @@ window.FISH_DATABASE = [
     { name: "Shortbill Spearfish", sciName: "Tetrapturus angustirostris", waterType: "saltwater", category: "Offshore Billfish", image: "images/dpi_illustrations/shortbill_spearfish.jpg" },
     { name: "Eastern Blue Groper", sciName: "Achoerodus viridis", waterType: "saltwater", category: "Protected NSW State Fish", image: "images/dpi_illustrations/eastern_blue_groper.jpg" },
     { name: "Blue Morwong (Rubberlip Morwong)", sciName: "Nemadactylus douglasii", waterType: "saltwater", category: "Offshore Reef", image: "images/dpi_illustrations/blue_morwong.jpg" },
-    { name: "Grey Morwong (Jackass Fish)", sciName: "Nemadactylus macropterus", waterType: "saltwater", category: "Offshore Reef", image: "images/dpi_illustrations/grey_morwong.jpg" },
+    { name: "Jackass Morwong (Grey Morwong / Jackass Fish)", sciName: "Nemadactylus macropterus", waterType: "saltwater", category: "Offshore Reef", image: "images/dpi_illustrations/grey_morwong.jpg" },
     { name: "Red Morwong", sciName: "Cheilodactylus fuscus", waterType: "saltwater", category: "Inshore Reef / Kelp", image: "images/dpi_illustrations/red_morwong.jpg" },
     { name: "Bar Cod (Band-ed Rockcod)", sciName: "Epinephelus ergastularius", waterType: "saltwater", category: "Deep Sea Reef", image: "images/dpi_illustrations/bar_cod.jpg" },
     { name: "Bass Groper", sciName: "Polyprion americanus", waterType: "saltwater", category: "Deep Sea Reef", image: "images/dpi_illustrations/bass_groper.jpg" },
@@ -185,4 +185,6 @@ window.FISH_DATABASE = [
     { name: "Pink Ling", sciName: "Genypterus blacodes", waterType: "saltwater", category: "Deep Sea / Shelf Fin Fish", image: "images/dpi_illustrations/pink_ling.jpg" },
     { name: "Broadnose Sevengill Shark (Seven-gill Shark)", sciName: "Notorynchus cepedianus", waterType: "saltwater", category: "Coastal & Estuarine Shark", image: "images/dpi_illustrations/broadnose_sevengill_shark.jpg" },
     { name: "Common Sawshark (Sawshark)", sciName: "Pristiophorus cirratus", waterType: "saltwater", category: "Temperate Shelf Sawshark", image: "images/dpi_illustrations/common_sawshark.jpg" },
+    { name: "Barracouta (Snoek)", sciName: "Thyrsites atun", waterType: "saltwater", category: "Temperate Oceanic Pelagic", image: "images/dpi_illustrations/barracouta.jpg" },
+    { name: "Jack Mackerel", sciName: "Trachurus declivis", waterType: "saltwater", category: "Temperate Pelagic Schooling Fish", image: "images/dpi_illustrations/jack_mackerel.jpg" },
 ];

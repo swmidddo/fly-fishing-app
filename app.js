@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101180';
+window.APP_VERSION = 'v101190';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -2937,6 +2937,13 @@ window.initMainApp = async function() {
                 dbMatch = window.FISH_DATABASE.find(f => f.name.toLowerCase() === fishNameLower);
                 if (!dbMatch) {
                     dbMatch = window.FISH_DATABASE.find(f => f.name.toLowerCase().replace(/\s*\([^)]*\)/g, '').trim() === cleanFishName);
+                }
+                if (!dbMatch) {
+                    dbMatch = window.FISH_DATABASE.find(f => {
+                        const fLower = f.name.toLowerCase();
+                        const fClean = fLower.replace(/\s*\([^)]*\)/g, '').trim();
+                        return (cleanFishName && (fLower.includes(cleanFishName) || fClean.includes(cleanFishName) || cleanFishName.includes(fClean)));
+                    });
                 }
             }
 
