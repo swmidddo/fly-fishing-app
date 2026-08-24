@@ -587,14 +587,17 @@ const REGULATIONS = {
     ACT: {
         stateName: "Australian Capital Territory",
         freshwater: [
-            { name: "Murray Cod", minSize: 55, maxSize: 75, bagLimit: "1", possessionLimit: "2", season: "Closed Sept 1 - Nov 30" },
-            { name: "Golden Perch", minSize: 30, maxSize: null, bagLimit: "5", possessionLimit: "10", season: "Open all year" },
-            { name: "Brown Trout", minSize: 25, maxSize: null, bagLimit: "2", possessionLimit: "4", season: "Closed June long weekend - Oct long weekend" },
-            { name: "Rainbow Trout", minSize: 25, maxSize: null, bagLimit: "2", possessionLimit: "4", season: "Closed June long weekend - Oct long weekend" },
-            { name: "Silver Perch", minSize: 30, maxSize: null, bagLimit: "5 (Stocked dams only)", possessionLimit: "10", season: "Protected in rivers (Illegal to take)" },
-            { name: "Trout Cod", minSize: "Protected", maxSize: "N/A", bagLimit: "0", possessionLimit: "0", season: "Protected. Return to water immediately" },
-            { name: "European Carp", minSize: "No Limit (Pest)", maxSize: "N/A", bagLimit: "Unlimited", possessionLimit: "Unlimited", season: "Pest. Do not return to water alive" },
-            { name: "Australian Bass", minSize: 25, maxSize: null, bagLimit: "2", possessionLimit: "4", season: "Open all year" }
+            { name: "Murray Cod", minSize: 55, maxSize: 75, bagLimit: "1 (Murrumbidgee River), 2 (other waters)", possessionLimit: "2", season: "Open Dec 1 - Aug 31 (Closed Sept 1 - Nov 30). Murrumbidgee River downstream of Uriarra Crossing is Catch-and-Release only (Bag limit 0)" },
+            { name: "Golden Perch", minSize: 30, maxSize: null, bagLimit: "2 (Murrumbidgee River), 5 (other waters)", possessionLimit: "10", season: "Open all year" },
+            { name: "Brown Trout", minSize: 25, maxSize: null, bagLimit: "5 (combined trout)", possessionLimit: "10", season: "Trout Waters open October Labour Day weekend to June King's Birthday weekend (Open all year in Open Waters)" },
+            { name: "Rainbow Trout", minSize: 25, maxSize: null, bagLimit: "5 (combined trout)", possessionLimit: "10", season: "Trout Waters open October Labour Day weekend to June King's Birthday weekend (Open all year in Open Waters)" },
+            { name: "Australian Bass", minSize: 25, maxSize: null, bagLimit: "2", possessionLimit: "4", season: "Open all year in stocked lakes and ponds" },
+            { name: "Two-spined Blackfish", minSize: "Protected", maxSize: "N/A", bagLimit: "0", possessionLimit: "0", season: "Totally Protected native species (Ngunnawal: Wagar). Return to water immediately" },
+            { name: "Macquarie Perch", minSize: "Protected", maxSize: "N/A", bagLimit: "0", possessionLimit: "0", season: "Totally Protected threatened species (Ngunnawal: Gubay). Return to water immediately" },
+            { name: "Silver Perch", minSize: "Protected", maxSize: "N/A", bagLimit: "0", possessionLimit: "0", season: "Totally Protected native species in all ACT public waters & rivers (Ngunnawal: Dhingur)" },
+            { name: "Trout Cod", minSize: "Protected", maxSize: "N/A", bagLimit: "0", possessionLimit: "0", season: "Totally Protected endangered species (Ngunnawal: Gudu). Return to water immediately" },
+            { name: "Redfin Perch", minSize: "No Limit (Pest)", maxSize: "N/A", bagLimit: "Unlimited", possessionLimit: "Unlimited", season: "Pest species. Anglers encouraged to humanely dispatch and not return to water" },
+            { name: "European Carp", minSize: "No Limit (Pest)", maxSize: "N/A", bagLimit: "Unlimited", possessionLimit: "Unlimited", season: "Pest species. Anglers encouraged to humanely dispatch and not return to water" }
         ],
         saltwater: []
     }
