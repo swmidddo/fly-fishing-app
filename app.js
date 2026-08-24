@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101300';
+window.APP_VERSION = 'v101310';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -2511,10 +2511,34 @@ window.initMainApp = async function() {
         if (elements.catchDate) elements.catchDate.value = `${year}-${month}-${day}`;
         if (elements.catchTime) elements.catchTime.value = `${hours}:${minutes}`;
 
-        // Autofill current coordinate fields only if GPS lock is available
-        if (AppState.userCoords) {
+        // Autofill coordinate fields with Smart Multi-Tier GPS Fallback
+        if (AppState.userCoords && AppState.userCoords.lat && AppState.userCoords.lng) {
             elements.catchLatInput.value = AppState.userCoords.lat.toFixed(6);
             elements.catchLngInput.value = AppState.userCoords.lng.toFixed(6);
+        } else {
+            // Priority 2: Pinned Fishing Location
+            const pinned = localStorage.getItem('app_pinned_location');
+            if (pinned) {
+                try {
+                    const p = JSON.parse(pinned);
+                    if (p.lat && p.lng) {
+                        elements.catchLatInput.value = parseFloat(p.lat).toFixed(6);
+                        elements.catchLngInput.value = parseFloat(p.lng).toFixed(6);
+                    }
+                } catch(e){}
+            } else {
+                // Priority 3: Car / Basecamp Coordinates
+                const car = localStorage.getItem('carCoords');
+                if (car) {
+                    try {
+                        const c = JSON.parse(car);
+                        if (c.lat && c.lng) {
+                            elements.catchLatInput.value = parseFloat(c.lat).toFixed(6);
+                            elements.catchLngInput.value = parseFloat(c.lng).toFixed(6);
+                        }
+                    } catch(e){}
+                }
+            }
         }
 
         elements.modalLogCatch.classList.add('active');
@@ -2624,6 +2648,42 @@ window.initMainApp = async function() {
         elements.modalLogCatch.classList.add('active');
     };
 
+    // Helper: Client-Side Fast Photo Resizing & Compression (15MB -> 250KB)
+    const compressCatchPhoto = (dataUrl, maxDimension = 1920, quality = 0.82) => {
+        return new Promise((resolve) => {
+            if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image')) {
+                resolve(dataUrl);
+                return;
+            }
+            const img = new Image();
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > maxDimension) {
+                        height = Math.round((height * maxDimension) / width);
+                        width = maxDimension;
+                    }
+                } else {
+                    if (height > maxDimension) {
+                        width = Math.round((width * maxDimension) / height);
+                        height = maxDimension;
+                    }
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.onerror = () => resolve(dataUrl);
+            img.src = dataUrl;
+        });
+    };
+
     // Camera & File preview hookup (Supports both Photo Library & Direct Camera)
     const handlePhotoSelect = (e) => {
         const file = e.target.files[0];
@@ -2633,17 +2693,19 @@ window.initMainApp = async function() {
             const regBox = document.getElementById('catch-regulation-box');
             if (regBox) regBox.style.display = 'none';
 
-            // 1. Read preview & trigger scan IMMEDIATELY
+            // 1. Read preview, compress high-res photo, & trigger scan
             const reader = new FileReader();
-            reader.onload = (event) => {
-                const photoDataUrl = event.target.result;
-                elements.catchPhotoPreview.src = photoDataUrl;
+            reader.onload = async (event) => {
+                const rawPhotoDataUrl = event.target.result;
+                const compressedPhoto = await compressCatchPhoto(rawPhotoDataUrl, 1920, 0.82);
+                
+                elements.catchPhotoPreview.src = compressedPhoto;
                 elements.catchPhotoPreviewContainer.style.display = 'block';
 
                 const currentLat = elements.catchLatInput && elements.catchLatInput.value ? parseFloat(elements.catchLatInput.value) : null;
                 const currentLng = elements.catchLngInput && elements.catchLngInput.value ? parseFloat(elements.catchLngInput.value) : null;
                 
-                analyzeFishPhoto(photoDataUrl, file.name, currentLat, currentLng);
+                analyzeFishPhoto(compressedPhoto, file.name, currentLat, currentLng);
             };
             reader.readAsDataURL(file);
 
