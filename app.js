@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101280';
+window.APP_VERSION = 'v101290';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -2382,12 +2382,12 @@ window.initMainApp = async function() {
                     fliesContainer.innerHTML = topFourFlies.map(([flyName, count], idx) => {
                         const pct = Math.round((count / total) * 100);
                         return `
-                            <div style="display: flex; flex-direction: column; gap: 2px;">
-                                <div style="display: flex; justify-content: space-between; font-size: 11px;">
-                                    <span style="color: var(--text-primary); font-weight: 600;">🪶 ${flyName}</span>
-                                    <span style="color: var(--text-secondary);">${count} fish (${pct}%)</span>
+                            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0; width: 100%; box-sizing: border-box;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; gap: 6px; min-width: 0;">
+                                    <span style="color: var(--text-primary); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;" title="${flyName}">🪶 ${flyName}</span>
+                                    <span style="color: var(--text-secondary); white-space: nowrap; flex-shrink: 0; font-size: 10px;">${count} fish (${pct}%)</span>
                                 </div>
-                                <div style="height: 4px; border-radius: 2px; background: rgba(255,255,255,0.06); overflow: hidden;">
+                                <div style="height: 4px; border-radius: 2px; background: rgba(255,255,255,0.06); overflow: hidden; width: 100%;">
                                     <div style="width: ${pct}%; height: 100%; background: ${colors[idx % colors.length]}; border-radius: 2px;"></div>
                                 </div>
                             </div>
@@ -2417,9 +2417,9 @@ window.initMainApp = async function() {
                     const pb = speciesPBs[spName];
                     const pbStr = (pb && pb.maxLen > 0) ? `🏆 PB: <strong>${pb.maxLen} cm</strong>` : 'PB: --';
                     return `
-                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; padding: 3px 6px; background: rgba(255,255,255,0.02); border-radius: 4px;">
-                            <span style="color: var(--text-primary);">🐟 ${spName} (${count})</span>
-                            <span style="color: var(--accent-gold);">${pbStr}</span>
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; padding: 3px 6px; background: rgba(255,255,255,0.02); border-radius: 4px; gap: 6px; min-width: 0; box-sizing: border-box;">
+                            <span style="color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;" title="${spName}">🐟 ${spName} (${count})</span>
+                            <span style="color: var(--accent-gold); white-space: nowrap; flex-shrink: 0; font-size: 10.5px;">${pbStr}</span>
                         </div>
                     `;
                 }).join('');
