@@ -246,14 +246,39 @@ const WEATHER = {
                 return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             };
 
-            const searchTerms = await this.getLocalitySearchTerms(lat, lon);
-            if (searchTerms.length === 0) {
-                searchTerms.push('NSW');
-            }
-
             const candidates = [];
             const seenIds = new Set();
 
+            // 1. Direct GPS Coordinate Search on WillyWeather API (Instant nearest local/regional station)
+            try {
+                const coordSearchUrl = `https://api.willyweather.com.au/v2/${apiKey}/search.json?lat=${lat}&lng=${lon}&range=40&units=distance:km`;
+                const coordRes = await this.willyFetch(coordSearchUrl);
+                if (coordRes && coordRes.ok) {
+                    const coordData = await coordRes.json();
+                    if (coordData && coordData.location && coordData.location.id) {
+                        seenIds.add(coordData.location.id);
+                        candidates.push({
+                            ...coordData.location,
+                            dist: getDistKm(coordData.location.lat, coordData.location.lng)
+                        });
+                    } else if (Array.isArray(coordData)) {
+                        for (const item of coordData) {
+                            if (item.id && !seenIds.has(item.id)) {
+                                seenIds.add(item.id);
+                                candidates.push({
+                                    ...item,
+                                    dist: getDistKm(item.lat, item.lng)
+                                });
+                            }
+                        }
+                    }
+                }
+            } catch (coordErr) {
+                console.warn("[WillyWeather Coordinate Search] Notice:", coordErr);
+            }
+
+            // 2. Search locality terms & postcodes to discover hyper-local PWS stations
+            const searchTerms = await this.getLocalitySearchTerms(lat, lon);
             for (const term of searchTerms) {
                 const cleanSearch = term.replace(/\s+(city centre|city|cbd|central)/gi, '').trim() || term;
                 if (!cleanSearch) continue;
@@ -285,15 +310,15 @@ const WEATHER = {
                     console.warn(`[WillyWeather] Search failed for term '${term}':`, e);
                 }
 
-                // If we found a candidate within 15 km (e.g. from Postcode search), we have an exact micro-station lock!
-                if (candidates.some(c => c.dist < 15)) {
+                // If we found a candidate within 5 km, we have an ultra-local micro-station lock!
+                if (candidates.some(c => c.dist < 5)) {
                     break;
                 }
             }
 
             if (candidates.length === 0) return null;
 
-            // Sort all discovered stations strictly by exact Haversine distance to the user's GPS position
+            // Sort all discovered WillyWeather stations strictly by exact Haversine distance to user's GPS
             candidates.sort((a, b) => a.dist - b.dist);
             const chosen = candidates[0];
             const locationId = chosen.id;
@@ -436,14 +461,14 @@ const WEATHER = {
         const distFormatted = pwsDistance < 0.1 ? '<0.1' : pwsDistance.toFixed(1);
         const locationName = (wData.location ? wData.location.name : chosen.name);
         
-        let stationDisplayName = `📡 Station: ${pwsStationName} (${distFormatted} km away)`;
+        let stationDisplayName = `📡 WillyWeather: ${pwsStationName} (${distFormatted} km away)`;
         let pwsClarification = null;
 
         if (isWithin30kmPWS) {
-            stationDisplayName = `📡 PWS: ${pwsStationName} (${distFormatted} km away)`;
-            pwsClarification = `Verified via PWS: ${pwsStationName} (${distFormatted} km away)`;
+            stationDisplayName = `📡 WillyWeather PWS: ${pwsStationName} (${distFormatted} km away)`;
+            pwsClarification = `Verified via WillyWeather PWS: ${pwsStationName} (${distFormatted} km away)`;
         } else {
-            pwsClarification = `Regional Weather Feed: ${pwsStationName} (${distFormatted} km away)`;
+            pwsClarification = `WillyWeather Regional Feed: ${pwsStationName} (${distFormatted} km away)`;
         }
 
         // Sunrise/Sunset formatting
