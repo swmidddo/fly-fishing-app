@@ -80,9 +80,18 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101330';
+window.APP_VERSION = 'v101340';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
+
+// High-Performance Event Debounce Utility (Limits heavy DOM rendering on fast typing)
+window.debounce = function(fn, wait = 100) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn.apply(this, args), wait);
+    };
+};
 
 // Top-Level Global Navigation & Weather Entrypoints
 
@@ -2469,7 +2478,9 @@ window.initMainApp = async function() {
     }
 
     // Filters event listeners
-    document.getElementById('catch-search').addEventListener('input', renderCatches);
+    if (document.getElementById('catch-search')) {
+        document.getElementById('catch-search').addEventListener('input', window.debounce(renderCatches, 90));
+    }
     elements.catchFilterWater = document.getElementById('catch-filter-water');
     elements.catchFilterWater.addEventListener('change', renderCatches);
 
@@ -3225,13 +3236,14 @@ window.initMainApp = async function() {
         if (elements.regState) elements.regState.addEventListener('change', renderRegulations);
         if (elements.regWaterType) elements.regWaterType.addEventListener('change', renderRegulations);
         if (elements.regSearch) {
-            elements.regSearch.addEventListener('input', () => {
+            const debouncedRegRender = window.debounce(() => {
                 const btnClear = document.getElementById('btn-clear-reg-search');
                 if (btnClear) {
                     btnClear.style.display = elements.regSearch.value.trim() ? 'block' : 'none';
                 }
                 renderRegulations();
-            });
+            }, 90);
+            elements.regSearch.addEventListener('input', debouncedRegRender);
         }
     }
 

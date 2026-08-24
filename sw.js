@@ -1,5 +1,5 @@
 // sw.js - Middo's Fly Fishing Backcountry Offline Service Worker
-const CACHE_NAME = 'fly-fishing-v101330';
+const CACHE_NAME = 'fly-fishing-v101340';
 
 // Core Local Assets to Pre-Cache on Install
 const CORE_ASSETS = [
@@ -38,15 +38,23 @@ const CORE_ASSETS = [
     'https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap'
 ];
 
-// Install Event: Pre-cache core app shell & offline assets
+// Install Event: Resilient individual pre-caching of core app shell & offline assets
 self.addEventListener('install', (event) => {
     self.skipWaiting();
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
+        caches.open(CACHE_NAME).then(async (cache) => {
             console.log('[Backcountry SW] Pre-caching core app shell & offline assets...');
-            return cache.addAll(CORE_ASSETS).catch((err) => {
-                console.warn('[Backcountry SW] Some assets skipped during pre-cache:', err);
-            });
+            return Promise.allSettled(
+                CORE_ASSETS.map((url) =>
+                    fetch(url, { mode: url.startsWith('http') ? 'cors' : 'same-origin' })
+                        .then((res) => {
+                            if (res && res.ok) return cache.put(url, res);
+                        })
+                        .catch((err) => {
+                            console.warn('[Backcountry SW] Asset skipped during pre-cache:', url);
+                        })
+                )
+            );
         })
     );
 });
