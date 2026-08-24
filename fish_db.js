@@ -179,4 +179,10 @@ window.FISH_DATABASE = [
     { name: "Tench", sciName: "Tinca tinca", waterType: "freshwater", category: "Freshwater Naturalised", image: "images/dpi_illustrations/tench.jpg" },
     { name: "Roach", sciName: "Rutilus rutilus", waterType: "freshwater", category: "Freshwater Naturalised", image: "images/dpi_illustrations/roach.jpg" },
     { name: "Common Galaxias (Jollytail)", sciName: "Galaxias maculatus", waterType: "freshwater", category: "Native Galaxiid / Forage Fish", image: "images/dpi_illustrations/common_galaxias.jpg" },
+    { name: "Bastard Trumpeter", sciName: "Latridopsis forsteri", waterType: "saltwater", category: "Temperate Inshore Reef Fish", image: "images/dpi_illustrations/bastard_trumpeter.jpg" },
+    { name: "Banded Morwong", sciName: "Cheilodactylus spectabilis", waterType: "saltwater", category: "Temperate Inshore Reef Fish", image: "images/dpi_illustrations/banded_morwong.jpg" },
+    { name: "Longsnout Boarfish (Giant Boarfish)", sciName: "Pentaceropsis recurvirostris", waterType: "saltwater", category: "Temperate Coastal & Reef Fish", image: "images/dpi_illustrations/longsnout_boarfish.jpg" },
+    { name: "Pink Ling", sciName: "Genypterus blacodes", waterType: "saltwater", category: "Deep Sea / Shelf Fin Fish", image: "images/dpi_illustrations/pink_ling.jpg" },
+    { name: "Broadnose Sevengill Shark (Seven-gill Shark)", sciName: "Notorynchus cepedianus", waterType: "saltwater", category: "Coastal & Estuarine Shark", image: "images/dpi_illustrations/broadnose_sevengill_shark.jpg" },
+    { name: "Common Sawshark (Sawshark)", sciName: "Pristiophorus cirratus", waterType: "saltwater", category: "Temperate Shelf Sawshark", image: "images/dpi_illustrations/common_sawshark.jpg" },
 ];
