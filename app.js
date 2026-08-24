@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101270';
+window.APP_VERSION = 'v101280';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -2322,28 +2322,123 @@ window.initMainApp = async function() {
 
 
 
-    // Stats calculations
+    // Stats calculations & Dashboard Intelligence
     function updateStats() {
-        const total = AppState.catches.length;
-        document.getElementById('stat-total-catches').textContent = total;
+        const total = AppState.catches ? AppState.catches.length : 0;
+        const elTotal = document.getElementById('stat-total-catches');
+        if (elTotal) elTotal.textContent = total;
 
-        // Top Species
+        const badgeTotal = document.getElementById('dash-analytics-total-badge');
+        if (badgeTotal) badgeTotal.textContent = `${total} Catch${total === 1 ? '' : 'es'} Recorded`;
+
         if (total > 0) {
             const speciesCounts = {};
             const rodCounts = {};
+            const flyCounts = {};
+            const speciesPBs = {};
+            let peakSolunarCount = 0;
+
             AppState.catches.forEach(c => {
-                if (c.species) speciesCounts[c.species] = (speciesCounts[c.species] || 0) + 1;
-                if (c.rod) rodCounts[c.rod] = (rodCounts[c.rod] || 0) + 1;
+                const sp = (c.species || 'Gamefish').trim();
+                const rod = (c.rod || '').trim();
+                const fly = (c.fly || c.lure || c.pattern || '').trim();
+                const len = parseFloat(c.length || c.fishLength || c.lengthCm || 0) || 0;
+                const weight = parseFloat(c.weight || c.weightKg || 0) || 0;
+
+                if (sp) speciesCounts[sp] = (speciesCounts[sp] || 0) + 1;
+                if (rod) rodCounts[rod] = (rodCounts[rod] || 0) + 1;
+                if (fly) flyCounts[fly] = (flyCounts[fly] || 0) + 1;
+
+                if (!speciesPBs[sp] || len > speciesPBs[sp].maxLen) {
+                    speciesPBs[sp] = { maxLen: len, maxWeight: weight, catch: c };
+                }
+
+                // Check Solunar correlation: score >= 70 or major/minor feeding window
+                const solunarScore = parseFloat(c.solunarScore || 0);
+                const solunarPeriod = String(c.solunarPeriod || '').toLowerCase();
+                const moonPhase = String(c.moonPhase || '').toLowerCase();
+
+                if (solunarScore >= 70 || solunarPeriod.includes('major') || solunarPeriod.includes('minor') || solunarPeriod.includes('prime') || moonPhase.includes('new') || moonPhase.includes('full')) {
+                    peakSolunarCount++;
+                }
             });
 
-            const topSpecies = Object.keys(speciesCounts).reduce((a, b) => speciesCounts[a] > speciesCounts[b] ? a : b, '-');
-            const topRod = Object.keys(rodCounts).reduce((a, b) => rodCounts[a] > rodCounts[b] ? a : b, '-');
-            
-            document.getElementById('stat-fav-species').textContent = topSpecies;
-            document.getElementById('stat-fav-rod').textContent = topRod;
+            const sortedSpecies = Object.entries(speciesCounts).sort((a, b) => b[1] - a[1]);
+            const sortedFlies = Object.entries(flyCounts).sort((a, b) => b[1] - a[1]);
+            const topSpecies = sortedSpecies.length > 0 ? sortedSpecies[0][0] : '-';
+            const topFly = sortedFlies.length > 0 ? sortedFlies[0][0] : '-';
+            const solunarRate = Math.round((peakSolunarCount / total) * 100);
+
+            if (document.getElementById('stat-fav-species')) document.getElementById('stat-fav-species').textContent = topSpecies;
+            if (document.getElementById('stat-top-fly')) document.getElementById('stat-top-fly').textContent = topFly;
+            if (document.getElementById('stat-solunar-rate')) document.getElementById('stat-solunar-rate').textContent = `${solunarRate}%`;
+
+            // 1. Render Top Flies in Dashboard Card
+            const fliesContainer = document.getElementById('dash-top-flies-list');
+            if (fliesContainer) {
+                if (sortedFlies.length > 0) {
+                    const topFourFlies = sortedFlies.slice(0, 4);
+                    const colors = ['var(--accent-teal)', 'var(--accent-blue)', '#a3e635', '#f59e0b'];
+                    fliesContainer.innerHTML = topFourFlies.map(([flyName, count], idx) => {
+                        const pct = Math.round((count / total) * 100);
+                        return `
+                            <div style="display: flex; flex-direction: column; gap: 2px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                                    <span style="color: var(--text-primary); font-weight: 600;">🪶 ${flyName}</span>
+                                    <span style="color: var(--text-secondary);">${count} fish (${pct}%)</span>
+                                </div>
+                                <div style="height: 4px; border-radius: 2px; background: rgba(255,255,255,0.06); overflow: hidden;">
+                                    <div style="width: ${pct}%; height: 100%; background: ${colors[idx % colors.length]}; border-radius: 2px;"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    fliesContainer.innerHTML = `<div style="font-size: 11px; color: var(--text-secondary); text-align: center; padding: 10px 0;">Log catches with flies to see rankings.</div>`;
+                }
+            }
+
+            // 2. Render Species Distribution Bar & PB List
+            const specBar = document.getElementById('dash-species-breakdown-bar');
+            const pbList = document.getElementById('dash-species-pb-list');
+            const trophyCount = document.getElementById('dash-trophy-count');
+            if (trophyCount) trophyCount.textContent = `${sortedSpecies.length} Species`;
+
+            if (specBar) {
+                const barColors = ['#00d2ff', '#2ed573', '#ffa502', '#ff4757', '#9b59b6', '#34495e'];
+                specBar.innerHTML = sortedSpecies.map(([spName, count], idx) => {
+                    const pct = (count / total) * 100;
+                    return `<div style="width: ${pct}%; height: 100%; background: ${barColors[idx % barColors.length]};" title="${spName}: ${count} (${Math.round(pct)}%)"></div>`;
+                }).join('');
+            }
+
+            if (pbList) {
+                pbList.innerHTML = sortedSpecies.slice(0, 4).map(([spName, count]) => {
+                    const pb = speciesPBs[spName];
+                    const pbStr = (pb && pb.maxLen > 0) ? `🏆 PB: <strong>${pb.maxLen} cm</strong>` : 'PB: --';
+                    return `
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; padding: 3px 6px; background: rgba(255,255,255,0.02); border-radius: 4px;">
+                            <span style="color: var(--text-primary);">🐟 ${spName} (${count})</span>
+                            <span style="color: var(--accent-gold);">${pbStr}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
         } else {
-            document.getElementById('stat-fav-species').textContent = '-';
-            document.getElementById('stat-fav-rod').textContent = '-';
+            if (document.getElementById('stat-fav-species')) document.getElementById('stat-fav-species').textContent = '-';
+            if (document.getElementById('stat-top-fly')) document.getElementById('stat-top-fly').textContent = '-';
+            if (document.getElementById('stat-solunar-rate')) document.getElementById('stat-solunar-rate').textContent = '-%';
+            const fliesContainer = document.getElementById('dash-top-flies-list');
+            if (fliesContainer) fliesContainer.innerHTML = `<div style="font-size: 11px; color: var(--text-secondary); text-align: center; padding: 10px 0;">Log catches with flies to see rankings.</div>`;
+            const specBar = document.getElementById('dash-species-breakdown-bar');
+            if (specBar) specBar.innerHTML = '';
+            const pbList = document.getElementById('dash-species-pb-list');
+            if (pbList) pbList.innerHTML = `<div style="font-size: 11px; color: var(--text-secondary); text-align: center; padding: 10px 0;">No species logged yet.</div>`;
+        }
+
+        // Also refresh Catch Logs tab analytics if available
+        if (typeof window.updateCatchAnalytics === 'function') {
+            window.updateCatchAnalytics(AppState.catches);
         }
     }
 

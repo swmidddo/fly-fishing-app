@@ -17,7 +17,7 @@
         // Backcountry Offline PWA Service Worker Registration
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=101270')
+                navigator.serviceWorker.register('sw.js?v=101280')
                     .then(function(reg) {
                         console.log('[Backcountry SW] Registered successfully with scope:', reg.scope);
                         window.__BACKCOUNTRY_SW_ACTIVE__ = true;
@@ -265,7 +265,7 @@
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
-                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v101270</span>
+                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v101280</span>
                     </div>
                 </div>
             </div>
@@ -464,21 +464,64 @@
                         </div>
                     </div>
 
-                    <!-- Stats Card -->
-                    <div class="card glass shadow-lg card-stats">
-                        <h3>Catch Stats</h3>
-                        <div class="stats-row">
+                    <!-- Catch Analytics & Feeding Insights Card -->
+                    <div class="card glass shadow-lg card-stats" style="grid-column: 1 / -1; border-top: 3px solid var(--accent-teal); padding: 18px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 18px;">📊</span>
+                                <h3 style="margin: 0; font-size: 16px;">Catch Analytics &amp; Feeding Insights</h3>
+                            </div>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <span class="badge badge-active" id="dash-analytics-total-badge">0 Catches Recorded</span>
+                                <button class="btn btn-glass btn-sm" onclick="window.switchTab('catches')" style="font-size: 11px; padding: 3px 8px;">Deep Analytics →</button>
+                            </div>
+                        </div>
+
+                        <!-- 4 Stat Summary Blocks -->
+                        <div class="stats-row" style="margin-bottom: 16px;">
                             <div class="stat-box">
                                 <span class="stat-val" id="stat-total-catches">0</span>
                                 <span class="stat-lbl">Total Catches</span>
                             </div>
                             <div class="stat-box">
-                                <span class="stat-val" id="stat-fav-species">-</span>
+                                <span class="stat-val" id="stat-fav-species" style="font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</span>
                                 <span class="stat-lbl">Top Species</span>
                             </div>
                             <div class="stat-box">
-                                <span class="stat-val" id="stat-fav-rod">-</span>
-                                <span class="stat-lbl">Top Fly Rod</span>
+                                <span class="stat-val" id="stat-top-fly" style="font-size: 14px; color: var(--accent-gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</span>
+                                <span class="stat-lbl">Top Fly Pattern</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-val" id="stat-solunar-rate" style="font-size: 16px; color: #2ed573;">-%</span>
+                                <span class="stat-lbl">Peak Solunar Bite %</span>
+                            </div>
+                        </div>
+
+                        <!-- Interactive Insights Breakdown Grid -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
+                            <!-- 1. Top Producing Flies Chart -->
+                            <div style="background: rgba(0,0,0,0.2); padding: 12px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 12px; color: var(--text-secondary);">
+                                    <span>🪶 <b>Top Producing Flies</b></span>
+                                    <span style="font-size: 10px; color: var(--accent-teal);">By Catch Volume</span>
+                                </div>
+                                <div id="dash-top-flies-list" style="display: flex; flex-direction: column; gap: 6px;">
+                                    <div style="font-size: 11px; color: var(--text-secondary); text-align: center; padding: 10px 0;">Log catches with flies to see rankings.</div>
+                                </div>
+                            </div>
+
+                            <!-- 2. Species Distribution Bar & Personal Bests -->
+                            <div style="background: rgba(0,0,0,0.2); padding: 12px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 12px; color: var(--text-secondary);">
+                                    <span>🐟 <b>Species Breakdown &amp; Trophies</b></span>
+                                    <span id="dash-trophy-count" style="font-size: 10px; color: var(--accent-gold);">0 Species</span>
+                                </div>
+                                <div id="dash-species-breakdown-bar" style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,0.06); margin-bottom: 8px;">
+                                    <!-- Proportional color segments -->
+                                </div>
+                                <div id="dash-species-pb-list" style="display: flex; flex-direction: column; gap: 5px; max-height: 105px; overflow-y: auto;">
+                                    <div style="font-size: 11px; color: var(--text-secondary); text-align: center; padding: 10px 0;">No species logged yet.</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1498,7 +1541,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
                             <div>
                                 <strong style="font-size: 13px; color: var(--text-primary);">Installed Version:</strong>
-                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101270 (Latest Build)</span>
+                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101280 (Latest Build)</span>
                             </div>
                             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                                 <button class="btn btn-glass btn-sm" id="btn-precache-backcountry" onclick="window.downloadFullBackcountryPack()">
@@ -2344,16 +2387,16 @@
     <!-- Scripts -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
-    <script src="db.js?v=101270"></script>
-    <script src="regulations.js?v=101270"></script>
-    <script src="weather.js?v=101270"></script>
-    <script src="exif.js?v=101270"></script>
-    <script src="map.js?v=101270"></script>
-    <script src="tackle_db.js?v=101270"></script>
-    <script src="fish_db.js?v=101270"></script>
-    <script src="fly_box.js?v=101270"></script>
-    <script src="knots.js?v=101270"></script>
-    <script src="auth.js?v=101270"></script>
-    <script src="app.js?v=101270"></script>
+    <script src="db.js?v=101280"></script>
+    <script src="regulations.js?v=101280"></script>
+    <script src="weather.js?v=101280"></script>
+    <script src="exif.js?v=101280"></script>
+    <script src="map.js?v=101280"></script>
+    <script src="tackle_db.js?v=101280"></script>
+    <script src="fish_db.js?v=101280"></script>
+    <script src="fly_box.js?v=101280"></script>
+    <script src="knots.js?v=101280"></script>
+    <script src="auth.js?v=101280"></script>
+    <script src="app.js?v=101280"></script>
 </body>
 </html>
