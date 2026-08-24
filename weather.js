@@ -230,66 +230,162 @@ const WEATHER = {
         return fetch(targetUrl);
     },
 
-    async fetchWillyWeather(lat, lon) {
+    getHaversineKm(lat1, lon1, lat2, lon2) {
+        if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return 99999;
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    },
+
+    getCachedStation(lat, lon, maxDistanceKm = 15) {
+        try {
+            const key = 'willy_station_cache_v1';
+            const raw = sessionStorage.getItem(key) || localStorage.getItem(key);
+            if (!raw) return null;
+            const cache = JSON.parse(raw);
+            if (!Array.isArray(cache)) return null;
+
+            const now = Date.now();
+            let closest = null;
+            let minD = Infinity;
+
+            for (const st of cache) {
+                if (!st || !st.id || st.lat == null || st.lng == null) continue;
+                // Cache valid for 7 days
+                if (now - (st.cachedAt || 0) > 7 * 86400 * 1000) continue;
+
+                const d = this.getHaversineKm(lat, lon, st.lat, st.lng);
+                if (d <= maxDistanceKm && d < minD) {
+                    minD = d;
+                    closest = { ...st, dist: d };
+                }
+            }
+            return closest;
+        } catch (e) {
+            return null;
+        }
+    },
+
+    saveCachedStation(station, userLat, userLon) {
+        if (!station || !station.id) return;
+        try {
+            const key = 'willy_station_cache_v1';
+            const raw = sessionStorage.getItem(key) || localStorage.getItem(key);
+            let cache = raw ? JSON.parse(raw) : [];
+            if (!Array.isArray(cache)) cache = [];
+
+            // Remove existing entry for same station ID
+            cache = cache.filter(s => s && s.id !== station.id);
+
+            // Add new station record with geodesic metadata
+            cache.unshift({
+                id: station.id,
+                name: station.name,
+                region: station.region || '',
+                state: station.state || '',
+                lat: station.lat != null ? station.lat : userLat,
+                lng: station.lng != null ? station.lng : userLon,
+                cachedAt: Date.now()
+            });
+
+            // Limit to 50 most recent stations
+            if (cache.length > 50) cache = cache.slice(0, 50);
+
+            const jsonStr = JSON.stringify(cache);
+            sessionStorage.setItem(key, jsonStr);
+            localStorage.setItem(key, jsonStr);
+        } catch (e) {}
+    },
+
+    getForecastPayloadCache(lat, lon, maxAgeMinutes = 10) {
+        try {
+            const key = 'weather_forecast_payload_cache_v1';
+            const raw = sessionStorage.getItem(key);
+            if (!raw) return null;
+            const entries = JSON.parse(raw);
+            if (!Array.isArray(entries)) return null;
+
+            const now = Date.now();
+            for (const item of entries) {
+                if (!item || !item.payload || item.lat == null || item.lon == null) continue;
+                if (now - (item.timestamp || 0) > maxAgeMinutes * 60 * 1000) continue;
+
+                // Within 500m / 0.005 degrees
+                const d = this.getHaversineKm(lat, lon, item.lat, item.lon);
+                if (d <= 0.8) {
+                    return item.payload;
+                }
+            }
+            return null;
+        } catch (e) {
+            return null;
+        }
+    },
+
+    saveForecastPayloadCache(lat, lon, payload) {
+        if (!payload) return;
+        try {
+            const key = 'weather_forecast_payload_cache_v1';
+            const raw = sessionStorage.getItem(key);
+            let entries = raw ? JSON.parse(raw) : [];
+            if (!Array.isArray(entries)) entries = [];
+
+            // Remove older entries within 1km
+            entries = entries.filter(e => e && this.getHaversineKm(lat, lon, e.lat, e.lon) > 0.8);
+
+            entries.unshift({
+                lat: lat,
+                lon: lon,
+                timestamp: Date.now(),
+                payload: payload
+            });
+
+            if (entries.length > 20) entries = entries.slice(0, 20);
+            sessionStorage.setItem(key, JSON.stringify(entries));
+        } catch (e) {}
+    },
+
+    async fetchWillyWeather(lat, lon, forceRefresh = false) {
         const apiKey = localStorage.getItem('willyWeatherApiKey') || this.DEFAULT_WILLY_KEY;
         if (!apiKey) return null;
 
         try {
-            const getDistKm = (sLat, sLng) => {
-                if (sLat == null || sLng == null) return 99999;
-                const R = 6371;
-                const dLat = (sLat - lat) * Math.PI / 180;
-                const dLon = (sLng - lon) * Math.PI / 180;
-                const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                          Math.cos(lat * Math.PI / 180) * Math.cos(sLat * Math.PI / 180) *
-                          Math.sin(dLon / 2) * Math.sin(dLon / 2);
-                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            };
+            const getDistKm = (sLat, sLng) => this.getHaversineKm(lat, lon, sLat, sLng);
 
-            const candidates = [];
-            const seenIds = new Set();
+            let chosen = null;
 
-            // 1. Direct GPS Coordinate Search on WillyWeather API (Instant nearest local/regional station)
-            try {
-                const coordSearchUrl = `https://api.willyweather.com.au/v2/${apiKey}/search.json?lat=${lat}&lng=${lon}&range=40&units=distance:km`;
-                const coordRes = await this.willyFetch(coordSearchUrl);
-                if (coordRes && coordRes.ok) {
-                    const coordData = await coordRes.json();
-                    if (coordData && coordData.location && coordData.location.id) {
-                        seenIds.add(coordData.location.id);
-                        candidates.push({
-                            ...coordData.location,
-                            dist: getDistKm(coordData.location.lat, coordData.location.lng)
-                        });
-                    } else if (Array.isArray(coordData)) {
-                        for (const item of coordData) {
-                            if (item.id && !seenIds.has(item.id)) {
-                                seenIds.add(item.id);
-                                candidates.push({
-                                    ...item,
-                                    dist: getDistKm(item.lat, item.lng)
-                                });
-                            }
-                        }
-                    }
+            // 1. Geodesic Station Cache Check (Instant reuse of closest station within 15 km)
+            if (!forceRefresh) {
+                const cachedStation = this.getCachedStation(lat, lon, 15);
+                if (cachedStation) {
+                    console.log(`[WillyWeather Geodesic Cache Hit] Instant Station Lock: ${cachedStation.name} (${cachedStation.dist.toFixed(1)} km away, ID: ${cachedStation.id})`);
+                    chosen = cachedStation;
                 }
-            } catch (coordErr) {
-                console.warn("[WillyWeather Coordinate Search] Notice:", coordErr);
             }
 
-            // 2. Search locality terms & postcodes to discover hyper-local PWS stations
-            const searchTerms = await this.getLocalitySearchTerms(lat, lon);
-            for (const term of searchTerms) {
-                const cleanSearch = term.replace(/\s+(city centre|city|cbd|central)/gi, '').trim() || term;
-                if (!cleanSearch) continue;
+            // 2. If no cached station or force refresh, run precision multi-source discovery
+            if (!chosen) {
+                const candidates = [];
+                const seenIds = new Set();
 
-                const searchUrl = `https://api.willyweather.com.au/v2/${apiKey}/search.json?query=${encodeURIComponent(cleanSearch)}`;
+                // 2a. Direct GPS Coordinate Search on WillyWeather API (Instant nearest local/regional station)
                 try {
-                    const searchRes = await this.willyFetch(searchUrl);
-                    if (searchRes && searchRes.ok) {
-                        const searchData = await searchRes.json();
-                        if (Array.isArray(searchData)) {
-                            for (const item of searchData) {
+                    const coordSearchUrl = `https://api.willyweather.com.au/v2/${apiKey}/search.json?lat=${lat}&lng=${lon}&range=40&units=distance:km`;
+                    const coordRes = await this.willyFetch(coordSearchUrl);
+                    if (coordRes && coordRes.ok) {
+                        const coordData = await coordRes.json();
+                        if (coordData && coordData.location && coordData.location.id) {
+                            seenIds.add(coordData.location.id);
+                            candidates.push({
+                                ...coordData.location,
+                                dist: getDistKm(coordData.location.lat, coordData.location.lng)
+                            });
+                        } else if (Array.isArray(coordData)) {
+                            for (const item of coordData) {
                                 if (item.id && !seenIds.has(item.id)) {
                                     seenIds.add(item.id);
                                     candidates.push({
@@ -298,35 +394,76 @@ const WEATHER = {
                                     });
                                 }
                             }
-                        } else if (searchData && searchData.location && !seenIds.has(searchData.location.id)) {
-                            seenIds.add(searchData.location.id);
-                            candidates.push({
-                                ...searchData.location,
-                                dist: getDistKm(searchData.location.lat, searchData.location.lng)
-                            });
                         }
                     }
-                } catch (e) {
-                    console.warn(`[WillyWeather] Search failed for term '${term}':`, e);
+                } catch (coordErr) {
+                    console.warn("[WillyWeather Coordinate Search] Notice:", coordErr);
                 }
 
-                // If we found a candidate within 5 km, we have an ultra-local micro-station lock!
-                if (candidates.some(c => c.dist < 5)) {
-                    break;
+                // 2b. Search locality terms & postcodes to discover hyper-local PWS stations
+                const searchTerms = await this.getLocalitySearchTerms(lat, lon);
+                for (const term of searchTerms) {
+                    const cleanSearch = term.replace(/\s+(city centre|city|cbd|central)/gi, '').trim() || term;
+                    if (!cleanSearch) continue;
+
+                    const searchUrl = `https://api.willyweather.com.au/v2/${apiKey}/search.json?query=${encodeURIComponent(cleanSearch)}`;
+                    try {
+                        const searchRes = await this.willyFetch(searchUrl);
+                        if (searchRes && searchRes.ok) {
+                            const searchData = await searchRes.json();
+                            if (Array.isArray(searchData)) {
+                                for (const item of searchData) {
+                                    if (item.id && !seenIds.has(item.id)) {
+                                        seenIds.add(item.id);
+                                        candidates.push({
+                                            ...item,
+                                            dist: getDistKm(item.lat, item.lng)
+                                        });
+                                    }
+                                }
+                            } else if (searchData && searchData.location && !seenIds.has(searchData.location.id)) {
+                                seenIds.add(searchData.location.id);
+                                candidates.push({
+                                    ...searchData.location,
+                                    dist: getDistKm(searchData.location.lat, searchData.location.lng)
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        console.warn(`[WillyWeather] Search failed for term '${term}':`, e);
+                    }
+
+                    // Ultra-local micro-station lock within 5km
+                    if (candidates.some(c => c.dist < 5)) {
+                        break;
+                    }
                 }
+
+                if (candidates.length === 0) return null;
+
+                // Sort all discovered WillyWeather stations strictly by exact Haversine distance to user's GPS
+                candidates.sort((a, b) => a.dist - b.dist);
+                chosen = candidates[0];
+
+                // Save chosen station into Geodesic Cache for rapid subsequent visits
+                this.saveCachedStation(chosen, lat, lon);
             }
 
-            if (candidates.length === 0) return null;
-
-            // Sort all discovered WillyWeather stations strictly by exact Haversine distance to user's GPS
-            candidates.sort((a, b) => a.dist - b.dist);
-            const chosen = candidates[0];
             const locationId = chosen.id;
 
             // Fetch comprehensive WillyWeather data with live BOM station observations
             const weatherUrl = `https://api.willyweather.com.au/v2/${apiKey}/locations/${locationId}/weather.json?observational=true&forecasts=weather,wind,rainfall,tides,sunrisesunset,uv,moonphases&days=7`;
             const weatherRes = await this.willyFetch(weatherUrl);
-            if (!weatherRes || !weatherRes.ok) return null;
+            
+            // If cached station failed, remove it and retry full search once
+            if (!weatherRes || !weatherRes.ok) {
+                if (!forceRefresh) {
+                    console.warn(`[WillyWeather Station ${locationId}] Expired or failed. Retrying full discovery search...`);
+                    return this.fetchWillyWeather(lat, lon, true);
+                }
+                return null;
+            }
+
             const wData = await weatherRes.json();
 
             // Fetch official BOM weather warnings for this station's region
@@ -343,7 +480,7 @@ const WEATHER = {
             }
             wData.bomWarnings = bomWarnings;
 
-            console.log(`[WillyWeather Precision Match] Station: ${chosen.name} (${chosen.dist.toFixed(1)} km away, ID: ${locationId}) | BOM Warnings: ${bomWarnings.length}`);
+            console.log(`[WillyWeather Precision Match] Station: ${chosen.name} (${chosen.dist ? chosen.dist.toFixed(1) : '0'} km away, ID: ${locationId}) | BOM Warnings: ${bomWarnings.length}`);
             return this.formatWillyWeatherData(wData, chosen, lat, lon);
         } catch (err) {
             console.warn("[WillyWeather Precision Match] Request failed:", err);
@@ -508,11 +645,21 @@ const WEATHER = {
     },
 
     // Fetch weather forecast with WillyWeather + Keyless High-Res Observation Grid
-    async fetchForecast(lat, lon) {
+    async fetchForecast(lat, lon, forceRefresh = false) {
+        // Fast Cache Check (Sub-millisecond instant return for coordinates within 800m)
+        if (!forceRefresh) {
+            const cachedPayload = this.getForecastPayloadCache(lat, lon, 10);
+            if (cachedPayload && cachedPayload.current) {
+                console.log(`[Weather Fast Payload Cache] Instant 0ms return for coordinates (${lat.toFixed(3)}, ${lon.toFixed(3)})`);
+                return cachedPayload;
+            }
+        }
+
         // 1. Primary: WillyWeather API (Tides, BOM Warnings, Observations & Moon Phase)
         try {
-            const willyData = await this.fetchWillyWeather(lat, lon);
+            const willyData = await this.fetchWillyWeather(lat, lon, forceRefresh);
             if (willyData && willyData.current && willyData.current.condition !== "WillyWeather Offline") {
+                this.saveForecastPayloadCache(lat, lon, willyData);
                 return willyData;
             }
         } catch (e) {
@@ -522,7 +669,10 @@ const WEATHER = {
         // 2. Fallback: Keyless High-Resolution Australian Observation & PWS Grid (Zero API Key required)
         try {
             const openMeteoData = await this.fetchOpenMeteoWeather(lat, lon);
-            if (openMeteoData) return openMeteoData;
+            if (openMeteoData) {
+                this.saveForecastPayloadCache(lat, lon, openMeteoData);
+                return openMeteoData;
+            }
         } catch (e) {
             console.warn("[Observation Grid] Fetch failed:", e);
         }
