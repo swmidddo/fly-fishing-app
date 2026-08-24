@@ -217,4 +217,5 @@ window.FISH_DATABASE = [
     { name: "Coronation Trout", sciName: "Variola louti", waterType: "saltwater", category: "Tropical Coral Reef Serranid", image: "images/dpi_illustrations/coronation_trout.jpg" },
     { name: "Dogtooth Tuna", sciName: "Gymnosarda unicolor", waterType: "saltwater", category: "Tropical Deep Oceanic Pelagic", image: "images/dpi_illustrations/dogtooth_tuna.jpg" },
     { name: "Bight Redfish", sciName: "Centroberyx gerrardi", waterType: "saltwater", category: "Southern & WA Shelf Redfish / Nannygai", image: "images/dpi_illustrations/bight_redfish.jpg" },
+    { name: "Northern River Shark", sciName: "Glyphis garricki", waterType: "saltwater", category: "Critically Endangered River Shark", image: "images/dpi_illustrations/northern_river_shark.jpg" },
 ];
