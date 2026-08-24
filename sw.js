@@ -1,5 +1,5 @@
 // sw.js - Middo's Fly Fishing Backcountry Offline Service Worker
-const CACHE_NAME = 'fly-fishing-v101110';
+const CACHE_NAME = 'fly-fishing-v101120';
 
 // Core Local Assets to Pre-Cache on Install
 const CORE_ASSETS = [
