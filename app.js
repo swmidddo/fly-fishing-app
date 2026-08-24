@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101250';
+window.APP_VERSION = 'v101260';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -2839,56 +2839,164 @@ window.initMainApp = async function() {
             }
         });
 
+        // Add scientific names and aliases from FISH_DATABASE
+        if (window.FISH_DATABASE) {
+            window.FISH_DATABASE.forEach(f => {
+                allSpecies.add(f.name);
+                if (f.sciName) allSpecies.add(f.sciName);
+            });
+        }
+
         // Convert Set to sorted array
         const sortedSpecies = Array.from(allSpecies).sort();
         
-        // Populate dropdown and predictive datalist suggestions
-        if (elements.regSpeciesSelect) {
-            sortedSpecies.forEach(speciesName => {
-                elements.regSpeciesSelect.insertAdjacentHTML('beforeend', `
-                    <option value="${speciesName}">${speciesName}</option>
-                `);
-            });
-        }
+        // Populate predictive datalist suggestions
         const datalist = document.getElementById('species-suggestions');
         if (datalist) {
             datalist.innerHTML = '';
             sortedSpecies.forEach(speciesName => {
-                datalist.insertAdjacentHTML('beforeend', `
-                    <option value="${speciesName}">
-                `);
+                datalist.insertAdjacentHTML('beforeend', `<option value="${speciesName}">`);
             });
         }
 
-        renderRegulations();
+        window.__currentRegStatusFilter = 'ALL';
 
-        elements.regState.addEventListener('change', renderRegulations);
-        elements.regWaterType.addEventListener('change', renderRegulations);
-        if (elements.regSpeciesSelect) {
-            elements.regSpeciesSelect.addEventListener('change', renderRegulations);
-        }
-        elements.regSearch.addEventListener('input', () => {
-            if (elements.regSpeciesSelect && elements.regSearch.value.trim() !== '') {
-                elements.regSpeciesSelect.value = 'ALL';
+        // Global handler to set status filter (ALL, OPEN, SLOT, PROTECTED, CLOSURE)
+        window.setRegStatusFilter = function(status) {
+            window.__currentRegStatusFilter = status;
+            const container = document.getElementById('reg-status-pills');
+            if (container) {
+                const buttons = container.querySelectorAll('button[data-status-filter]');
+                buttons.forEach(btn => {
+                    if (btn.getAttribute('data-status-filter') === status) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
             }
             renderRegulations();
-        });
+        };
+
+        // Global handler to clear search input
+        window.clearRegSearch = function() {
+            if (elements.regSearch) {
+                elements.regSearch.value = '';
+                const btnClear = document.getElementById('btn-clear-reg-search');
+                if (btnClear) btnClear.style.display = 'none';
+                renderRegulations();
+            }
+        };
+
+        // Global handler to reset all filters
+        window.resetRegFilters = function() {
+            if (elements.regState) elements.regState.value = 'ALL';
+            if (elements.regWaterType) elements.regWaterType.value = 'ALL';
+            if (elements.regSearch) elements.regSearch.value = '';
+            window.__currentRegStatusFilter = 'ALL';
+            const container = document.getElementById('reg-status-pills');
+            if (container) {
+                const buttons = container.querySelectorAll('button[data-status-filter]');
+                buttons.forEach(btn => {
+                    if (btn.getAttribute('data-status-filter') === 'ALL') {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            }
+            const btnClear = document.getElementById('btn-clear-reg-search');
+            if (btnClear) btnClear.style.display = 'none';
+            renderRegulations();
+        };
+
+        renderRegulations();
+
+        if (elements.regState) elements.regState.addEventListener('change', renderRegulations);
+        if (elements.regWaterType) elements.regWaterType.addEventListener('change', renderRegulations);
+        if (elements.regSearch) {
+            elements.regSearch.addEventListener('input', () => {
+                const btnClear = document.getElementById('btn-clear-reg-search');
+                if (btnClear) {
+                    btnClear.style.display = elements.regSearch.value.trim() ? 'block' : 'none';
+                }
+                renderRegulations();
+            });
+        }
+    }
+
+    function getRegulationStatusInfo(fish) {
+        const minSizeStr = String(fish.minSize || '').toLowerCase();
+        const maxSizeStr = String(fish.maxSize || '').toLowerCase();
+        const bagLimitStr = String(fish.bagLimit || '').toLowerCase();
+        const seasonStr = String(fish.season || '').toLowerCase();
+
+        // 1. Protected
+        const isProtected = minSizeStr.includes('protect') || bagLimitStr === '0' || bagLimitStr.includes('protect') || 
+                            seasonStr.includes('prohibit') || seasonStr.includes('protect') || seasonStr.includes('total prohibition');
+        if (isProtected) {
+            return {
+                type: 'PROTECTED',
+                label: 'Protected',
+                badgeClass: 'badge-danger',
+                badgeHtml: `<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); font-weight: 700; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">🚫 PROTECTED</span>`
+            };
+        }
+
+        // 2. Slot Limit
+        const hasSlot = (typeof fish.maxSize === 'number' && fish.maxSize > 0) || 
+                        (typeof fish.maxSize === 'string' && fish.maxSize !== 'N/A' && fish.maxSize !== 'No Limit' && fish.maxSize !== '' && !maxSizeStr.includes('n/a')) || 
+                        seasonStr.includes('slot') || bagLimitStr.includes('slot') || seasonStr.includes('max size') || seasonStr.includes('max length');
+        if (hasSlot) {
+            return {
+                type: 'SLOT',
+                label: 'Slot Limit',
+                badgeClass: 'badge-warning',
+                badgeHtml: `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 700; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">📏 SLOT LIMIT</span>`
+            };
+        }
+
+        // 3. Seasonal Closure / Regional Restrictions
+        const isClosure = seasonStr.includes('closed') || bagLimitStr.includes('closed') || seasonStr.includes('closure') || seasonStr.includes('restricted');
+        if (isClosure) {
+            return {
+                type: 'CLOSURE',
+                label: 'Seasonal Closure',
+                badgeClass: 'badge-warning',
+                badgeHtml: `<span class="badge" style="background: rgba(234, 88, 12, 0.2); color: #fb923c; border: 1px solid rgba(234, 88, 12, 0.4); font-weight: 700; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">⚠️ CLOSURE / RESTRICTED</span>`
+            };
+        }
+
+        // 4. Open Take
+        return {
+            type: 'OPEN',
+            label: 'Open Take',
+            badgeClass: 'badge-success',
+            badgeHtml: `<span class="badge" style="background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); font-weight: 700; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">🟢 OPEN TAKE</span>`
+        };
     }
 
     function renderRegulations() {
         if (!elements.regTbody) return;
         elements.regTbody.innerHTML = '';
 
-        const stateKey = elements.regState.value;
-        const waterKey = elements.regWaterType.value;
-        const speciesKey = elements.regSpeciesSelect ? elements.regSpeciesSelect.value : 'ALL';
-        const searchQuery = elements.regSearch.value.toLowerCase();
+        const stateKey = elements.regState ? elements.regState.value : 'ALL';
+        const waterKey = elements.regWaterType ? elements.regWaterType.value : 'ALL';
+        const statusFilter = window.__currentRegStatusFilter || 'ALL';
+        const searchQuery = elements.regSearch ? elements.regSearch.value.trim().toLowerCase() : '';
 
         // Determine which states to check
         const statesToCheck = stateKey === 'ALL' ? Object.keys(window.REGULATIONS) : [stateKey];
         
         // Determine which water types to check
         const watersToCheck = waterKey === 'ALL' ? ['freshwater', 'saltwater'] : [waterKey];
+
+        let totalRulesInDatabase = 0;
+        Object.keys(window.REGULATIONS).forEach(st => {
+            const sd = window.REGULATIONS[st];
+            if (sd.freshwater) totalRulesInDatabase += sd.freshwater.length;
+            if (sd.saltwater) totalRulesInDatabase += sd.saltwater.length;
+        });
 
         const rows = [];
 
@@ -2899,28 +3007,85 @@ window.initMainApp = async function() {
             watersToCheck.forEach(water => {
                 const fishList = stateData[water] || [];
                 fishList.forEach(fish => {
-                    // Filter by selected species
-                    if (speciesKey !== 'ALL' && fish.name !== speciesKey) {
+                    const statusInfo = getRegulationStatusInfo(fish);
+
+                    // Filter by quick status pill
+                    if (statusFilter !== 'ALL' && statusInfo.type !== statusFilter) {
                         return;
                     }
 
-                    // Filter by search query
-                    const matchesSearch = fish.name.toLowerCase().includes(searchQuery) || 
-                                          (fish.season && fish.season.toLowerCase().includes(searchQuery));
-                    if (!matchesSearch) return;
+                    // Pre-match database to obtain scientific name and category for search
+                    const fishNameLower = fish.name.toLowerCase();
+                    const cleanFishName = fishNameLower.replace(/\s*\([^)]*\)/g, '').trim();
+                    let dbMatch = null;
+                    if (window.FISH_DATABASE) {
+                        dbMatch = window.FISH_DATABASE.find(f => f.name.toLowerCase() === fishNameLower);
+                        if (!dbMatch) {
+                            dbMatch = window.FISH_DATABASE.find(f => f.name.toLowerCase().replace(/\s*\([^)]*\)/g, '').trim() === cleanFishName);
+                        }
+                        if (!dbMatch) {
+                            const reqAliases = fishNameLower.replace(/[()]/g, '/').split(/[/,]/).map(a => a.trim()).filter(Boolean);
+                            dbMatch = window.FISH_DATABASE.find(f => {
+                                const fLower = f.name.toLowerCase();
+                                const fAliases = fLower.replace(/[()]/g, '/').split(/[/,]/).map(a => a.trim()).filter(Boolean);
+                                for (let i = 0; i < reqAliases.length; i++) {
+                                    const ra = reqAliases[i];
+                                    for (let j = 0; j < fAliases.length; j++) {
+                                        const fa = fAliases[j];
+                                        if (ra === fa) return true;
+                                        if (ra.length >= 7 && fa.length >= 7 && (ra.includes(fa) || fa.includes(ra))) return true;
+                                    }
+                                }
+                                return false;
+                            });
+                        }
+                    }
+
+                    const sciName = (dbMatch && dbMatch.sciName) ? dbMatch.sciName : '';
+                    const category = (dbMatch && dbMatch.category) ? dbMatch.category : '';
+
+                    // Filter by search query across common name, sci name, category, season, state
+                    if (searchQuery) {
+                        const matchesSearch = fishNameLower.includes(searchQuery) || 
+                                              sciName.toLowerCase().includes(searchQuery) ||
+                                              category.toLowerCase().includes(searchQuery) ||
+                                              state.toLowerCase().includes(searchQuery) ||
+                                              (fish.season && fish.season.toLowerCase().includes(searchQuery)) ||
+                                              (fish.bagLimit && fish.bagLimit.toLowerCase().includes(searchQuery));
+                        if (!matchesSearch) return;
+                    }
 
                     rows.push({
                         state: state,
-                        fish: fish
+                        waterType: water,
+                        fish: fish,
+                        dbMatch: dbMatch,
+                        statusInfo: statusInfo
                     });
                 });
             });
         });
 
+        // Update result counter and reset button
+        const counterEl = document.getElementById('reg-result-counter');
+        const btnReset = document.getElementById('btn-reset-reg-filters');
+        const isFiltered = stateKey !== 'ALL' || waterKey !== 'ALL' || statusFilter !== 'ALL' || searchQuery !== '';
+        
+        if (counterEl) {
+            if (isFiltered) {
+                counterEl.innerHTML = `Showing <strong style="color:#fff;">${rows.length}</strong> of ${totalRulesInDatabase} rules (Filtered)`;
+            } else {
+                counterEl.innerHTML = `Showing all <strong style="color:#fff;">${rows.length}</strong> rules across 8 Jurisdictions`;
+            }
+        }
+        if (btnReset) {
+            btnReset.style.display = isFiltered ? 'inline-block' : 'none';
+        }
+
         if (rows.length === 0) {
-            if (elements.regTbody) elements.regTbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-secondary);">No species found matching your filters.</td></tr>`;
+            if (elements.regTbody) elements.regTbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 24px; color:var(--text-secondary);">No species found matching your filters.<br><button class="btn btn-glass btn-sm mt-10" onclick="window.resetRegFilters()">↺ Clear Filters</button></td></tr>`;
             const cardsGrid = document.getElementById('reg-cards-grid');
-            if (cardsGrid) cardsGrid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary);">No species found.</div>`;
+            if (cardsGrid) cardsGrid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: var(--text-secondary);">No species found matching your filters.<br><button class="btn btn-glass btn-sm mt-10" onclick="window.resetRegFilters()">↺ Clear Filters</button></div>`;
             return;
         }
 
@@ -2929,33 +3094,8 @@ window.initMainApp = async function() {
 
         rows.forEach(item => {
             const fish = item.fish;
-            const fishNameLower = fish.name.toLowerCase();
-            const cleanFishName = fishNameLower.replace(/\s*\([^)]*\)/g, '').trim();
-
-            let dbMatch = null;
-            if (window.FISH_DATABASE) {
-                dbMatch = window.FISH_DATABASE.find(f => f.name.toLowerCase() === fishNameLower);
-                if (!dbMatch) {
-                    dbMatch = window.FISH_DATABASE.find(f => f.name.toLowerCase().replace(/\s*\([^)]*\)/g, '').trim() === cleanFishName);
-                }
-                if (!dbMatch) {
-                    const reqAliases = fishNameLower.replace(/[()]/g, '/').split(/[/,]/).map(a => a.trim()).filter(Boolean);
-                    dbMatch = window.FISH_DATABASE.find(f => {
-                        const fLower = f.name.toLowerCase();
-                        const fAliases = fLower.replace(/[()]/g, '/').split(/[/,]/).map(a => a.trim()).filter(Boolean);
-                        for (let i = 0; i < reqAliases.length; i++) {
-                            const ra = reqAliases[i];
-                            for (let j = 0; j < fAliases.length; j++) {
-                                const fa = fAliases[j];
-                                if (ra === fa) return true;
-                                if (ra.length >= 7 && fa.length >= 7 && (ra.includes(fa) || fa.includes(ra))) return true;
-                            }
-                        }
-                        return false;
-                    });
-                }
-            }
-
+            const dbMatch = item.dbMatch;
+            const statusInfo = item.statusInfo;
             const imgUrl = (dbMatch && dbMatch.image) ? dbMatch.image : 'images/dpi_illustrations/rainbow_trout.jpg';
             const sciName = (dbMatch && dbMatch.sciName) ? dbMatch.sciName : 'Species Identification';
 
@@ -2977,22 +3117,23 @@ window.initMainApp = async function() {
                 maxSize = 'No Limit';
             }
             
-            // 1. Render Table Row with DPIRD Official Cutout Photo
+            // 1. Render Table Row with DPIRD Official Cutout Photo & Status Badge
             if (elements.regTbody) {
                 elements.regTbody.insertAdjacentHTML('beforeend', `
                     <tr>
                         <td>
                             <div style="width: 70px; height: 44px; background: #ffffff; border-radius: 6px; display: flex; align-items: center; justify-content: center; padding: 2px; border: 1px solid rgba(255,255,255,0.15);">
-                                <img src="${imgUrl}" alt="${fish.name}" onerror="this.onerror=null; this.src='images/dpi_illustrations/rainbow_trout.jpg';" style="max-width: 100%; max-height: 100%; object-fit: contain; cursor: pointer;" onclick="window.viewEnlargedPhoto('${imgUrl}', '${fish.name}')" title="Click to view NSW DPIRD scientific photo">
+                                <img src="${imgUrl}" alt="${fish.name}" onerror="this.onerror=null; this.src='images/dpi_illustrations/rainbow_trout.jpg';" style="max-width: 100%; max-height: 100%; object-fit: contain; cursor: pointer;" onclick="window.viewEnlargedPhoto('${imgUrl}', '${fish.name}')" title="Click to view scientific illustration">
                             </div>
                         </td>
-                        <td style="color: var(--accent-blue); font-weight:600;">${item.state}</td>
+                        <td style="color: var(--accent-blue); font-weight:700;">${item.state}</td>
                         <td>
                             <strong>🐟 ${fish.name}</strong>
                             <div style="font-size: 10.5px; color: var(--text-secondary); font-style: italic;">${sciName}</div>
                         </td>
+                        <td>${statusInfo.badgeHtml}</td>
                         <td style="color: var(--accent-teal); font-weight:600;">${minSize}</td>
-                        <td style="color: var(--accent-orange);">${maxSize}</td>
+                        <td style="color: var(--accent-orange); font-weight:600;">${maxSize}</td>
                         <td>${fish.bagLimit}</td>
                         <td style="color: var(--accent-teal); font-weight:600;">${fish.possessionLimit || 'N/A'}</td>
                         <td style="font-size:12px; color:var(--text-secondary);">${fish.season}</td>
@@ -3000,13 +3141,14 @@ window.initMainApp = async function() {
                 `);
             }
 
-            // 2. Render NSW DPIRD Style Visual Card with White Cutout Backdrop
+            // 2. Render NSW DPIRD Style Visual Card with White Cutout Backdrop & Status Badge
             if (cardsGrid) {
                 cardsGrid.insertAdjacentHTML('beforeend', `
                     <div class="card glass shadow-lg" style="padding: 0; overflow: hidden; border: 1px solid var(--border-color); display: flex; flex-direction: column;">
                         <div style="position: relative; height: 160px; overflow: hidden; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 12px;">
                             <img src="${imgUrl}" alt="${fish.name}" onerror="this.onerror=null; this.src='images/dpi_illustrations/rainbow_trout.jpg';" style="max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.4s ease;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
                             <span class="badge" style="position: absolute; top: 10px; right: 10px; background: rgba(0, 210, 255, 0.85); color: #fff; font-weight: 700; font-size: 11px;">${item.state}</span>
+                            <div style="position: absolute; top: 10px; left: 10px;">${statusInfo.badgeHtml}</div>
                             <span class="badge" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: var(--accent-teal); font-size: 10.5px; text-transform: uppercase;">${dbMatch ? dbMatch.category : (item.waterType || 'Fish Species')}</span>
                         </div>
                         <div style="padding: 16px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between;">

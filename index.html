@@ -17,7 +17,7 @@
         // Backcountry Offline PWA Service Worker Registration
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=101250')
+                navigator.serviceWorker.register('sw.js?v=101260')
                     .then(function(reg) {
                         console.log('[Backcountry SW] Registered successfully with scope:', reg.scope);
                         window.__BACKCOUNTRY_SW_ACTIVE__ = true;
@@ -265,7 +265,7 @@
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
-                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v101250</span>
+                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v101260</span>
                     </div>
                 </div>
             </div>
@@ -759,40 +759,53 @@
                     </div>
                 </header>
 
-                <div class="regulations-control-bar card glass">
-                    <div class="form-group-inline">
-                        <label for="reg-state">State:</label>
-                        <select id="reg-state" class="form-select">
-                            <option value="ALL">All States</option>
-                            <option value="NSW">New South Wales (NSW)</option>
-                            <option value="VIC">Victoria (VIC)</option>
-                            <option value="QLD">Queensland (QLD)</option>
-                            <option value="WA">Western Australia (WA)</option>
-                            <option value="SA">South Australia (SA)</option>
-                            <option value="TAS">Tasmania (TAS)</option>
-                            <option value="NT">Northern Territory (NT)</option>
-                            <option value="ACT">Australian Capital Territory (ACT)</option>
-                        </select>
+                <div class="regulations-control-bar card glass" style="padding: 16px;">
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px;">
+                        <div class="form-group-inline">
+                            <label for="reg-state" style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Jurisdiction:</label>
+                            <select id="reg-state" class="form-select" style="min-width: 140px;">
+                                <option value="ALL">All States & Territories (8)</option>
+                                <option value="NSW">New South Wales (NSW)</option>
+                                <option value="VIC">Victoria (VIC)</option>
+                                <option value="QLD">Queensland (QLD)</option>
+                                <option value="WA">Western Australia (WA)</option>
+                                <option value="SA">South Australia (SA)</option>
+                                <option value="TAS">Tasmania (TAS)</option>
+                                <option value="NT">Northern Territory (NT)</option>
+                                <option value="ACT">Australian Capital Territory (ACT)</option>
+                            </select>
+                        </div>
+                        <div class="form-group-inline">
+                            <label for="reg-water-type" style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Habitat:</label>
+                            <select id="reg-water-type" class="form-select">
+                                <option value="ALL">All Waters</option>
+                                <option value="saltwater">🌊 Saltwater</option>
+                                <option value="freshwater">🌲 Freshwater</option>
+                            </select>
+                        </div>
+                        <div class="form-group-inline flex-grow">
+                            <label for="reg-search" style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Instant Search:</label>
+                            <div style="position: relative; width: 100%;">
+                                <input type="text" id="reg-search" class="form-input" placeholder="Search by common name, scientific name, or location..." list="species-suggestions" style="width: 100%; padding-right: 32px;">
+                                <button id="btn-clear-reg-search" onclick="window.clearRegSearch()" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-secondary); cursor: pointer; display: none; font-size: 14px;" title="Clear search">✕</button>
+                                <datalist id="species-suggestions"></datalist>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group-inline">
-                        <label for="reg-water-type">Water:</label>
-                        <select id="reg-water-type" class="form-select">
-                            <option value="ALL">All Water Types</option>
-                            <option value="saltwater">🌊 Saltwater</option>
-                            <option value="freshwater">🌲 Freshwater</option>
-                        </select>
-                    </div>
-                    <div class="form-group-inline">
-                        <label for="reg-species-select">Species:</label>
-                        <select id="reg-species-select" class="form-select">
-                            <option value="ALL">All Species</option>
-                            <!-- Dynamically populated -->
-                        </select>
-                    </div>
-                    <div class="form-group-inline flex-grow">
-                        <label for="reg-search">Search:</label>
-                        <input type="text" id="reg-search" class="form-input" placeholder="Search species..." list="species-suggestions">
-                        <datalist id="species-suggestions"></datalist>
+
+                    <!-- Quick Status Filters & Results Counter -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;" id="reg-status-pills">
+                            <button class="btn btn-sm btn-glass active" data-status-filter="ALL" onclick="window.setRegStatusFilter('ALL')" style="font-size: 11px; padding: 4px 10px;">All Rules</button>
+                            <button class="btn btn-sm btn-glass" data-status-filter="OPEN" onclick="window.setRegStatusFilter('OPEN')" style="font-size: 11px; padding: 4px 10px;">🟢 Open Take</button>
+                            <button class="btn btn-sm btn-glass" data-status-filter="SLOT" onclick="window.setRegStatusFilter('SLOT')" style="font-size: 11px; padding: 4px 10px;">📏 Slot Limits</button>
+                            <button class="btn btn-sm btn-glass" data-status-filter="PROTECTED" onclick="window.setRegStatusFilter('PROTECTED')" style="font-size: 11px; padding: 4px 10px;">🚫 Wholly Protected</button>
+                            <button class="btn btn-sm btn-glass" data-status-filter="CLOSURE" onclick="window.setRegStatusFilter('CLOSURE')" style="font-size: 11px; padding: 4px 10px;">⚠️ Seasonal Closures</button>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span id="reg-result-counter" style="font-size: 12px; color: var(--accent-teal); font-weight: 600;">Showing 545 species rules</span>
+                            <button id="btn-reset-reg-filters" onclick="window.resetRegFilters()" class="btn btn-glass btn-sm" style="font-size: 11px; display: none; padding: 3px 8px;">↺ Reset</button>
+                        </div>
                     </div>
                 </div>
 
@@ -804,6 +817,7 @@
                                 <th>Photo</th>
                                 <th>State</th>
                                 <th>Species Name</th>
+                                <th>Status</th>
                                 <th>Min Size</th>
                                 <th>Max Size</th>
                                 <th>Bag Limit</th>
@@ -1484,7 +1498,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
                             <div>
                                 <strong style="font-size: 13px; color: var(--text-primary);">Installed Version:</strong>
-                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101250 (Latest Build)</span>
+                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101260 (Latest Build)</span>
                             </div>
                             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                                 <button class="btn btn-glass btn-sm" id="btn-precache-backcountry" onclick="window.downloadFullBackcountryPack()">
@@ -2330,16 +2344,16 @@
     <!-- Scripts -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
-    <script src="db.js?v=101250"></script>
-    <script src="regulations.js?v=101250"></script>
-    <script src="weather.js?v=101250"></script>
-    <script src="exif.js?v=101250"></script>
-    <script src="map.js?v=101250"></script>
-    <script src="tackle_db.js?v=101250"></script>
-    <script src="fish_db.js?v=101250"></script>
-    <script src="fly_box.js?v=101250"></script>
-    <script src="knots.js?v=101250"></script>
-    <script src="auth.js?v=101250"></script>
-    <script src="app.js?v=101250"></script>
+    <script src="db.js?v=101260"></script>
+    <script src="regulations.js?v=101260"></script>
+    <script src="weather.js?v=101260"></script>
+    <script src="exif.js?v=101260"></script>
+    <script src="map.js?v=101260"></script>
+    <script src="tackle_db.js?v=101260"></script>
+    <script src="fish_db.js?v=101260"></script>
+    <script src="fly_box.js?v=101260"></script>
+    <script src="knots.js?v=101260"></script>
+    <script src="auth.js?v=101260"></script>
+    <script src="app.js?v=101260"></script>
 </body>
 </html>
