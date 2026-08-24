@@ -15,7 +15,7 @@ window.FISH_DATABASE = [
     { name: "Silver Perch", sciName: "Bidyanus bidyanus", waterType: "freshwater", category: "Freshwater Native", image: "images/dpi_illustrations/silver_perch.jpg" },
     { name: "Golden Perch (Yellowbelly)", sciName: "Macquaria ambigua", waterType: "freshwater", category: "Freshwater Native", image: "images/dpi_illustrations/golden_perch.jpg" },
     { name: "Golden Perch", sciName: "Macquaria ambigua", waterType: "freshwater", category: "Freshwater Native", image: "images/dpi_illustrations/golden_perch.jpg" },
-    { name: "Freshwater Catfish (Eel-tailed Catfish)", sciName: "Tandanus tandanus", waterType: "freshwater", category: "Freshwater Native", image: "images/dpi_illustrations/freshwater_catfish.jpg" },
+    { name: "Freshwater Catfish (Eel-tailed Catfish / Murray River Catfish)", sciName: "Tandanus tandanus", waterType: "freshwater", category: "Freshwater Native", image: "images/dpi_illustrations/freshwater_catfish.jpg" },
     { name: "River Blackfish", sciName: "Gadopsis marmoratus", waterType: "freshwater", category: "Freshwater Native", image: "images/dpi_illustrations/river_blackfish.jpg" },
     { name: "Two-spined Blackfish", sciName: "Gadopsis bispinosus", waterType: "freshwater", category: "Highland Native", image: "images/dpi_illustrations/two_spined_blackfish.jpg" },
     { name: "Spangled Perch", sciName: "Leiopotherapon unicolor", waterType: "freshwater", category: "Inland Native", image: "images/dpi_illustrations/spangled_perch.jpg" },
