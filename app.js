@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101290';
+window.APP_VERSION = 'v101300';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -1509,6 +1509,23 @@ window.initMainApp = async function() {
         elements.rigFlyline.innerHTML = '<option value="">Select Fly Line...</option>';
         elements.rigFly.innerHTML = '<option value="">Select Fly/Lure...</option>';
 
+        // 1. Populate Virtual Fly Box patterns
+        const flyBoxFlies = (window.FlyBoxApp && Array.isArray(window.FlyBoxApp.flies)) ? window.FlyBoxApp.flies : [];
+        if (flyBoxFlies.length > 0) {
+            let flyBoxGroup = `<optgroup label="🪰 Virtual Fly Box">`;
+            flyBoxFlies.forEach(f => {
+                const sizesStr = Array.isArray(f.hookSizes) ? ` (${f.hookSizes.join(', ')})` : (f.hookSizes ? ` (${f.hookSizes})` : '');
+                const label = `${f.icon || '🪰'} ${f.name}${sizesStr}`;
+                flyBoxGroup += `<option value="${f.name}">${label}</option>`;
+            });
+            flyBoxGroup += `</optgroup>`;
+            elements.rigFly.insertAdjacentHTML('beforeend', flyBoxGroup);
+        }
+
+        // 2. Populate Tackle Library Rods, Reels, Lines, and Tackle-Flies
+        let tackleFlyGroup = `<optgroup label="🎣 Tackle Inventory Flies">`;
+        let hasTackleFlies = false;
+
         AppState.tackle.forEach(item => {
             const labelText = getTackleDisambiguatedLabel(item, AppState.tackle);
             const option = `<option value="${labelText}">${labelText}</option>`;
@@ -1516,9 +1533,18 @@ window.initMainApp = async function() {
             if (item.type === 'rod') elements.rigRod.insertAdjacentHTML('beforeend', option);
             else if (item.type === 'reel') elements.rigReel.insertAdjacentHTML('beforeend', option);
             else if (item.type === 'flyline') elements.rigFlyline.insertAdjacentHTML('beforeend', option);
-            else if (item.type === 'fly') elements.rigFly.insertAdjacentHTML('beforeend', option);
+            else if (item.type === 'fly') {
+                tackleFlyGroup += `<option value="${labelText}">${labelText}</option>`;
+                hasTackleFlies = true;
+            }
         });
+
+        if (hasTackleFlies) {
+            tackleFlyGroup += `</optgroup>`;
+            elements.rigFly.insertAdjacentHTML('beforeend', tackleFlyGroup);
+        }
     }
+    window.populateFlyDropdowns = populateTackleDropdowns;
 
     // Populate dropdowns inside the Combo modal with Rods, Reels, Lines, Leaders, and Tippets from Library
     function populateComboTackleDropdowns() {
@@ -2453,6 +2479,10 @@ window.initMainApp = async function() {
         AppState.photoMetadata = null;
         if (elements.modalLogCatchTitle) elements.modalLogCatchTitle.textContent = 'Log Fish Catch';
         
+        // Refresh tackle, combo, and fly box dropdowns
+        populateTackleDropdowns();
+        populateRigDropdowns();
+
         elements.formLogCatch.reset();
         if (document.getElementById('catch-species')) document.getElementById('catch-species').value = '';
         if (document.getElementById('catch-water')) document.getElementById('catch-water').value = '';
@@ -2820,6 +2850,11 @@ window.initMainApp = async function() {
             if (idx !== -1) AppState.catches[idx] = newCatch;
             else AppState.catches.unshift(newCatch);
 
+            // Auto-stock Fly Box with newly encountered fly pattern
+            if (newCatch.fly && window.FlyBoxApp && typeof window.FlyBoxApp.autoRegisterFlyFromCatch === 'function') {
+                window.FlyBoxApp.autoRegisterFlyFromCatch(newCatch.fly, newCatch.waterType, newCatch.species);
+            }
+
             window.hideLogCatchModal();
             renderCatches();
             renderDashboardRecent();
@@ -2843,6 +2878,11 @@ window.initMainApp = async function() {
             // Immediate real-time memory update
             AppState.catches.unshift(newCatch);
             
+            // Auto-stock Fly Box with newly encountered fly pattern
+            if (newCatch.fly && window.FlyBoxApp && typeof window.FlyBoxApp.autoRegisterFlyFromCatch === 'function') {
+                window.FlyBoxApp.autoRegisterFlyFromCatch(newCatch.fly, newCatch.waterType, newCatch.species);
+            }
+
             window.hideLogCatchModal();
             renderCatches();
             renderDashboardRecent();

@@ -278,6 +278,65 @@ const FlyBoxApp = {
         this.addFly(newFly);
     },
 
+    autoRegisterFlyFromCatch(flyString, waterType = 'freshwater', species = '') {
+        if (!flyString || typeof flyString !== 'string') return null;
+        const cleanName = flyString.trim();
+        if (!cleanName || cleanName === 'Select Fly/Lure...' || cleanName === 'Standard Pattern') return null;
+
+        // Check if fly already exists in personal fly box (case-insensitive)
+        let existing = this.flies.find(f => f.name.toLowerCase() === cleanName.toLowerCase() || cleanName.toLowerCase().includes(f.name.toLowerCase()) || f.name.toLowerCase().includes(cleanName.toLowerCase()));
+        if (existing) {
+            existing.catchCount = (existing.catchCount || 0) + 1;
+            this.saveFliesToStorage();
+            return existing;
+        }
+
+        // Auto-detect hook size
+        const hookMatches = cleanName.match(/(?:#|hook\s*|size\s*)?([0-9]{1,2}(?:\/0)?)/i);
+        let hookSize = "#14";
+        if (hookMatches) {
+            hookSize = hookMatches[0].startsWith('#') ? hookMatches[0] : `#${hookMatches[1]}`;
+        }
+
+        // Auto-detect category & icon
+        const lower = cleanName.toLowerCase();
+        let category = 'Dry Fly';
+        let icon = '🦟';
+
+        if (lower.includes('nymph') || lower.includes('beadhead') || lower.includes('scud') || lower.includes('copper') || lower.includes('ptn') || lower.includes('hare')) {
+            category = 'Nymph';
+            icon = '🪱';
+        } else if (lower.includes('streamer') || lower.includes('bugger') || lower.includes('zonker') || lower.includes('matuka') || lower.includes('leech') || lower.includes('clouser') || lower.includes('deceiver') || lower.includes('pig') || lower.includes('minnow')) {
+            category = 'Streamer';
+            icon = '🪶';
+        } else if (waterType === 'saltwater' || lower.includes('crab') || lower.includes('shrimp') || lower.includes('squid') || lower.includes('charlie') || lower.includes('tarpon') || lower.includes('bonefish') || lower.includes('gotcha') || lower.includes('surf candy') || lower.includes('puglisi')) {
+            category = 'Saltwater';
+            icon = '🦐';
+        } else if (lower.includes('terrestrial') || lower.includes('hopper') || lower.includes('beetle') || lower.includes('ant') || lower.includes('cicada')) {
+            category = 'Terrestrial';
+            icon = '🦗';
+        }
+
+        const newFly = {
+            id: 'fly_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+            name: cleanName,
+            category: category,
+            region: waterType === 'saltwater' ? 'Estuary / Saltwater' : 'Rivers & Lakes',
+            seasons: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+            hookSizes: [hookSize],
+            icon: icon,
+            description: `Auto-cataloged from successful ${species ? species + ' ' : ''}catch on ${new Date().toLocaleDateString()}.`,
+            rating: 5,
+            catchCount: 1
+        };
+
+        this.flies.unshift(newFly);
+        this.saveFliesToStorage();
+        this.renderFlyBoxUI();
+        if (window.populateFlyDropdowns) window.populateFlyDropdowns();
+        return newFly;
+    },
+
     deleteFly(flyId) {
         if (confirm("Are you sure you want to remove this fly from your fly box?")) {
             this.flies = this.flies.filter(f => f.id !== flyId);
@@ -301,26 +360,39 @@ const FlyBoxApp = {
             return;
         }
 
-        container.innerHTML = displayFlies.map(fly => `
-            <div class="card glass fly-card" style="border-top: 3px solid var(--accent-teal); position: relative; padding: 16px;">
-                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 32px;">${fly.icon || '🪰'}</span>
-                        <div>
-                            <h4 style="margin: 0; font-size: 15px; color: var(--text-primary);">${fly.name}</h4>
-                            <span class="badge" style="background: rgba(100, 255, 218, 0.12); color: var(--accent-teal); font-size: 10px; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px;">${fly.category}</span>
-                            ${fly.region ? `<span class="badge" style="background: rgba(0, 210, 255, 0.12); color: var(--accent-blue); font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">${fly.region}</span>` : ''}
+        const allCatches = (window.AppState && Array.isArray(window.AppState.catches)) ? window.AppState.catches : [];
+
+        container.innerHTML = displayFlies.map(fly => {
+            // Compute real-time catch count from Catch Logs
+            const matchingCatches = allCatches.filter(c => {
+                const cFly = (c.fly || c.lure || '').toLowerCase();
+                const fName = (fly.name || '').toLowerCase();
+                return cFly && (cFly.includes(fName) || fName.includes(cFly));
+            });
+            const catchCount = Math.max(matchingCatches.length, fly.catchCount || 0);
+
+            return `
+                <div class="card glass fly-card" style="border-top: 3px solid var(--accent-teal); position: relative; padding: 16px;">
+                    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 32px;">${fly.icon || '🪰'}</span>
+                            <div>
+                                <h4 style="margin: 0; font-size: 15px; color: var(--text-primary);">${fly.name}</h4>
+                                <span class="badge" style="background: rgba(100, 255, 218, 0.12); color: var(--accent-teal); font-size: 10px; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px;">${fly.category}</span>
+                                ${fly.region ? `<span class="badge" style="background: rgba(0, 210, 255, 0.12); color: var(--accent-blue); font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">${fly.region}</span>` : ''}
+                                ${catchCount > 0 ? `<span class="badge" style="background: rgba(46, 213, 115, 0.15); color: #2ed573; border: 1px solid rgba(46, 213, 115, 0.3); font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">🎣 ${catchCount} Catch${catchCount === 1 ? '' : 'es'}</span>` : ''}
+                            </div>
                         </div>
+                        <button class="btn btn-sm btn-danger" onclick="FlyBoxApp.deleteFly('${fly.id}')" style="padding: 4px 8px; font-size: 11px;">&times;</button>
                     </div>
-                    <button class="btn btn-sm btn-danger" onclick="FlyBoxApp.deleteFly('${fly.id}')" style="padding: 4px 8px; font-size: 11px;">&times;</button>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin: 8px 0; line-height: 1.4;">${fly.description || ''}</p>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.06); padding-top: 8px; font-size: 11px; color: var(--text-secondary);">
+                        <div>🎣 Hook Sizes: <strong style="color: var(--text-primary);">${Array.isArray(fly.hookSizes) ? fly.hookSizes.join(', ') : fly.hookSizes}</strong></div>
+                        <div>⭐ Rating: <strong style="color: var(--accent-orange);">${'★'.repeat(fly.rating || 5)}</strong></div>
+                    </div>
                 </div>
-                <p style="font-size: 12px; color: var(--text-secondary); margin: 8px 0; line-height: 1.4;">${fly.description || ''}</p>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.06); padding-top: 8px; font-size: 11px; color: var(--text-secondary);">
-                    <div>🎣 Hook Sizes: <strong style="color: var(--text-primary);">${Array.isArray(fly.hookSizes) ? fly.hookSizes.join(', ') : fly.hookSizes}</strong></div>
-                    <div>⭐ Rating: <strong style="color: var(--accent-orange);">${'★'.repeat(fly.rating || 5)}</strong></div>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     },
 
     // --- Master Hatch Guide Engine ---
