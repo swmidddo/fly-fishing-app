@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101320';
+window.APP_VERSION = 'v101330';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -2473,6 +2473,106 @@ window.initMainApp = async function() {
     elements.catchFilterWater = document.getElementById('catch-filter-water');
     elements.catchFilterWater.addEventListener('change', renderCatches);
 
+    // Dynamic Environmental Clarity & Prey Selector based on Water Type
+    function updateEnvironmentalSelectsByWaterType(waterType = 'freshwater', selectedClarity = '', selectedHatch = '') {
+        const claritySelect = document.getElementById('catch-clarity');
+        const hatchSelect = document.getElementById('catch-hatch');
+        const isSalt = (waterType || '').toLowerCase() === 'saltwater';
+
+        if (claritySelect) {
+            const prevClarity = selectedClarity || claritySelect.value;
+            if (isSalt) {
+                claritySelect.innerHTML = `
+                    <option value="">Select Saltwater Clarity...</option>
+                    <option value="Crystal Clear / Flats Clear">Crystal Clear / Flats Clear (&gt; 10m Visibility)</option>
+                    <option value="Bluewater / Ocean Clear">Bluewater / Ocean Clear (Pelagic Blue)</option>
+                    <option value="Greenish / Inshore Tint">Greenish / Inshore Tint (Reef &amp; Coastal)</option>
+                    <option value="Tidal Surge / Turbid">Tidal Surge / Turbid (Suspended Sand / Surf Wash)</option>
+                    <option value="Muddy / Estuary Runoff">Muddy / Estuary Runoff (Mangrove Murk)</option>
+                    <option value="Algae Bloom / Red Tide">Algae Bloom / Discolored</option>
+                `;
+            } else {
+                claritySelect.innerHTML = `
+                    <option value="">Select Freshwater Clarity...</option>
+                    <option value="Gin Clear">Gin Clear (High Visibility / Sight Casting)</option>
+                    <option value="Clear with Slight Tint">Clear with Slight Tint (Prime River Flow)</option>
+                    <option value="Slightly Stained">Slightly Stained / Tannin (Tea/Peat Stained)</option>
+                    <option value="Discolored / Off-Color">Discolored / Off-Color (Greenish / Chalky)</option>
+                    <option value="Muddied / High Flow">Muddied / High Flow (Dirty Runoff / Spate)</option>
+                `;
+            }
+
+            if (prevClarity) {
+                let matched = false;
+                for (let i = 0; i < claritySelect.options.length; i++) {
+                    const opt = claritySelect.options[i];
+                    if (opt.value.toLowerCase() === prevClarity.toLowerCase() || 
+                        opt.value.toLowerCase().includes(prevClarity.toLowerCase()) || 
+                        prevClarity.toLowerCase().includes(opt.value.toLowerCase())) {
+                        claritySelect.selectedIndex = i;
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched && prevClarity) {
+                    const customOpt = document.createElement('option');
+                    customOpt.value = prevClarity;
+                    customOpt.textContent = prevClarity;
+                    customOpt.selected = true;
+                    claritySelect.appendChild(customOpt);
+                }
+            }
+        }
+
+        if (hatchSelect) {
+            const prevHatch = selectedHatch || hatchSelect.value;
+            if (isSalt) {
+                hatchSelect.innerHTML = `
+                    <option value="">Select Marine Prey / Hatch...</option>
+                    <option value="Shrimp / Prawn">Shrimp / Prawn (Live / Surface Flea)</option>
+                    <option value="Crab (Fiddler/Mud/Blue)">Crab (Fiddler / Mud / Blue Swimmer)</option>
+                    <option value="Baitfish (Minnow/Pilchard/Mullet)">Baitfish (Mullet / Glass Minnow / Anchovy)</option>
+                    <option value="Squid / Calamari">Squid / Calamari</option>
+                    <option value="Sand Worm / Blood Worm">Sand Worm / Blood Worm</option>
+                    <option value="Pelagic Bait Ball / Surface Blitz">Pelagic Bait Ball / Surface Blitz</option>
+                `;
+            } else {
+                hatchSelect.innerHTML = `
+                    <option value="">Select Freshwater Hatch/Prey...</option>
+                    <option value="Mayfly (Dun/Spinner)">Mayfly (Dun / Spinner / Emerger)</option>
+                    <option value="Caddis (Sedge)">Caddis (Sedge / Pupa)</option>
+                    <option value="Stonefly">Stonefly (Nymph / Adult)</option>
+                    <option value="Midges / Chironomids">Midges / Chironomids</option>
+                    <option value="Terrestrials (Hoppers/Ants)">Terrestrials (Hoppers / Ants / Beetles / Cicadas)</option>
+                    <option value="Shrimp / Crab / Mudeye">Freshwater Shrimp / Crab / Mudeye</option>
+                    <option value="Baitfish / Fry">Baitfish / Fry (Minnows / Galaxias / Smelt)</option>
+                `;
+            }
+
+            if (prevHatch) {
+                let matched = false;
+                for (let i = 0; i < hatchSelect.options.length; i++) {
+                    const opt = hatchSelect.options[i];
+                    if (opt.value.toLowerCase() === prevHatch.toLowerCase() || 
+                        opt.value.toLowerCase().includes(prevHatch.toLowerCase()) || 
+                        prevHatch.toLowerCase().includes(opt.value.toLowerCase())) {
+                        hatchSelect.selectedIndex = i;
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched && prevHatch) {
+                    const customOpt = document.createElement('option');
+                    customOpt.value = prevHatch;
+                    customOpt.textContent = prevHatch;
+                    customOpt.selected = true;
+                    hatchSelect.appendChild(customOpt);
+                }
+            }
+        }
+    }
+    window.updateEnvironmentalSelectsByWaterType = updateEnvironmentalSelectsByWaterType;
+
     // Catch Modal Actions
     window.showLogCatchModal = () => {
         AppState.editingCatchId = null;
@@ -2486,8 +2586,7 @@ window.initMainApp = async function() {
         elements.formLogCatch.reset();
         if (document.getElementById('catch-species')) document.getElementById('catch-species').value = '';
         if (document.getElementById('catch-water')) document.getElementById('catch-water').value = '';
-        if (document.getElementById('catch-clarity')) document.getElementById('catch-clarity').value = '';
-        if (document.getElementById('catch-hatch')) document.getElementById('catch-hatch').value = '';
+        updateEnvironmentalSelectsByWaterType('freshwater', '', '');
         if (document.getElementById('rig-combo-select')) document.getElementById('rig-combo-select').value = '';
         if (document.getElementById('rig-rod')) document.getElementById('rig-rod').value = '';
         if (document.getElementById('rig-reel')) document.getElementById('rig-reel').value = '';
@@ -2575,6 +2674,7 @@ window.initMainApp = async function() {
         // Populate fields
         document.getElementById('catch-species').value = catchItem.species || '';
         document.getElementById('catch-water').value = catchItem.waterType || 'freshwater';
+        updateEnvironmentalSelectsByWaterType(catchItem.waterType || 'freshwater', catchItem.waterClarity, catchItem.activeHatch);
         document.getElementById('catch-length').value = catchItem.length !== null ? catchItem.length : '';
         document.getElementById('catch-weight').value = catchItem.weight !== null ? catchItem.weight : '';
         if (elements.catchLatInput) elements.catchLatInput.value = catchItem.lat !== null && catchItem.lat !== undefined ? catchItem.lat : '';
@@ -2757,6 +2857,13 @@ window.initMainApp = async function() {
     if (catchSpeciesInput) {
         catchSpeciesInput.addEventListener('input', triggerRegUpdateOnCoordChange);
         catchSpeciesInput.addEventListener('change', triggerRegUpdateOnCoordChange);
+    }
+
+    const catchWaterSelect = document.getElementById('catch-water');
+    if (catchWaterSelect) {
+        catchWaterSelect.addEventListener('change', () => {
+            updateEnvironmentalSelectsByWaterType(catchWaterSelect.value);
+        });
     }
 
     elements.useGpsBtn.addEventListener('click', () => {
@@ -5675,6 +5782,7 @@ window.initMainApp = async function() {
                         const match = window.FISH_DATABASE ? window.FISH_DATABASE.find(f => f.name.toLowerCase() === cand.name.toLowerCase()) : null;
                         if (match && document.getElementById('catch-water')) {
                             document.getElementById('catch-water').value = match.waterType;
+                            updateEnvironmentalSelectsByWaterType(match.waterType);
                         }
                         displayRegulationBox(cand.name, lat, lng);
                     }
@@ -5981,7 +6089,10 @@ window.initMainApp = async function() {
                 const db = window.FISH_DATABASE || [];
                 const match = db.find(f => f.name.toLowerCase() === val.trim().toLowerCase());
                 if (match) {
-                    if (waterSelect && match.waterType) waterSelect.value = match.waterType;
+                    if (waterSelect && match.waterType) {
+                        waterSelect.value = match.waterType;
+                        updateEnvironmentalSelectsByWaterType(match.waterType);
+                    }
                     const lat = elements.catchLatInput && elements.catchLatInput.value ? parseFloat(elements.catchLatInput.value) : null;
                     const lng = elements.catchLngInput && elements.catchLngInput.value ? parseFloat(elements.catchLngInput.value) : null;
                     displayRegulationBox(match.name, lat, lng);

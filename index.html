@@ -17,7 +17,7 @@
         // Backcountry Offline PWA Service Worker Registration
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=101320')
+                navigator.serviceWorker.register('sw.js?v=101330')
                     .then(function(reg) {
                         console.log('[Backcountry SW] Registered successfully with scope:', reg.scope);
                         window.__BACKCOUNTRY_SW_ACTIVE__ = true;
@@ -265,7 +265,7 @@
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
-                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v101320</span>
+                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v101330</span>
                     </div>
                 </div>
             </div>
@@ -1541,7 +1541,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
                             <div>
                                 <strong style="font-size: 13px; color: var(--text-primary);">Installed Version:</strong>
-                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101320 (Latest Build)</span>
+                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101330 (Latest Build)</span>
                             </div>
                             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                                 <button class="btn btn-glass btn-sm" id="btn-precache-backcountry" onclick="window.downloadFullBackcountryPack()">
@@ -1713,24 +1713,25 @@
                     <div class="form-group">
                         <label for="catch-clarity">Water Clarity</label>
                         <select id="catch-clarity" class="form-select">
-                            <option value="">Select Clarity...</option>
-                            <option value="Gin Clear">Gin Clear (High Visibility)</option>
-                            <option value="Slightly Stained">Slightly Stained (Tea/Peat)</option>
-                            <option value="Muddied / High">Muddied / High Flow</option>
-                            <option value="Tidal Surge">Tidal Surge / Murky</option>
+                            <option value="">Select Water Clarity...</option>
+                            <option value="Gin Clear">Gin Clear (High Visibility / Sight Casting)</option>
+                            <option value="Clear with Slight Tint">Clear with Slight Tint (Prime Flow)</option>
+                            <option value="Slightly Stained">Slightly Stained / Tannin (Tea/Peat)</option>
+                            <option value="Discolored / Off-Color">Discolored / Off-Color (Greenish/Chalky)</option>
+                            <option value="Muddied / High Flow">Muddied / High Flow (Dirty / Spate)</option>
                         </select>
                     </div>
                     <div class="form-group">
                         <label for="catch-hatch">Active Hatch / Prey</label>
                         <select id="catch-hatch" class="form-select">
                             <option value="">Select Hatch/Prey...</option>
-                            <option value="Mayfly (Dun/Spinner)">Mayfly (Dun/Spinner)</option>
-                            <option value="Caddis (Sedge)">Caddis (Sedge)</option>
-                            <option value="Stonefly">Stonefly</option>
+                            <option value="Mayfly (Dun/Spinner)">Mayfly (Dun / Spinner / Emerger)</option>
+                            <option value="Caddis (Sedge)">Caddis (Sedge / Pupa)</option>
+                            <option value="Stonefly">Stonefly (Nymph / Adult)</option>
                             <option value="Midges / Chironomids">Midges / Chironomids</option>
-                            <option value="Terrestrials (Hoppers/Ants)">Terrestrials (Hoppers/Ants)</option>
-                            <option value="Shrimp / Crab">Shrimp / Crab</option>
-                            <option value="Baitfish / Fry">Baitfish / Fry</option>
+                            <option value="Terrestrials (Hoppers/Ants)">Terrestrials (Hoppers / Ants / Beetles / Cicadas)</option>
+                            <option value="Shrimp / Crab / Mudeye">Freshwater Shrimp / Crab / Mudeye</option>
+                            <option value="Baitfish / Fry">Baitfish / Fry / Minnows</option>
                         </select>
                     </div>
                 </div>
@@ -2387,16 +2388,16 @@
     <!-- Scripts -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
-    <script src="db.js?v=101320"></script>
-    <script src="regulations.js?v=101320"></script>
-    <script src="weather.js?v=101320"></script>
-    <script src="exif.js?v=101320"></script>
-    <script src="map.js?v=101320"></script>
-    <script src="tackle_db.js?v=101320"></script>
-    <script src="fish_db.js?v=101320"></script>
-    <script src="fly_box.js?v=101320"></script>
-    <script src="knots.js?v=101320"></script>
-    <script src="auth.js?v=101320"></script>
-    <script src="app.js?v=101320"></script>
+    <script src="db.js?v=101330"></script>
+    <script src="regulations.js?v=101330"></script>
+    <script src="weather.js?v=101330"></script>
+    <script src="exif.js?v=101330"></script>
+    <script src="map.js?v=101330"></script>
+    <script src="tackle_db.js?v=101330"></script>
+    <script src="fish_db.js?v=101330"></script>
+    <script src="fly_box.js?v=101330"></script>
+    <script src="knots.js?v=101330"></script>
+    <script src="auth.js?v=101330"></script>
+    <script src="app.js?v=101330"></script>
 </body>
 </html>
