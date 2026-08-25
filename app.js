@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101360';
+window.APP_VERSION = 'v101370';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -2096,8 +2096,9 @@ window.initMainApp = async function() {
                     <span class="card-badge-type">${item.waterType || 'freshwater'}</span>
                 </div>
                 <div class="card-content-body">
-                    <div class="card-header-row">
+                    <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center;">
                         <h4 style="margin: 0;">🐟 ${item.species}</h4>
+                        <button class="btn btn-glass btn-sm" onclick="event.stopPropagation(); window.openTrophyCardModal('${item.id}')" style="font-size: 10.5px; padding: 2px 7px; color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.1);">🏆 Trophy Card</button>
                     </div>
                     <p style="font-size: 11px; color: var(--accent-teal); margin-top: 2px; margin-bottom: 0;">📅 ${dateStr} ${item.time || ''}</p>
                     <div class="card-specs mt-10">
@@ -2245,6 +2246,7 @@ window.initMainApp = async function() {
                         <p class="card-notes" style="display: block; -webkit-line-clamp: unset; overflow: visible; white-space: pre-wrap;">${item.notes || 'No notes recorded.'}</p>
                         ${environmentalStrip}
                         <div class="card-actions-row">
+                            <button class="btn btn-glass btn-sm" onclick="event.stopPropagation(); window.openTrophyCardModal('${safeId}')" style="color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.1);">🏆 Trophy Card</button>
                             <button class="btn btn-glass btn-sm" onclick="event.stopPropagation(); window.editCatchUI('${safeId}')">✏️ Edit</button>
                             <button class="btn btn-glass btn-danger btn-sm" onclick="event.stopPropagation(); window.deleteCatchUI('${safeId}')">🗑️ Delete</button>
                         </div>
@@ -2338,6 +2340,7 @@ window.initMainApp = async function() {
             catchesGalleryEl.insertAdjacentHTML('beforeend', `
                 <div class="card glass shadow-lg photo-gallery-item" style="padding: 0; overflow: hidden; border-radius: 12px; position: relative; cursor: pointer;" onclick="window.editCatchUI('${safeId}')">
                     <img src="${photoSrc}" alt="${c.species}" style="width: 100%; height: 210px; object-fit: cover; display: block;">
+                    <button class="btn btn-glass btn-sm" onclick="event.stopPropagation(); window.openTrophyCardModal('${safeId}')" style="position: absolute; top: 10px; right: 10px; font-size: 10.5px; padding: 3px 8px; color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.5); background: rgba(5, 10, 24, 0.75); backdrop-filter: blur(4px);">🏆 Trophy Card</button>
                     <div style="padding: 12px; background: rgba(15, 23, 42, 0.95);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <strong style="font-size: 15px; color: var(--accent-teal);">${c.species}</strong>
@@ -3143,6 +3146,414 @@ window.initMainApp = async function() {
             } catch (err) {
                 alert("Error clearing catches: " + err.message);
             }
+        }
+    };
+
+    // ==========================================
+    // 6.5 Branded Trophy Catch Card Generator Engine
+    // ==========================================
+    const TrophyCardGenerator = {
+        currentCatch: null,
+        currentFormat: 'portrait', // 'portrait' (1080x1350) or 'landscape' (1200x675)
+
+        async renderToCanvas(catchItem, format = 'portrait') {
+            if (!catchItem) return;
+            this.currentCatch = catchItem;
+            this.currentFormat = format;
+
+            const canvas = document.getElementById('trophy-card-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            const isPortrait = format === 'portrait';
+            const W = isPortrait ? 1080 : 1200;
+            const H = isPortrait ? 1350 : 675;
+
+            canvas.width = W;
+            canvas.height = H;
+
+            // 1. Background Gradient
+            const bgGrad = ctx.createLinearGradient(0, 0, W, H);
+            bgGrad.addColorStop(0, '#060d1f');
+            bgGrad.addColorStop(0.5, '#0b162e');
+            bgGrad.addColorStop(1, '#040814');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, W, H);
+
+            // Subtle Ambient Glows
+            const cyanGlow = ctx.createRadialGradient(W * 0.82, H * 0.12, 40, W * 0.82, H * 0.12, isPortrait ? 600 : 400);
+            cyanGlow.addColorStop(0, 'rgba(0, 210, 255, 0.16)');
+            cyanGlow.addColorStop(1, 'rgba(0, 210, 255, 0)');
+            ctx.fillStyle = cyanGlow;
+            ctx.fillRect(0, 0, W, H);
+
+            const goldGlow = ctx.createRadialGradient(W * 0.15, H * 0.88, 30, W * 0.15, H * 0.88, isPortrait ? 500 : 350);
+            goldGlow.addColorStop(0, 'rgba(245, 158, 11, 0.12)');
+            goldGlow.addColorStop(1, 'rgba(245, 158, 11, 0)');
+            ctx.fillStyle = goldGlow;
+            ctx.fillRect(0, 0, W, H);
+
+            // Luxury Double Framing
+            ctx.strokeStyle = 'rgba(0, 210, 255, 0.4)';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(26, 26, W - 52, H - 52);
+
+            ctx.strokeStyle = 'rgba(245, 158, 11, 0.25)';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(34, 34, W - 68, H - 68);
+
+            // Header Branding
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 30px "Inter", -apple-system, sans-serif';
+            ctx.fillText("MIDDO'S FLY FISHING", 56, 78);
+
+            ctx.fillStyle = '#00d2ff';
+            ctx.font = 'bold 15px "Inter", -apple-system, sans-serif';
+            ctx.fillText('AUTHENTIC BACKCOUNTRY CATCH RECORD', 56, 102);
+
+            // Date / Water Type Badge
+            const dateStr = catchItem.date || new Date().toISOString().split('T')[0];
+            const timeStr = catchItem.time ? ` • ${catchItem.time}` : '';
+            const waterStr = (catchItem.waterType || 'Freshwater').toUpperCase();
+
+            ctx.textAlign = 'right';
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '600 15px "Inter", -apple-system, sans-serif';
+            ctx.fillText(`${dateStr}${timeStr}`, W - 56, 78);
+
+            ctx.fillStyle = '#a3e635';
+            ctx.font = 'bold 13.5px "Inter", -apple-system, sans-serif';
+            ctx.fillText(`🌊 ${waterStr}`, W - 56, 102);
+
+            // 2. Render Hero Catch Photo
+            const photoSrc = (typeof getFishPhoto === 'function') ? getFishPhoto(catchItem) : (catchItem.photo || './images/fly_rod_default.png');
+            
+            let photoX, photoY, photoW, photoH;
+            if (isPortrait) {
+                photoX = 56;
+                photoY = 130;
+                photoW = W - 112;
+                photoH = 560;
+            } else {
+                photoX = 56;
+                photoY = 130;
+                photoW = 490;
+                photoH = 475;
+            }
+
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+
+            const drawPhoto = (loadedImg) => {
+                ctx.save();
+                const radius = 14;
+                ctx.beginPath();
+                ctx.moveTo(photoX + radius, photoY);
+                ctx.lineTo(photoX + photoW - radius, photoY);
+                ctx.quadraticCurveTo(photoX + photoW, photoY, photoX + photoW, photoY + radius);
+                ctx.lineTo(photoX + photoW, photoY + photoH - radius);
+                ctx.quadraticCurveTo(photoX + photoW, photoY + photoH, photoX + photoW - radius, photoY + photoH);
+                ctx.lineTo(photoX + radius, photoY + photoH);
+                ctx.quadraticCurveTo(photoX, photoY + photoH, photoX, photoY + photoH - radius);
+                ctx.lineTo(photoX, photoY + radius);
+                ctx.quadraticCurveTo(photoX, photoY, photoX + radius, photoY);
+                ctx.closePath();
+                ctx.clip();
+
+                if (loadedImg && loadedImg.naturalWidth) {
+                    const imgRatio = loadedImg.naturalWidth / loadedImg.naturalHeight;
+                    const boxRatio = photoW / photoH;
+                    let sW, sH, sX, sY;
+                    if (imgRatio > boxRatio) {
+                        sH = loadedImg.naturalHeight;
+                        sW = sH * boxRatio;
+                        sX = (loadedImg.naturalWidth - sW) / 2;
+                        sY = 0;
+                    } else {
+                        sW = loadedImg.naturalWidth;
+                        sH = sW / boxRatio;
+                        sX = 0;
+                        sY = (loadedImg.naturalHeight - sH) / 2;
+                    }
+                    ctx.drawImage(loadedImg, sX, sY, sW, sH, photoX, photoY, photoW, photoH);
+                } else {
+                    ctx.fillStyle = '#0f172a';
+                    ctx.fillRect(photoX, photoY, photoW, photoH);
+                    ctx.fillStyle = '#64748b';
+                    ctx.font = '600 24px "Inter", sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('🐟 ' + (catchItem.species || 'Trophy Fish'), photoX + photoW / 2, photoY + photoH / 2);
+                }
+                ctx.restore();
+
+                // Photo Frame & Border Glow
+                ctx.strokeStyle = 'rgba(0, 210, 255, 0.45)';
+                ctx.lineWidth = 2.5;
+                ctx.strokeRect(photoX, photoY, photoW, photoH);
+            };
+
+            await new Promise(resolve => {
+                img.onload = () => {
+                    drawPhoto(img);
+                    resolve();
+                };
+                img.onerror = () => {
+                    drawPhoto(null);
+                    resolve();
+                };
+                img.src = photoSrc;
+            });
+
+            // 3. Render Species Title & Key Metric Boxes
+            const speciesName = (catchItem.species || 'Gamefish').toUpperCase();
+            const lengthVal = catchItem.length || catchItem.fishLength || '--';
+            const weightVal = catchItem.weight || '--';
+            
+            let statsX, statsY, statsW;
+            if (isPortrait) {
+                statsX = 56;
+                statsY = 728;
+                statsW = W - 112;
+            } else {
+                statsX = 575;
+                statsY = 135;
+                statsW = W - 631;
+            }
+
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#f59e0b';
+            ctx.font = 'bold 14px "Inter", -apple-system, sans-serif';
+            ctx.fillText('🏆 VERIFIED TROPHY CATCH', statsX, statsY);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '900 38px "Inter", -apple-system, sans-serif';
+            ctx.fillText(speciesName, statsX, statsY + 42);
+
+            // Length & Weight Metric Cards
+            const cardY = statsY + 62;
+            const boxW = (statsW - 16) / 2;
+            const boxH = 88;
+
+            // Length Box
+            ctx.fillStyle = 'rgba(0, 210, 255, 0.1)';
+            ctx.fillRect(statsX, cardY, boxW, boxH);
+            ctx.strokeStyle = 'rgba(0, 210, 255, 0.35)';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(statsX, cardY, boxW, boxH);
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '600 12.5px "Inter", sans-serif';
+            ctx.fillText('LENGTH', statsX + 16, cardY + 26);
+            ctx.fillStyle = '#00d2ff';
+            ctx.font = '900 34px "Inter", sans-serif';
+            ctx.fillText(`${lengthVal} cm`, statsX + 16, cardY + 68);
+
+            // Weight Box
+            ctx.fillStyle = 'rgba(163, 230, 53, 0.1)';
+            ctx.fillRect(statsX + boxW + 16, cardY, boxW, boxH);
+            ctx.strokeStyle = 'rgba(163, 230, 53, 0.35)';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(statsX + boxW + 16, cardY, boxW, boxH);
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '600 12.5px "Inter", sans-serif';
+            ctx.fillText('WEIGHT', statsX + boxW + 32, cardY + 26);
+            ctx.fillStyle = '#a3e635';
+            ctx.font = '900 34px "Inter", sans-serif';
+            ctx.fillText(`${weightVal} kg`, statsX + boxW + 32, cardY + 68);
+
+            // 4. Tackle & Rig Spec Breakdown
+            const rigY = cardY + 112;
+            const { rod: displayRod, reel: displayReel, flyline: displayLine, fly: displayFly, combo: displayCombo } = (typeof resolveCatchTackle === 'function') ? resolveCatchTackle(catchItem) : { fly: catchItem.fly, rod: catchItem.rod };
+
+            const flyPattern = displayFly || catchItem.fly || 'Standard Fly';
+            const rodSpec = displayCombo || displayRod || catchItem.rod || 'Fly Rod';
+            const lineSpec = displayLine || catchItem.flyline || 'Floating Line';
+
+            const drawSpecRow = (label, val, x, y, maxW) => {
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '600 13px "Inter", sans-serif';
+                ctx.fillText(label, x, y);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 16px "Inter", sans-serif';
+                ctx.fillText(val, x, y + 22, maxW);
+            };
+
+            if (isPortrait) {
+                drawSpecRow('🪰 FLY / PATTERN', flyPattern, statsX, rigY, statsW / 2 - 10);
+                drawSpecRow('🎣 FLY ROD / RIG', rodSpec, statsX + statsW / 2 + 10, rigY, statsW / 2 - 10);
+                
+                // Environmental Strip
+                const envY = rigY + 68;
+                const locText = (catchItem.lat && catchItem.lng) ? `GPS ${catchItem.lat.toFixed(3)}, ${catchItem.lng.toFixed(3)}` : (catchItem.location || 'Backcountry Waters');
+                const clarity = catchItem.clarity || catchItem.waterClarity || 'Prime Flow';
+                const moon = catchItem.moonPhase ? `🌑 ${catchItem.moonPhase}` : '⭐ Major Solunar Window';
+                const weather = catchItem.weatherCondition ? `🌤️ ${catchItem.weatherCondition} ${catchItem.weatherTemp ? '('+catchItem.weatherTemp+'°C)' : ''}` : '🌤️ Prime Stream Weather';
+
+                drawSpecRow('📍 LOCATION', locText, statsX, envY, statsW / 2 - 10);
+                drawSpecRow('💎 WATER CLARITY', clarity, statsX + statsW / 2 + 10, envY, statsW / 2 - 10);
+
+                drawSpecRow('🌘 SOLUNAR / MOON', moon, statsX, envY + 68, statsW / 2 - 10);
+                drawSpecRow('🌤️ CONDITIONS', weather, statsX + statsW / 2 + 10, envY + 68, statsW / 2 - 10);
+
+                // Notes Quote Box
+                if (catchItem.notes) {
+                    const notesY = envY + 130;
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+                    ctx.fillRect(statsX, notesY, statsW, 58);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(statsX, notesY, statsW, 58);
+
+                    ctx.fillStyle = '#cbd5e1';
+                    ctx.font = 'italic 13.5px "Inter", sans-serif';
+                    ctx.fillText(`"${catchItem.notes.slice(0, 90)}${catchItem.notes.length > 90 ? '...' : ''}"`, statsX + 16, notesY + 34, statsW - 32);
+                }
+
+                // Footer
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#64748b';
+                ctx.font = '600 13px "Inter", sans-serif';
+                ctx.fillText("MIDDO'S FLY FISHING APP • BACKCOUNTRY LOG & ANALYTICS", W / 2, H - 42);
+            } else {
+                // Landscape layout
+                drawSpecRow('🪰 FLY', flyPattern, statsX, rigY, statsW / 2 - 10);
+                drawSpecRow('🎣 ROD & LINE', `${rodSpec} | ${lineSpec}`, statsX + statsW / 2 + 10, rigY, statsW / 2 - 10);
+
+                const envY = rigY + 58;
+                const locText = (catchItem.lat && catchItem.lng) ? `GPS ${catchItem.lat.toFixed(3)}, ${catchItem.lng.toFixed(3)}` : (catchItem.location || 'Backcountry Waters');
+                const weather = catchItem.weatherCondition ? `🌤️ ${catchItem.weatherCondition}` : '🌤️ Prime Stream Weather';
+                drawSpecRow('📍 LOCATION', locText, statsX, envY, statsW / 2 - 10);
+                drawSpecRow('🌤️ WEATHER & SOLUNAR', weather, statsX + statsW / 2 + 10, envY, statsW / 2 - 10);
+
+                // Footer
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#64748b';
+                ctx.font = '600 12px "Inter", sans-serif';
+                ctx.fillText("MIDDO'S FLY FISHING APP • AUTHENTIC BACKCOUNTRY LOG", W / 2, H - 40);
+            }
+        }
+    };
+
+    window.TrophyCardGenerator = TrophyCardGenerator;
+
+    window.openTrophyCardModal = function(catchId) {
+        const catchItem = (AppState.catches || []).find(c => String(c.id) === String(catchId));
+        if (!catchItem) {
+            alert("Catch record not found.");
+            return;
+        }
+        const modal = document.getElementById('modal-trophy-card');
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.classList.add('active');
+        }
+        window.setTrophyCardFormat('portrait');
+        TrophyCardGenerator.renderToCanvas(catchItem, 'portrait');
+    };
+
+    window.closeTrophyCardModal = function() {
+        const modal = document.getElementById('modal-trophy-card');
+        if (modal) {
+            modal.style.display = 'none';
+            modal.classList.remove('active');
+        }
+    };
+
+    window.setTrophyCardFormat = function(format) {
+        TrophyCardGenerator.currentFormat = format;
+        const btnPortrait = document.getElementById('btn-trophy-fmt-portrait');
+        const btnLandscape = document.getElementById('btn-trophy-fmt-landscape');
+        if (btnPortrait && btnLandscape) {
+            if (format === 'portrait') {
+                btnPortrait.classList.add('active');
+                btnLandscape.classList.remove('active');
+            } else {
+                btnLandscape.classList.add('active');
+                btnPortrait.classList.remove('active');
+            }
+        }
+        if (TrophyCardGenerator.currentCatch) {
+            TrophyCardGenerator.renderToCanvas(TrophyCardGenerator.currentCatch, format);
+        }
+    };
+
+    window.downloadTrophyCardImage = function() {
+        const canvas = document.getElementById('trophy-card-canvas');
+        if (!canvas) return;
+        const c = TrophyCardGenerator.currentCatch || {};
+        const safeSpecies = (c.species || 'Fish').replace(/[^a-zA-Z0-9]/g, '_');
+        const dateStr = c.date || new Date().toISOString().split('T')[0];
+        const filename = `Middos_Trophy_Catch_${safeSpecies}_${dateStr}.png`;
+
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = canvas.toDataURL('image/png', 1.0);
+        link.click();
+    };
+
+    window.shareTrophyCard = async function() {
+        const canvas = document.getElementById('trophy-card-canvas');
+        if (!canvas) return;
+        const c = TrophyCardGenerator.currentCatch || {};
+        const safeSpecies = (c.species || 'Fish').replace(/[^a-zA-Z0-9]/g, '_');
+        const dateStr = c.date || new Date().toISOString().split('T')[0];
+        const filename = `Middos_Trophy_Catch_${safeSpecies}_${dateStr}.png`;
+
+        if (navigator.share && canvas.toBlob) {
+            canvas.toBlob(async (blob) => {
+                if (!blob) {
+                    window.downloadTrophyCardImage();
+                    return;
+                }
+                const file = new File([blob], filename, { type: 'image/png' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                        await navigator.share({
+                            files: [file],
+                            title: `Trophy ${c.species || 'Catch'} - Middo's Fly Fishing`,
+                            text: `Check out my ${c.length ? c.length + 'cm ' : ''}${c.species || 'catch'} logged with Middo's Fly Fishing App!`
+                        });
+                    } catch (err) {
+                        if (err.name !== 'AbortError') {
+                            window.downloadTrophyCardImage();
+                        }
+                    }
+                } else {
+                    window.downloadTrophyCardImage();
+                }
+            }, 'image/png');
+        } else {
+            window.downloadTrophyCardImage();
+        }
+    };
+
+    window.copyTrophyCardImage = async function() {
+        const canvas = document.getElementById('trophy-card-canvas');
+        const btn = document.getElementById('btn-trophy-copy');
+        if (!canvas) return;
+
+        if (navigator.clipboard && window.ClipboardItem && canvas.toBlob) {
+            canvas.toBlob(async (blob) => {
+                if (!blob) return;
+                try {
+                    await navigator.clipboard.write([
+                        new ClipboardItem({ 'image/png': blob })
+                    ]);
+                    if (btn) {
+                        const originalText = btn.innerHTML;
+                        btn.innerHTML = '✅ Copied!';
+                        setTimeout(() => { btn.innerHTML = originalText; }, 2500);
+                    }
+                } catch(e) {
+                    console.warn("Clipboard copy failed:", e);
+                    window.downloadTrophyCardImage();
+                }
+            }, 'image/png');
+        } else {
+            window.downloadTrophyCardImage();
         }
     };
 
