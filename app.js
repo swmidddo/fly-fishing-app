@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101340';
+window.APP_VERSION = 'v101350';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -5617,24 +5617,90 @@ window.initMainApp = async function() {
 
         const stateCode = (resolvedLat !== null && resolvedLng !== null) ? getStateFromCoords(resolvedLat, resolvedLng) : null;
         
-        // STEP 3: Apply State-Specific Rules matching GPS location
+        // STEP 3: Apply State-Specific Rules strictly matching GPS/EXIF catch location
         let matchedRule = null;
         let matchedStateName = '';
+        let targetStateCode = stateCode;
 
-        if (stateCode && window.REGULATIONS[stateCode]) {
-            const st = window.REGULATIONS[stateCode];
-            if (st.freshwater) matchedRule = st.freshwater.find(r => r.name.toLowerCase().includes(cleanSpecies) || cleanSpecies.includes(r.name.toLowerCase()));
-            if (!matchedRule && st.saltwater) matchedRule = st.saltwater.find(r => r.name.toLowerCase().includes(cleanSpecies) || cleanSpecies.includes(r.name.toLowerCase()));
-            if (matchedRule) matchedStateName = st.stateName;
+        // If no GPS is present, check if user has a pinned location or default to NSW baseline
+        if (!targetStateCode) {
+            const pinnedStr = localStorage.getItem('app_pinned_location');
+            if (pinnedStr) {
+                try {
+                    const pinnedObj = JSON.parse(pinnedStr);
+                    if (pinnedObj && pinnedObj.lat && pinnedObj.lng) {
+                        targetStateCode = getStateFromCoords(pinnedObj.lat, pinnedObj.lng);
+                    }
+                } catch(e) {}
+            }
+        }
+        if (!targetStateCode) targetStateCode = 'NSW'; // Default Australian baseline
+
+        const PRIMARY_FISH_TOKENS = [
+            'flounder', 'trout', 'snapper', 'bream', 'trevally', 'flathead', 'cod', 'whiting',
+            'perch', 'salmon', 'tailor', 'bonito', 'kingfish', 'mackerel', 'tuna', 'dory',
+            'mullet', 'garfish', 'leatherjacket', 'shark', 'ray', 'bass', 'barramundi',
+            'jack', 'nannygai', 'jewfish', 'mulloway', 'carp', 'redfin', 'gurnard', 'morwong',
+            'luderick', 'drummer', 'groper', 'sweep', 'sole', 'teraglin', 'samson', 'marlin',
+            'sailfish', 'wahoo', 'cobia', 'mangrove', 'fingermark', 'coral', 'emperors', 'emperor'
+        ];
+
+        function findRuleInState(cleanSp, sCode) {
+            if (!sCode || !window.REGULATIONS || !window.REGULATIONS[sCode]) return null;
+            const st = window.REGULATIONS[sCode];
+            const rules = [...(st.freshwater || []), ...(st.saltwater || [])];
+
+            // 1. Direct exact or substring match
+            let found = rules.find(r => {
+                const rName = r.name.toLowerCase();
+                return rName === cleanSp || rName.includes(cleanSp) || cleanSp.includes(rName);
+            });
+            if (found) return { rule: found, stateName: st.stateName, stateCode: sCode };
+
+            // 2. Token / Fish root matching
+            const cleanTokens = cleanSp.split(/[\s/(),&]+/).map(t => t.trim()).filter(t => t.length >= 3);
+            for (const r of rules) {
+                const rTokens = r.name.toLowerCase().split(/[\s/(),&]+/).map(t => t.trim()).filter(t => t.length >= 3);
+                const common = cleanTokens.filter(t => rTokens.includes(t));
+                if (common.length > 0) {
+                    if (common.some(t => PRIMARY_FISH_TOKENS.includes(t)) || common.length >= 2) {
+                        return { rule: r, stateName: st.stateName, stateCode: sCode };
+                    }
+                }
+            }
+
+            // 3. Synonym / Aliases check against FISH_DATABASE
+            if (window.FISH_DATABASE) {
+                const dbMatch = window.FISH_DATABASE.find(f => f.name.toLowerCase() === cleanSp || f.name.toLowerCase().includes(cleanSp) || cleanSp.includes(f.name.toLowerCase()));
+                if (dbMatch) {
+                    const dbTokens = dbMatch.name.toLowerCase().split(/[\s/(),&]+/).map(t => t.trim()).filter(t => t.length >= 3);
+                    for (const r of rules) {
+                        const rTokens = r.name.toLowerCase().split(/[\s/(),&]+/).map(t => t.trim()).filter(t => t.length >= 3);
+                        const common = dbTokens.filter(t => rTokens.includes(t));
+                        if (common.length > 0 && common.some(t => PRIMARY_FISH_TOKENS.includes(t))) {
+                            return { rule: r, stateName: st.stateName, stateCode: sCode };
+                        }
+                    }
+                }
+            }
+
+            return null;
         }
 
-        if (!matchedRule) {
+        // Search strictly within the resolved state first
+        let stateResult = findRuleInState(cleanSpecies, targetStateCode);
+        if (stateResult) {
+            matchedRule = stateResult.rule;
+            matchedStateName = stateResult.stateName;
+            targetStateCode = stateResult.stateCode;
+        } else if (!stateCode) {
+            // Only search other states if NO specific GPS state was identified at all
             for (const sCode in window.REGULATIONS) {
-                const st = window.REGULATIONS[sCode];
-                if (st.freshwater) matchedRule = st.freshwater.find(r => r.name.toLowerCase().includes(cleanSpecies) || cleanSpecies.includes(r.name.toLowerCase()));
-                if (!matchedRule && st.saltwater) matchedRule = st.saltwater.find(r => r.name.toLowerCase().includes(cleanSpecies) || cleanSpecies.includes(r.name.toLowerCase()));
-                if (matchedRule) {
-                    matchedStateName = st.stateName;
+                stateResult = findRuleInState(cleanSpecies, sCode);
+                if (stateResult) {
+                    matchedRule = stateResult.rule;
+                    matchedStateName = stateResult.stateName;
+                    targetStateCode = stateResult.stateCode;
                     break;
                 }
             }
@@ -5662,7 +5728,7 @@ window.initMainApp = async function() {
                     <strong>🔍 Identified: <span style="color: var(--accent-teal);">${speciesName}</span></strong>
                     ${badgeHtml}
                 </div>
-                <div>📍 <b>Official ${matchedStateName || 'Australian'} Regulations (${stateCode || 'General'}):</b></div>
+                <div>📍 <b>Official ${matchedStateName || 'State'} Regulations (${targetStateCode || 'General'}):</b></div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 4px; font-size: 11.5px;">
                     <span>📏 <b>Size Limit:</b> ${sizeText}</span>
                     <span>🎒 <b>Bag Limit:</b> ${matchedRule.bagLimit}</span>
