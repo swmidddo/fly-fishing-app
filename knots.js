@@ -192,49 +192,284 @@ const KNOT_GUIDE = [
 
 const KnotsApp = {
     currentFilter: 'all',
+    searchQuery: '',
+    globalHandedness: 'right', // 'right' or 'left'
+    knotStates: {},
 
-    renderKnotsUI(filterCategory = 'all') {
+    getKnotState(knotId) {
+        if (!this.knotStates[knotId]) {
+            this.knotStates[knotId] = {
+                activeStep: 0,
+                isLeftHanded: this.globalHandedness === 'left',
+                isPlaying: false,
+                timer: null
+            };
+        }
+        return this.knotStates[knotId];
+    },
+
+    setStep(knotId, stepIndex) {
+        const knot = KNOT_GUIDE.find(k => k.id === knotId);
+        if (!knot) return;
+        const state = this.getKnotState(knotId);
+        const max = knot.steps.length - 1;
+        state.activeStep = Math.max(0, Math.min(max, stepIndex));
+        this.updateKnotCardDOM(knotId);
+    },
+
+    nextStep(knotId) {
+        const knot = KNOT_GUIDE.find(k => k.id === knotId);
+        if (!knot) return;
+        const state = this.getKnotState(knotId);
+        if (state.activeStep < knot.steps.length - 1) {
+            this.setStep(knotId, state.activeStep + 1);
+        } else if (state.isPlaying) {
+            this.setStep(knotId, 0);
+        }
+    },
+
+    prevStep(knotId) {
+        const state = this.getKnotState(knotId);
+        if (state.activeStep > 0) {
+            this.setStep(knotId, state.activeStep - 1);
+        }
+    },
+
+    togglePlay(knotId) {
+        const state = this.getKnotState(knotId);
+        const knot = KNOT_GUIDE.find(k => k.id === knotId);
+        if (!knot) return;
+
+        if (state.isPlaying) {
+            clearInterval(state.timer);
+            state.isPlaying = false;
+            state.timer = null;
+        } else {
+            state.isPlaying = true;
+            if (state.activeStep >= knot.steps.length - 1) {
+                state.activeStep = 0;
+                this.updateKnotCardDOM(knotId);
+            }
+            state.timer = setInterval(() => {
+                const curState = this.getKnotState(knotId);
+                if (!curState.isPlaying) {
+                    clearInterval(curState.timer);
+                    return;
+                }
+                if (curState.activeStep < knot.steps.length - 1) {
+                    this.nextStep(knotId);
+                } else {
+                    curState.activeStep = 0;
+                    this.updateKnotCardDOM(knotId);
+                }
+            }, 3200);
+        }
+        this.updateKnotCardDOM(knotId);
+    },
+
+    toggleHandedness(knotId) {
+        const state = this.getKnotState(knotId);
+        state.isLeftHanded = !state.isLeftHanded;
+        this.updateKnotCardDOM(knotId);
+    },
+
+    setGlobalHandedness(handedness) {
+        this.globalHandedness = handedness;
+        for (const id in this.knotStates) {
+            this.knotStates[id].isLeftHanded = (handedness === 'left');
+        }
+        this.renderKnotsUI(this.currentFilter, this.searchQuery);
+    },
+
+    updateKnotCardDOM(knotId) {
+        const cardEl = document.getElementById(`knot-card-${knotId}`);
+        if (!cardEl) return;
+        const knot = KNOT_GUIDE.find(k => k.id === knotId);
+        if (!knot) return;
+        const state = this.getKnotState(knotId);
+
+        // Update image mirror class & badge
+        const imgEl = cardEl.querySelector('.knot-diagram-img');
+        const mirrorBadgeEl = cardEl.querySelector('.knot-mirror-badge');
+        const handBtnEl = cardEl.querySelector('.btn-toggle-hand');
+        if (imgEl) {
+            if (state.isLeftHanded) imgEl.classList.add('mirrored');
+            else imgEl.classList.remove('mirrored');
+        }
+        if (mirrorBadgeEl) {
+            mirrorBadgeEl.style.display = state.isLeftHanded ? 'inline-block' : 'none';
+        }
+        if (handBtnEl) {
+            handBtnEl.innerHTML = state.isLeftHanded ? '🫲 Left-Handed' : '🫱 Right-Handed';
+            handBtnEl.style.borderColor = state.isLeftHanded ? '#a3e635' : 'var(--border-color)';
+            handBtnEl.style.color = state.isLeftHanded ? '#a3e635' : 'var(--text-secondary)';
+        }
+
+        // Update step counter & progress bar
+        const stepCounter = cardEl.querySelector('.knot-step-counter');
+        const progressFill = cardEl.querySelector('.knot-progress-fill');
+        const activeStepDesc = cardEl.querySelector('.knot-active-step-desc');
+        const playBtn = cardEl.querySelector('.btn-knot-play');
+        const prevBtn = cardEl.querySelector('.btn-knot-prev');
+        const nextBtn = cardEl.querySelector('.btn-knot-next');
+
+        const total = knot.steps.length;
+        const cur = state.activeStep;
+        const percent = Math.round(((cur + 1) / total) * 100);
+
+        if (stepCounter) stepCounter.textContent = `Step ${cur + 1} of ${total}`;
+        if (progressFill) progressFill.style.width = `${percent}%`;
+        if (activeStepDesc) activeStepDesc.innerHTML = `<strong>Step ${cur + 1}:</strong> ${knot.steps[cur]}`;
+
+        if (playBtn) {
+            playBtn.innerHTML = state.isPlaying ? '⏸️ Pause' : '▶️ Auto-Step';
+            playBtn.style.background = state.isPlaying ? 'rgba(239, 68, 68, 0.2)' : 'rgba(0, 210, 255, 0.15)';
+            playBtn.style.borderColor = state.isPlaying ? 'var(--accent-red)' : 'var(--accent-teal)';
+            playBtn.style.color = state.isPlaying ? 'var(--accent-red)' : 'var(--accent-teal)';
+        }
+
+        if (prevBtn) prevBtn.disabled = (cur === 0);
+        if (nextBtn) nextBtn.disabled = (cur === total - 1 && !state.isPlaying);
+
+        // Update step list item active highlight
+        const stepItems = cardEl.querySelectorAll('.knot-step-item');
+        stepItems.forEach((li, idx) => {
+            if (idx === cur) {
+                li.style.background = 'rgba(0, 210, 255, 0.12)';
+                li.style.color = 'var(--accent-teal)';
+                li.style.fontWeight = '600';
+                li.style.borderColor = 'rgba(0, 210, 255, 0.3)';
+            } else if (idx < cur) {
+                li.style.background = 'rgba(46, 213, 115, 0.06)';
+                li.style.color = '#94a3b8';
+                li.style.fontWeight = '400';
+                li.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+            } else {
+                li.style.background = 'transparent';
+                li.style.color = '#cbd5e1';
+                li.style.fontWeight = '400';
+                li.style.borderColor = 'transparent';
+            }
+        });
+    },
+
+    renderKnotsUI(filterCategory = 'all', search = '') {
         this.currentFilter = filterCategory;
+        if (search !== undefined && search !== null) {
+            this.searchQuery = String(search).toLowerCase().trim();
+        }
         const container = document.getElementById('knots-grid-container');
         if (!container) return;
 
-        const filtered = filterCategory === 'all' 
-            ? KNOT_GUIDE 
-            : KNOT_GUIDE.filter(k => k.category === filterCategory);
+        let filtered = KNOT_GUIDE;
+        if (filterCategory !== 'all') {
+            filtered = filtered.filter(k => k.category === filterCategory);
+        }
+        if (this.searchQuery) {
+            filtered = filtered.filter(k => 
+                k.name.toLowerCase().includes(this.searchQuery) ||
+                k.purpose.toLowerCase().includes(this.searchQuery) ||
+                k.description.toLowerCase().includes(this.searchQuery) ||
+                k.categoryLabel.toLowerCase().includes(this.searchQuery)
+            );
+        }
 
-        container.innerHTML = filtered.map(k => `
-            <div class="card glass knot-card" style="border-left: 4px solid ${k.category === 'hook' ? 'var(--accent-teal)' : '#a3e635'}; padding: 20px; margin-bottom: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 32px;">${k.icon}</span>
+        if (filtered.length === 0) {
+            container.innerHTML = `
+                <div class="card glass text-center" style="padding: 40px 20px;">
+                    <div style="font-size: 36px; margin-bottom: 10px;">🔍</div>
+                    <h4>No knots found matching "${this.searchQuery}"</h4>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin-top: 6px;">Try clearing your search or switching categories.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = filtered.map(k => {
+            const state = this.getKnotState(k.id);
+            const total = k.steps.length;
+            const cur = state.activeStep;
+            const percent = Math.round(((cur + 1) / total) * 100);
+            const isLeft = state.isLeftHanded;
+
+            return `
+            <div id="knot-card-${k.id}" class="card glass knot-card" style="border-left: 4px solid ${k.category === 'hook' ? 'var(--accent-teal)' : '#a3e635'}; padding: 20px; margin-bottom: 24px;">
+                <!-- Header -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 34px;">${k.icon}</span>
                         <div>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <h3 style="margin: 0; font-size: 18px; color: var(--text-primary);">${k.name}</h3>
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <h3 style="margin: 0; font-size: 19px; color: var(--text-primary);">${k.name}</h3>
                                 <span class="badge" style="background: ${k.category === 'hook' ? 'rgba(0, 210, 255, 0.15)' : 'rgba(163, 230, 53, 0.15)'}; color: ${k.category === 'hook' ? 'var(--accent-teal)' : '#a3e635'}; border: 1px solid ${k.category === 'hook' ? 'var(--accent-teal)' : '#a3e635'}; font-size: 10px; padding: 2px 8px;">${k.categoryLabel}</span>
+                                <span class="badge knot-mirror-badge" style="display: ${isLeft ? 'inline-block' : 'none'}; background: rgba(163, 230, 53, 0.15); color: #a3e635; border: 1px solid #a3e635; font-size: 10px; padding: 2px 8px;">🫲 Left-Handed View</span>
                             </div>
-                            <span style="font-size: 12px; color: var(--text-secondary); font-weight: 500; display: block; margin-top: 2px;">${k.purpose}</span>
+                            <span style="font-size: 12px; color: var(--text-secondary); font-weight: 500; display: block; margin-top: 3px;">${k.purpose}</span>
                         </div>
                     </div>
-                    <span class="badge" style="background: rgba(46, 213, 115, 0.15); color: var(--success); border: 1px solid var(--success); font-size: 11px; padding: 4px 10px;">Strength: ${k.strength}</span>
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-glass btn-sm btn-toggle-hand" onclick="window.KnotsApp.toggleHandedness('${k.id}')" style="font-size: 11px; padding: 4px 10px; border-color: ${isLeft ? '#a3e635' : 'var(--border-color)'}; color: ${isLeft ? '#a3e635' : 'var(--text-secondary)'};">
+                            ${isLeft ? '🫲 Left-Handed' : '🫱 Right-Handed'}
+                        </button>
+                        <span class="badge" style="background: rgba(46, 213, 115, 0.15); color: var(--success); border: 1px solid var(--success); font-size: 11px; padding: 4px 10px;">Strength: ${k.strength}</span>
+                    </div>
                 </div>
 
-                <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.4;">${k.description}</p>
+                <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.45;">${k.description}</p>
                 
-                <!-- Visual Diagram Aid -->
-                <div style="margin-bottom: 16px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); text-align: center; padding: 8px;">
+                <!-- Visual Diagram Aid with CSS Mirror Support -->
+                <div class="knot-diagram-container">
                     <img src="${k.image}" alt="${k.name} Visual Diagram" loading="eager" 
-                        style="width: 100%; height: auto; max-height: 280px; border-radius: 8px; object-fit: contain; display: block; margin: 0 auto;">
-                    <span style="display: block; font-size: 11px; color: var(--accent-teal); margin-top: 6px; font-weight: 500;">📷 Step-by-Step Visual Diagram Aid</span>
+                        class="knot-diagram-img ${isLeft ? 'mirrored' : ''}">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding: 0 4px;">
+                        <span style="font-size: 11px; color: var(--accent-teal); font-weight: 500;">📷 Step-by-Step Visual Reference</span>
+                        <span style="font-size: 10.5px; color: var(--text-secondary); opacity: 0.8;">💡 Wet with saliva before seating</span>
+                    </div>
                 </div>
 
-                <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
-                    <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px;">Step-by-Step Tying Instructions:</div>
-                    <ol style="margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; display: flex; flex-direction: column; gap: 8px;">
-                        ${k.steps.map(step => `<li>${step}</li>`).join('')}
+                <!-- Interactive Step Stepper Controls -->
+                <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="step-badge-active">🎬 STEP-BY-STEP GUIDE</span>
+                            <span class="knot-step-counter" style="font-size: 12px; color: var(--text-secondary); font-weight: 600;">Step ${cur + 1} of ${total}</span>
+                        </div>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <button type="button" class="btn btn-glass btn-sm btn-knot-prev" onclick="window.KnotsApp.prevStep('${k.id}')" ${cur === 0 ? 'disabled' : ''} style="padding: 4px 10px; font-size: 11.5px;">◀ Prev</button>
+                            <button type="button" class="btn btn-glass btn-sm btn-knot-play" onclick="window.KnotsApp.togglePlay('${k.id}')" style="padding: 4px 12px; font-size: 11.5px; background: ${state.isPlaying ? 'rgba(239, 68, 68, 0.2)' : 'rgba(0, 210, 255, 0.15)'}; color: ${state.isPlaying ? 'var(--accent-red)' : 'var(--accent-teal)'}; border-color: ${state.isPlaying ? 'var(--accent-red)' : 'var(--accent-teal)'};">
+                                ${state.isPlaying ? '⏸️ Pause' : '▶️ Auto-Step'}
+                            </button>
+                            <button type="button" class="btn btn-glass btn-sm btn-knot-next" onclick="window.KnotsApp.nextStep('${k.id}')" ${cur === total - 1 ? 'disabled' : ''} style="padding: 4px 10px; font-size: 11.5px;">Next ▶</button>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="knot-progress-track">
+                        <div class="knot-progress-fill" style="width: ${percent}%;"></div>
+                    </div>
+
+                    <!-- Active Step Highlight Box -->
+                    <div class="knot-step-highlight">
+                        <div class="knot-active-step-desc" style="font-size: 13.5px; color: #ffffff; line-height: 1.5;">
+                            <strong>Step ${cur + 1}:</strong> ${k.steps[cur]}
+                        </div>
+                    </div>
+
+                    <!-- All Steps Overview List -->
+                    <div style="font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Full Tying Sequence:</div>
+                    <ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px;">
+                        ${k.steps.map((step, sIdx) => `
+                            <li class="knot-step-item" onclick="window.KnotsApp.setStep('${k.id}', ${sIdx})" style="padding: 8px 12px; border-radius: 8px; font-size: 12.5px; border: 1px solid ${sIdx === cur ? 'rgba(0, 210, 255, 0.3)' : 'transparent'}; background: ${sIdx === cur ? 'rgba(0, 210, 255, 0.12)' : (sIdx < cur ? 'rgba(46, 213, 115, 0.06)' : 'transparent')}; color: ${sIdx === cur ? 'var(--accent-teal)' : (sIdx < cur ? '#94a3b8' : '#cbd5e1')}; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: flex-start; gap: 8px;">
+                                <span style="font-weight: 700; opacity: 0.8; min-width: 18px;">${sIdx + 1}.</span>
+                                <span style="flex: 1;">${step}</span>
+                                ${sIdx < cur ? '<span style="color: var(--success); font-size: 11px;">✓</span>' : ''}
+                            </li>
+                        `).join('')}
                     </ol>
                 </div>
             </div>
-        `).join('');
+            `;
+        }).join('');
     },
 
     calculateTippet(hookVal, material = 'nylon') {
@@ -278,7 +513,7 @@ window.KnotsApp = KnotsApp;
 // Standalone Global Filter Function for Knot Categories
 window.filterKnotsCategory = function(cat, btnElem) {
     if (!window.KnotsApp) return;
-    window.KnotsApp.renderKnotsUI(cat);
+    window.KnotsApp.renderKnotsUI(cat, window.KnotsApp.searchQuery);
 
     // Update active filter pill button styles
     const buttons = document.querySelectorAll('.knot-filter-btn');
@@ -292,6 +527,38 @@ window.filterKnotsCategory = function(cat, btnElem) {
         btnElem.style.background = 'rgba(0, 210, 255, 0.15)';
         btnElem.style.color = 'var(--accent-teal)';
         btnElem.style.borderColor = 'var(--accent-teal)';
+    }
+};
+
+// Standalone Global Function for Knot Search
+window.searchKnotsInput = function(query) {
+    if (!window.KnotsApp) return;
+    window.KnotsApp.renderKnotsUI(window.KnotsApp.currentFilter, query);
+};
+
+// Standalone Global Function for Global Handedness Toggle
+window.toggleGlobalHandedness = function(handedness) {
+    if (!window.KnotsApp) return;
+    window.KnotsApp.setGlobalHandedness(handedness);
+
+    const rightBtn = document.getElementById('btn-hand-right');
+    const leftBtn = document.getElementById('btn-hand-left');
+    if (rightBtn && leftBtn) {
+        if (handedness === 'left') {
+            leftBtn.style.background = 'rgba(163, 230, 53, 0.2)';
+            leftBtn.style.borderColor = '#a3e635';
+            leftBtn.style.color = '#a3e635';
+            rightBtn.style.background = 'rgba(255,255,255,0.05)';
+            rightBtn.style.borderColor = 'var(--border-color)';
+            rightBtn.style.color = 'var(--text-secondary)';
+        } else {
+            rightBtn.style.background = 'rgba(0, 210, 255, 0.15)';
+            rightBtn.style.borderColor = 'var(--accent-teal)';
+            rightBtn.style.color = 'var(--accent-teal)';
+            leftBtn.style.background = 'rgba(255,255,255,0.05)';
+            leftBtn.style.borderColor = 'var(--border-color)';
+            leftBtn.style.color = 'var(--text-secondary)';
+        }
     }
 };
 
@@ -326,6 +593,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (selectMat) {
         selectMat.addEventListener('change', window.updateTippetCalculatorUI);
+    }
+
+    const knotSearchInput = document.getElementById('knot-search-input');
+    if (knotSearchInput) {
+        const debouncedKnotSearch = window.debounce ? window.debounce((val) => window.searchKnotsInput(val), 90) : (val) => window.searchKnotsInput(val);
+        knotSearchInput.addEventListener('input', (e) => debouncedKnotSearch(e.target.value));
     }
 });
 

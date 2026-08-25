@@ -17,7 +17,7 @@
         // Backcountry Offline PWA Service Worker Registration
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=101350')
+                navigator.serviceWorker.register('sw.js?v=101360')
                     .then(function(reg) {
                         console.log('[Backcountry SW] Registered successfully with scope:', reg.scope);
                         window.__BACKCOUNTRY_SW_ACTIVE__ = true;
@@ -265,7 +265,7 @@
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
-                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v101350</span>
+                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v101360</span>
                     </div>
                 </div>
             </div>
@@ -1319,121 +1319,43 @@
                     </div>
                 </div>
 
-                <!-- Knot Category Filter Pills -->
-                <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
-                    <span style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-right: 5px;">Filter Knots:</span>
-                    <button type="button" class="btn btn-sm knot-filter-btn" onclick="window.filterKnotsCategory('all', this)" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); border: 1px solid var(--accent-teal); border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 600;">
-                        🌐 All Knots (10)
-                    </button>
-                    <button type="button" class="btn btn-sm knot-filter-btn" onclick="window.filterKnotsCategory('hook', this)" style="background: rgba(255,255,255,0.05); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 600;">
-                        🪰 Line to Fly / Hook Knots (6)
-                    </button>
-                    <button type="button" class="btn btn-sm knot-filter-btn" onclick="window.filterKnotsCategory('line', this)" style="background: rgba(255,255,255,0.05); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 600;">
-                        🔗 Line to Line Knots (4)
-                    </button>
-                </div>
-
-                <!-- Knots Grid -->
-                <div id="knots-grid-container">
-                    <!-- Knot 1: Uni-Knot -->
-                    <div class="card glass knot-card" style="border-left: 4px solid var(--accent-teal); padding: 20px; margin-bottom: 20px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <span style="font-size: 32px;">➰</span>
-                                <div>
-                                    <div style="display: flex; align-items: center; gap: 8px;">
-                                        <h3 style="margin: 0; font-size: 18px; color: var(--text-primary);">Uni-Knot</h3>
-                                        <span class="badge" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); border: 1px solid var(--accent-teal); font-size: 10px; padding: 2px 8px;">Line to Hook</span>
-                                    </div>
-                                    <span style="font-size: 12px; color: var(--text-secondary); font-weight: 500; display: block; margin-top: 2px;">Universal Tippet to Fly Hook Connection</span>
-                                </div>
-                            </div>
-                            <span class="badge" style="background: rgba(46, 213, 115, 0.15); color: var(--success); border: 1px solid var(--success); font-size: 11px; padding: 4px 10px;">Strength: 95%</span>
-                        </div>
-                        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.4;">The standard Uni-Knot is one of the most reliable terminal knots in all of angling. Extremely dependable, easy to tie in low light or cold weather, and holds tight on both monofilament and fluorocarbon lines.</p>
-                        <div style="margin-bottom: 16px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); text-align: center; padding: 8px;">
-                            <img src="images/knot_uni.jpg" alt="Uni-Knot Visual Diagram" style="max-width: 100%; height: auto; max-height: 240px; border-radius: 8px; object-fit: contain;">
-                            <span style="display: block; font-size: 11px; color: var(--accent-teal); margin-top: 6px; font-weight: 500;">📷 Step-by-Step Visual Diagram Aid</span>
-                        </div>
-                        <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
-                            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px;">Step-by-Step Tying Instructions:</div>
-                            <ol style="margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; display: flex; flex-direction: column; gap: 8px;">
-                                <li>Run 6 inches of tippet line through the eye of the fly hook.</li>
-                                <li>Lay the tag end back alongside the standing line to form a loop over both lines.</li>
-                                <li>Wrap the tag end around both lines 4 to 5 times, passing through the loop on each turn.</li>
-                                <li>Moisten line with saliva and pull the tag end to draw the wraps into a neat, tight barrel knot.</li>
-                                <li>Slide the barrel knot down firmly against the hook eye to lock the knot tightly.</li>
-                                <li>Trim tag end clean.</li>
-                            </ol>
-                        </div>
+                <!-- Knot Controls: Category Filter, Handedness Switch & Search -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+                    <!-- Filter Pills -->
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                        <span style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-right: 2px;">Filter:</span>
+                        <button type="button" class="btn btn-sm knot-filter-btn" onclick="window.filterKnotsCategory('all', this)" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); border: 1px solid var(--accent-teal); border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 600;">
+                            🌐 All Knots (10)
+                        </button>
+                        <button type="button" class="btn btn-sm knot-filter-btn" onclick="window.filterKnotsCategory('hook', this)" style="background: rgba(255,255,255,0.05); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 600;">
+                            🪰 Line to Fly / Hook (6)
+                        </button>
+                        <button type="button" class="btn btn-sm knot-filter-btn" onclick="window.filterKnotsCategory('line', this)" style="background: rgba(255,255,255,0.05); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 600;">
+                            🔗 Line to Line (4)
+                        </button>
                     </div>
 
-                    <!-- Knot 2: Improved Clinch Knot -->
-                    <div class="card glass knot-card" style="border-left: 4px solid var(--accent-teal); padding: 20px; margin-bottom: 20px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <span style="font-size: 32px;">🎣</span>
-                                <div>
-                                    <div style="display: flex; align-items: center; gap: 8px;">
-                                        <h3 style="margin: 0; font-size: 18px; color: var(--text-primary);">Improved Clinch Knot</h3>
-                                        <span class="badge" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); border: 1px solid var(--accent-teal); font-size: 10px; padding: 2px 8px;">Line to Hook</span>
-                                    </div>
-                                    <span style="font-size: 12px; color: var(--text-secondary); font-weight: 500; display: block; margin-top: 2px;">Tippet to Fly Hook (Universal Classic)</span>
-                                </div>
-                            </div>
-                            <span class="badge" style="background: rgba(46, 213, 115, 0.15); color: var(--success); border: 1px solid var(--success); font-size: 11px; padding: 4px 10px;">Strength: 95%</span>
-                        </div>
-                        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.4;">The most widely used terminal knot in fly fishing. Reliable, easy to tie, and holds tight on standard wire hooks (#8 to #18).</p>
-                        <div style="margin-bottom: 16px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); text-align: center; padding: 8px;">
-                            <img src="images/knot_clinch.jpg" alt="Improved Clinch Knot Visual Diagram" style="max-width: 100%; height: auto; max-height: 240px; border-radius: 8px; object-fit: contain;">
-                            <span style="display: block; font-size: 11px; color: var(--accent-teal); margin-top: 6px; font-weight: 500;">📷 Step-by-Step Visual Diagram Aid</span>
-                        </div>
-                        <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
-                            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px;">Step-by-Step Tying Instructions:</div>
-                            <ol style="margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; display: flex; flex-direction: column; gap: 8px;">
-                                <li>1. Thread 3-4 inches of tippet through the fly hook eye.</li>
-                                <li>2. Wrap the tag end around the standing line 5 to 7 times.</li>
-                                <li>3. Thread the tag end through the small loop next to the hook eye.</li>
-                                <li>4. Pass the tag end back through the large loop you just created.</li>
-                                <li>5. Moisten with saliva and pull standing line steadily to tighten wraps neatly against the hook eye.</li>
-                                <li>6. Trim tag end close.</li>
-                            </ol>
-                        </div>
-                    </div>
-
-                    <!-- Knot 3: Non-Slip Loop Knot -->
-                    <div class="card glass knot-card" style="border-left: 4px solid var(--accent-teal); padding: 20px; margin-bottom: 20px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <span style="font-size: 32px;">➰</span>
-                                <div>
-                                    <div style="display: flex; align-items: center; gap: 8px;">
-                                        <h3 style="margin: 0; font-size: 18px; color: var(--text-primary);">Non-Slip Loop Knot</h3>
-                                        <span class="badge" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); border: 1px solid var(--accent-teal); font-size: 10px; padding: 2px 8px;">Line to Hook</span>
-                                    </div>
-                                    <span style="font-size: 12px; color: var(--text-secondary); font-weight: 500; display: block; margin-top: 2px;">Tippet to Fly (Maximum Swimming Action)</span>
-                                </div>
-                            </div>
-                            <span class="badge" style="background: rgba(46, 213, 115, 0.15); color: var(--success); border: 1px solid var(--success); font-size: 11px; padding: 4px 10px;">Strength: 95%</span>
-                        </div>
-                        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.4;">The gold standard knot for tying streamer and nymph flies. Creates an open loop so flies swim with natural movement.</p>
-                        <div style="margin-bottom: 16px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); text-align: center; padding: 8px;">
-                            <img src="images/knot_loop_guide_1785124977547.jpg" alt="Non-Slip Loop Knot Visual Diagram" style="max-width: 100%; height: auto; max-height: 240px; border-radius: 8px; object-fit: contain;">
-                            <span style="display: block; font-size: 11px; color: var(--accent-teal); margin-top: 6px; font-weight: 500;">📷 Step-by-Step Visual Diagram Aid</span>
-                        </div>
-                        <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px;">
-                            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px;">Step-by-Step Tying Instructions:</div>
-                            <ol style="margin: 0; padding-left: 18px; font-size: 13px; color: #cbd5e1; display: flex; flex-direction: column; gap: 8px;">
-                                <li>1. Tie an overhand knot in the tippet line about 2-3 inches from the end. Leave it loose.</li>
-                                <li>2. Pass the tag end through the eye of the fly hook.</li>
-                                <li>3. Pass the tag end back through the loop of the overhand knot.</li>
-                                <li>4. Wrap the tag end 4 to 5 times around the standing line above the overhand knot.</li>
-                                <li>5. Bring the tag end back down and thread it through the overhand knot loop in the same direction it entered.</li>
-                                <li>6. Moisten with saliva, pull the standing line and fly firmly to seat the knot tight, then trim the tag end.</li>
-                            </ol>
-                        </div>
+                    <!-- Global Handedness Switch -->
+                    <div style="display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 20px; border: 1px solid var(--border-color);">
+                        <span style="font-size: 11px; color: var(--text-secondary); font-weight: 600; padding-left: 8px; padding-right: 4px;">Orientation:</span>
+                        <button type="button" id="btn-hand-right" class="btn btn-sm" onclick="window.toggleGlobalHandedness('right')" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); border: 1px solid var(--accent-teal); border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 600;">
+                            🫱 Right-Handed
+                        </button>
+                        <button type="button" id="btn-hand-left" class="btn btn-sm" onclick="window.toggleGlobalHandedness('left')" style="background: rgba(255,255,255,0.05); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 600;">
+                            🫲 Left-Handed
+                        </button>
                     </div>
                 </div>
+
+                <!-- Instant Knot Search Input -->
+                <div class="form-group mb-20">
+                    <div style="position: relative;">
+                        <input type="text" id="knot-search-input" class="form-input" placeholder="🔍 Search knot by name, purpose, or fly size (e.g. Clinch, Blood, Loop, Davy, Streamer, Trout)..." style="padding-left: 14px; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-color); border-radius: 10px;">
+                    </div>
+                </div>
+
+                <!-- Dynamic Interactive Knots Grid Container -->
+                <div id="knots-grid-container"></div>
             </section>
 
             <!-- Settings View -->
@@ -1541,7 +1463,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
                             <div>
                                 <strong style="font-size: 13px; color: var(--text-primary);">Installed Version:</strong>
-                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101350 (Latest Build)</span>
+                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101360 (Latest Build)</span>
                             </div>
                             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                                 <button class="btn btn-glass btn-sm" id="btn-precache-backcountry" onclick="window.downloadFullBackcountryPack()">
@@ -2388,16 +2310,16 @@
     <!-- Scripts -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
-    <script src="db.js?v=101350"></script>
-    <script src="regulations.js?v=101350"></script>
-    <script src="weather.js?v=101350"></script>
-    <script src="exif.js?v=101350"></script>
-    <script src="map.js?v=101350"></script>
-    <script src="tackle_db.js?v=101350"></script>
-    <script src="fish_db.js?v=101350"></script>
-    <script src="fly_box.js?v=101350"></script>
-    <script src="knots.js?v=101350"></script>
-    <script src="auth.js?v=101350"></script>
-    <script src="app.js?v=101350"></script>
+    <script src="db.js?v=101360"></script>
+    <script src="regulations.js?v=101360"></script>
+    <script src="weather.js?v=101360"></script>
+    <script src="exif.js?v=101360"></script>
+    <script src="map.js?v=101360"></script>
+    <script src="tackle_db.js?v=101360"></script>
+    <script src="fish_db.js?v=101360"></script>
+    <script src="fly_box.js?v=101360"></script>
+    <script src="knots.js?v=101360"></script>
+    <script src="auth.js?v=101360"></script>
+    <script src="app.js?v=101360"></script>
 </body>
 </html>

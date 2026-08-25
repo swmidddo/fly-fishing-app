@@ -2410,5 +2410,95 @@ body.high-contrast-mode .badge {
     border-color: #a3e635 !important;
 }
 
+/* Interactive Knot Stepper & Left/Right Handed Mirror Styles */
+.knot-diagram-container {
+    position: relative;
+    margin-bottom: 16px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background: rgba(0, 0, 0, 0.4);
+    text-align: center;
+    padding: 10px;
+    transition: all 0.3s ease;
+}
+
+.knot-diagram-img {
+    width: 100%;
+    height: auto;
+    max-height: 280px;
+    border-radius: 8px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.knot-diagram-img.mirrored {
+    transform: scaleX(-1);
+    filter: drop-shadow(0 4px 8px rgba(0, 210, 255, 0.2));
+}
+
+.knot-step-highlight {
+    background: linear-gradient(135deg, rgba(0, 210, 255, 0.12) 0%, rgba(100, 255, 218, 0.08) 100%);
+    border: 1px solid var(--accent-teal);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 4px 15px rgba(0, 210, 255, 0.1);
+    animation: stepPulse 0.3s ease-out;
+}
+
+@keyframes stepPulse {
+    0% { transform: scale(0.98); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.knot-progress-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 14px;
+}
+
+.knot-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-blue) 0%, var(--accent-teal) 100%);
+    border-radius: 3px;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.step-badge-active {
+    background: var(--accent-teal);
+    color: #050a18;
+    font-weight: 700;
+    font-size: 11.5px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.knot-step-pill {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+}
+
+.knot-step-pill.active {
+    background: rgba(0, 210, 255, 0.18);
+    border-color: var(--accent-teal);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
 
 
