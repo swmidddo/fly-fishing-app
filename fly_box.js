@@ -350,6 +350,17 @@ const FlyBoxApp = {
         const container = document.getElementById('flybox-grid-container');
         if (!container) return;
 
+        // Update active styling on compartment buttons
+        const tabBtns = document.querySelectorAll('.flybox-compartment-tabs .flybox-tab-btn');
+        tabBtns.forEach(btn => {
+            const cat = btn.getAttribute('data-category') || '';
+            if (cat.toLowerCase() === filterCategory.toLowerCase()) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
         let displayFlies = this.flies;
         if (filterCategory !== 'all') {
             displayFlies = displayFlies.filter(f => f.category.toLowerCase() === filterCategory.toLowerCase());
