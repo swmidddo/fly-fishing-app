@@ -1,5 +1,13 @@
 // sw.js - Middo's Fly Fishing Backcountry Offline Service Worker
-const CACHE_NAME = 'fly-fishing-v101410';
+const CACHE_NAME = 'fly-fishing-v101420';
+
+// Message Event: Allow web app clients to force immediate skipWaiting & activation
+self.addEventListener('message', (event) => {
+    if (event.data && (event.data.type === 'SKIP_WAITING' || event.data === 'skipWaiting')) {
+        console.log('[Backcountry SW] Force skipWaiting triggered by client update');
+        self.skipWaiting();
+    }
+});
 
 // Core Local Assets to Pre-Cache on Install
 const CORE_ASSETS = [

@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101410';
+window.APP_VERSION = 'v101420';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -1060,7 +1060,19 @@ window.initMainApp = async function() {
         elements.btnMapType.textContent = `Type: ${capitalized}`;
     }
 
-    // 3. Location Tracking (GPS & Location Manager)
+    // Distance calculation helper (Haversine formula in kilometers)
+    function calcDistanceKm(lat1, lon1, lat2, lon2) {
+        if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return 99999;
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    // 3. Location Tracking (GPS & Movement Tracking Engine)
     window.requestGpsLocation = function() {
         const fallbackLat = -30.3281; // Narrabri, NSW Inland Native Waters
         const fallbackLon = 149.7836;
@@ -1080,13 +1092,12 @@ window.initMainApp = async function() {
                     window.loadWeatherAndTides(saved.lat, saved.lng);
                 }
                 console.log("[Location Engine] Custom inspection location restored:", saved);
-                return;
             } catch(e){}
         }
 
         // 2. Warm Cache Start if previous user coordinates exist
         let hasWarmCoords = false;
-        if (savedCoordsStr) {
+        if (!isCustom && savedCoordsStr) {
             try {
                 const saved = JSON.parse(savedCoordsStr);
                 if (saved && saved.lat && saved.lng) {
@@ -1101,7 +1112,7 @@ window.initMainApp = async function() {
             } catch(e){}
         }
 
-        if (!hasWarmCoords) {
+        if (!hasWarmCoords && !isCustom) {
             updateGpsStatus(true, `📍 Acquiring Live GPS...`, 'cached');
             const badgeEl = document.getElementById('dash-weather-station-badge');
             if (badgeEl) badgeEl.innerHTML = `📡 Locating Local BOM Weather Station...`;
@@ -1109,7 +1120,7 @@ window.initMainApp = async function() {
 
         if (!navigator.geolocation) {
             console.warn("Geolocation API unavailable. Using Narrabri NSW fallback location.");
-            if (!hasWarmCoords) {
+            if (!hasWarmCoords && !isCustom) {
                 AppState.userCoords = { lat: fallbackLat, lng: fallbackLon };
                 if (typeof window.loadWeatherAndTides === 'function') {
                     window.loadWeatherAndTides(fallbackLat, fallbackLon);
@@ -1122,14 +1133,36 @@ window.initMainApp = async function() {
 
         const handlePosition = (position) => {
             gpsResolved = true;
-            // Guard: If user is actively inspecting a custom location, do not overwrite
-            if (AppState.isCustomLocation) {
-                return;
-            }
             const lat = position.coords.latitude;
             const lon = position.coords.longitude;
+            AppState.lastGpsTimestamp = Date.now();
+
+            // Distance moved since last weather update
+            let movedKm = 999;
+            if (AppState.lastWeatherLat != null && AppState.lastWeatherLon != null) {
+                movedKm = calcDistanceKm(AppState.lastWeatherLat, AppState.lastWeatherLon, lat, lon);
+            }
+
+            // Guard: If user pinned a location, auto-revert to live GPS if traveled > 25km
+            if (AppState.isCustomLocation) {
+                if (AppState.userCoords) {
+                    const distFromPinned = calcDistanceKm(AppState.userCoords.lat, AppState.userCoords.lng, lat, lon);
+                    if (distFromPinned > 25) {
+                        console.log(`[Location Engine] Traveled ${distFromPinned.toFixed(1)} km away from pinned spot. Auto-resuming Live GPS.`);
+                        AppState.isCustomLocation = false;
+                        localStorage.removeItem('user_is_custom_location');
+                    } else {
+                        return;
+                    }
+                } else {
+                    return;
+                }
+            }
+
             AppState.userCoords = { lat, lng: lon };
             localStorage.setItem('user_last_coords', JSON.stringify({ lat, lng: lon }));
+            localStorage.removeItem('user_is_custom_location');
+            AppState.isCustomLocation = false;
 
             const st = getStateFromCoords(lat, lon);
             updateGpsStatus(true, `📍 GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)} (${st})`, 'live');
@@ -1143,11 +1176,18 @@ window.initMainApp = async function() {
                 }
             }
 
-            // Update live weather for current GPS position
-            if (typeof window.loadWeatherAndTides === 'function') {
-                window.loadWeatherAndTides(lat, lon, true);
-            } else if (typeof loadWeatherAndTides === 'function') {
-                loadWeatherAndTides(lat, lon, true);
+            // Update live weather if moved > 1.0 km or first resolution
+            if (movedKm > 1.0 || AppState.lastWeatherLat == null) {
+                AppState.lastWeatherLat = lat;
+                AppState.lastWeatherLon = lon;
+                if (typeof window.loadWeatherAndTides === 'function') {
+                    window.loadWeatherAndTides(lat, lon, true);
+                } else if (typeof loadWeatherAndTides === 'function') {
+                    loadWeatherAndTides(lat, lon, true);
+                }
+                if (movedKm > 1.0 && movedKm < 500 && window.showSyncToast) {
+                    window.showSyncToast(`📍 Moved to new location (${st}) • Weather updated!`);
+                }
             }
         };
 
@@ -1155,14 +1195,14 @@ window.initMainApp = async function() {
             if (gpsResolved) return;
             gpsResolved = true;
             console.warn("Geolocation notice:", err);
-            if (!hasWarmCoords) {
+            if (!hasWarmCoords && !AppState.isCustomLocation) {
                 AppState.userCoords = { lat: fallbackLat, lng: fallbackLon };
                 const st = getStateFromCoords(fallbackLat, fallbackLon);
                 updateGpsStatus(true, `📍 Default: ${fallbackLat.toFixed(4)}, ${fallbackLon.toFixed(4)} (${st})`, 'cached');
                 if (typeof window.loadWeatherAndTides === 'function') {
                     window.loadWeatherAndTides(fallbackLat, fallbackLon);
                 }
-            } else {
+            } else if (!AppState.isCustomLocation) {
                 try {
                     const saved = JSON.parse(savedCoordsStr || '{}');
                     if (saved && saved.lat && saved.lng) {
@@ -1203,6 +1243,99 @@ window.initMainApp = async function() {
         }
     };
 
+    // Centralized Mobile Resume & GPS Revive Engine
+    window.reviveLiveGps = function(forceWeather = false) {
+        console.log("[Location Engine] App resumed/woken from background - refreshing GPS hardware lock...");
+        
+        // 1. Restart watchPosition to clear any dead iOS Safari/WebKit background handles
+        if (AppState.gpsWatchId) {
+            try { navigator.geolocation.clearWatch(AppState.gpsWatchId); } catch(e){}
+            AppState.gpsWatchId = null;
+        }
+
+        // 2. Query live hardware GPS immediately with 0 maxAge (bypasses stale cached coordinates)
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    AppState.lastGpsTimestamp = Date.now();
+
+                    // If in custom location mode, check if traveled far away from pinned spot
+                    if (AppState.isCustomLocation) {
+                        const saved = AppState.userCoords;
+                        if (saved) {
+                            const d = calcDistanceKm(saved.lat, saved.lng, lat, lon);
+                            if (d > 25) {
+                                console.log(`[Location Engine] Traveled ${d.toFixed(1)} km away from pinned spot. Auto-resuming Live GPS.`);
+                                AppState.isCustomLocation = false;
+                                localStorage.removeItem('user_is_custom_location');
+                            }
+                        }
+                    }
+
+                    if (!AppState.isCustomLocation) {
+                        AppState.userCoords = { lat, lng: lon };
+                        localStorage.setItem('user_last_coords', JSON.stringify({ lat, lng: lon }));
+                        const st = getStateFromCoords(lat, lon);
+                        updateGpsStatus(true, `📍 GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)} (${st})`, 'live');
+
+                        const movedKm = (AppState.lastWeatherLat != null && AppState.lastWeatherLon != null)
+                            ? calcDistanceKm(AppState.lastWeatherLat, AppState.lastWeatherLon, lat, lon)
+                            : 999;
+
+                        if (movedKm > 1.0 || forceWeather) {
+                            AppState.lastWeatherLat = lat;
+                            AppState.lastWeatherLon = lon;
+                            if (typeof window.loadWeatherAndTides === 'function') {
+                                window.loadWeatherAndTides(lat, lon, true);
+                            }
+                        }
+                    }
+                },
+                (err) => {
+                    console.warn("[Location Engine] Background resume GPS notice:", err);
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+
+            // Re-spawn watchPosition for continuous tracking while app remains active
+            try {
+                AppState.gpsWatchId = navigator.geolocation.watchPosition(
+                    (pos) => {
+                        if (!AppState.isCustomLocation) {
+                            const lat = pos.coords.latitude;
+                            const lon = pos.coords.longitude;
+                            AppState.userCoords = { lat, lng: lon };
+                            localStorage.setItem('user_last_coords', JSON.stringify({ lat, lng: lon }));
+                            const st = getStateFromCoords(lat, lon);
+                            updateGpsStatus(true, `📍 GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)} (${st})`, 'live');
+
+                            const movedKm = (AppState.lastWeatherLat != null && AppState.lastWeatherLon != null)
+                                ? calcDistanceKm(AppState.lastWeatherLat, AppState.lastWeatherLon, lat, lon)
+                                : 999;
+
+                            if (movedKm > 1.0) {
+                                AppState.lastWeatherLat = lat;
+                                AppState.lastWeatherLon = lon;
+                                if (typeof window.loadWeatherAndTides === 'function') {
+                                    window.loadWeatherAndTides(lat, lon, true);
+                                }
+                            }
+                        }
+                    },
+                    (err) => console.warn("[Location Engine] Watch position notice:", err),
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+                );
+            } catch(e){}
+        }
+
+        // 3. Trigger Service Worker update check to auto-refresh app if newer version is deployed
+        if (window.__BACKCOUNTRY_SW_REG__ && typeof window.__BACKCOUNTRY_SW_REG__.update === 'function') {
+            window.__BACKCOUNTRY_SW_REG__.update().catch(() => {});
+        }
+    };
+
     function updateGpsStatus(isActive, text, type = 'live') {
         const gpsElements = document.querySelectorAll('#gps-status, .gps-indicator');
         gpsElements.forEach(gpsEl => {
@@ -1220,6 +1353,28 @@ window.initMainApp = async function() {
                 if (textEl) textEl.textContent = text;
             }
         });
+
+        // Update Dashboard Live indicator & Pinned location banner
+        const dashIndicator = document.getElementById('dash-loc-indicator');
+        if (dashIndicator) {
+            let dotClass = 'pulse-dot green';
+            if (type === 'cached') dotClass = 'pulse-dot amber';
+            else if (type === 'pinned' || type === 'custom') dotClass = 'pulse-dot blue';
+            else if (!isActive) dotClass = 'pulse-dot red';
+            dashIndicator.className = dotClass;
+            dashIndicator.title = text;
+        }
+
+        const dashPinnedBanner = document.getElementById('dash-pinned-loc-banner');
+        const dashPinnedName = document.getElementById('dash-pinned-loc-name');
+        if (dashPinnedBanner) {
+            if (type === 'pinned' || type === 'custom' || AppState.isCustomLocation) {
+                dashPinnedBanner.style.display = 'flex';
+                if (dashPinnedName) dashPinnedName.textContent = text.replace(/^[📍⚠️ ]+/, '');
+            } else {
+                dashPinnedBanner.style.display = 'none';
+            }
+        }
 
         // Also update the Weather Tab active location label
         const weatherLocLabel = document.getElementById('weather-active-location-label');
@@ -4941,12 +5096,11 @@ window.initMainApp = async function() {
 
     window.refreshWeatherForecast = async function(e) {
         if (e && e.preventDefault) e.preventDefault();
-        const btn = document.getElementById('btn-refresh-weather');
-        const origHTML = btn ? btn.innerHTML : '🔄 Refresh';
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = `<span style="display:inline-block; animation: spin 1s linear infinite;">🔄</span> Updating Location &amp; Weather...`;
-        }
+        const btns = document.querySelectorAll('#btn-refresh-weather, #dash-btn-refresh-weather');
+        btns.forEach(b => {
+            b.disabled = true;
+            b.innerHTML = `<span style="display:inline-block; animation: spin 1s linear infinite;">🔄</span>`;
+        });
 
         // 1. Actively acquire fresh live GPS position directly from device hardware
         let lat = null;
@@ -4996,11 +5150,11 @@ window.initMainApp = async function() {
         try {
             // Force refresh bypassing cached payload and station
             await loadWeatherAndTides(lat, lon, true);
-            if (btn) {
-                btn.innerHTML = `✅ Updated!`;
-                btn.style.borderColor = 'var(--accent-teal)';
-                btn.style.color = '#34d399';
-            }
+            btns.forEach(b => {
+                b.innerHTML = `✅`;
+                b.style.borderColor = 'var(--accent-teal)';
+                b.style.color = '#34d399';
+            });
             if (window.showSyncToast) {
                 const st = getStateFromCoords(lat, lon);
                 const locMsg = gotFreshGps 
@@ -5010,16 +5164,16 @@ window.initMainApp = async function() {
             }
         } catch (err) {
             console.error("Manual weather refresh error:", err);
-            if (btn) btn.innerHTML = `⚠️ Failed`;
+            btns.forEach(b => b.innerHTML = `⚠️`);
         }
 
         setTimeout(() => {
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = origHTML;
-                btn.style.borderColor = '';
-                btn.style.color = '';
-            }
+            btns.forEach(b => {
+                b.disabled = false;
+                b.innerHTML = b.id === 'dash-btn-refresh-weather' ? '🔄' : '🔄 Refresh';
+                b.style.borderColor = '';
+                b.style.color = '';
+            });
         }, 1500);
     };
 
@@ -5154,17 +5308,17 @@ window.initMainApp = async function() {
 
     // Live GPS button handler
     window.acquireLiveGpsLocation = function() {
-        const btns = document.querySelectorAll('#btn-acquire-gps, #btn-weather-acquire-gps');
+        const btns = document.querySelectorAll('#btn-acquire-gps, #btn-weather-acquire-gps, #dash-btn-live-gps');
         btns.forEach(btn => {
             btn.disabled = true;
-            btn.innerHTML = `<span>⏳</span> Locking GPS...`;
+            btn.innerHTML = `<span>⏳</span> Locking...`;
         });
 
         if (!navigator.geolocation) {
             alert("Geolocation is not supported by your browser/device.");
             btns.forEach(btn => {
                 btn.disabled = false;
-                btn.innerHTML = `<span>🎯</span> Use Live GPS`;
+                btn.innerHTML = `<span>🎯</span> Live GPS`;
             });
             return;
         }
@@ -5175,7 +5329,7 @@ window.initMainApp = async function() {
                 const lng = pos.coords.longitude;
                 btns.forEach(btn => {
                     btn.disabled = false;
-                    btn.innerHTML = `<span>🎯</span> Use Live GPS`;
+                    btn.innerHTML = `<span>🎯</span> Live GPS`;
                 });
                 AppState.isCustomLocation = false;
                 localStorage.removeItem('user_is_custom_location');
@@ -5185,7 +5339,7 @@ window.initMainApp = async function() {
                 console.warn("GPS acquire notice:", err);
                 btns.forEach(btn => {
                     btn.disabled = false;
-                    btn.innerHTML = `<span>🎯</span> Use Live GPS`;
+                    btn.innerHTML = `<span>🎯</span> Live GPS`;
                 });
                 if (window.showSyncToast) {
                     window.showSyncToast(`⚠️ GPS Notice: ${err.message}. You can select Narrabri below.`);
@@ -5196,6 +5350,12 @@ window.initMainApp = async function() {
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
+    };
+
+    window.resetToLiveGps = function() {
+        AppState.isCustomLocation = false;
+        localStorage.removeItem('user_is_custom_location');
+        window.acquireLiveGpsLocation();
     };
 
     // Live search autocomplete with debouncing
@@ -6153,8 +6313,31 @@ window.initMainApp = async function() {
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') {
             saveBackupData();
+        } else if (document.visibilityState === 'visible') {
+            if (typeof window.reviveLiveGps === 'function') {
+                window.reviveLiveGps();
+            }
         }
     });
+
+    window.addEventListener('pageshow', () => {
+        if (typeof window.reviveLiveGps === 'function') window.reviveLiveGps();
+    });
+
+    window.addEventListener('focus', () => {
+        if (typeof window.reviveLiveGps === 'function') window.reviveLiveGps();
+    });
+
+    window.addEventListener('online', () => {
+        if (typeof window.reviveLiveGps === 'function') window.reviveLiveGps(true);
+    });
+
+    // Background movement check interval every 3 minutes while app is in foreground
+    setInterval(() => {
+        if (document.visibilityState === 'visible' && typeof window.reviveLiveGps === 'function') {
+            window.reviveLiveGps();
+        }
+    }, 180000);
 
     // ==========================================
     // 12. Google Photos Picker & Integration
