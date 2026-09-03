@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101430';
+window.APP_VERSION = 'v101440';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -1243,8 +1243,14 @@ window.initMainApp = async function() {
         }
     };
 
-    // Centralized Mobile Resume & GPS Revive Engine
+    // Centralized Mobile Resume & GPS Revive Engine (Debounced to max once every 30s)
+    let lastReviveTimestamp = 0;
     window.reviveLiveGps = function(forceWeather = false) {
+        const now = Date.now();
+        if (!forceWeather && (now - lastReviveTimestamp) < 30000) {
+            return;
+        }
+        lastReviveTimestamp = now;
         console.log("[Location Engine] App resumed/woken from background - refreshing GPS hardware lock...");
         
         // 1. Restart watchPosition to clear any dead iOS Safari/WebKit background handles
@@ -1328,11 +1334,6 @@ window.initMainApp = async function() {
                     { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
                 );
             } catch(e){}
-        }
-
-        // 3. Trigger Service Worker update check to auto-refresh app if newer version is deployed
-        if (window.__BACKCOUNTRY_SW_REG__ && typeof window.__BACKCOUNTRY_SW_REG__.update === 'function') {
-            window.__BACKCOUNTRY_SW_REG__.update().catch(() => {});
         }
     };
 
