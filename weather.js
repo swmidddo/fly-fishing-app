@@ -359,7 +359,23 @@ const WEATHER = {
             let chosen = null;
 
             // 1. Geodesic Station Cache Check (Instant reuse of closest station within 15 km)
-            if (!forceRefresh) {
+            if (forceRefresh) {
+                try {
+                    const key = 'willy_station_cache_v1';
+                    const raw = sessionStorage.getItem(key) || localStorage.getItem(key);
+                    if (raw) {
+                        let cache = JSON.parse(raw);
+                        if (Array.isArray(cache)) {
+                            cache = cache.filter(st => {
+                                if (!st || st.lat == null || st.lng == null) return false;
+                                return this.getHaversineKm(lat, lon, st.lat, st.lng) <= 25;
+                            });
+                            localStorage.setItem(key, JSON.stringify(cache));
+                            sessionStorage.setItem(key, JSON.stringify(cache));
+                        }
+                    }
+                } catch(e){}
+            } else {
                 const cachedStation = this.getCachedStation(lat, lon, 15);
                 if (cachedStation) {
                     console.log(`[WillyWeather Geodesic Cache Hit] Instant Station Lock: ${cachedStation.name} (${cachedStation.dist.toFixed(1)} km away, ID: ${cachedStation.id})`);
@@ -400,13 +416,14 @@ const WEATHER = {
                     console.warn("[WillyWeather Coordinate Search] Notice:", coordErr);
                 }
 
-                // 2b. Search locality terms & postcodes to discover hyper-local PWS stations
-                const searchTerms = await this.getLocalitySearchTerms(lat, lon);
-                for (const term of searchTerms) {
-                    const cleanSearch = term.replace(/\s+(city centre|city|cbd|central)/gi, '').trim() || term;
-                    if (!cleanSearch) continue;
+                // 2b. Search locality terms & postcodes only if coordinate search did not find an ultra-local station within 5km
+                if (!candidates.some(c => c.dist < 5)) {
+                    const searchTerms = await this.getLocalitySearchTerms(lat, lon);
+                    for (const term of searchTerms) {
+                        const cleanSearch = term.replace(/\s+(city centre|city|cbd|central)/gi, '').trim() || term;
+                        if (!cleanSearch) continue;
 
-                    const searchUrl = `https://api.willyweather.com.au/v2/${apiKey}/search.json?query=${encodeURIComponent(cleanSearch)}`;
+                        const searchUrl = `https://api.willyweather.com.au/v2/${apiKey}/search.json?query=${encodeURIComponent(cleanSearch)}`;
                     try {
                         const searchRes = await this.willyFetch(searchUrl);
                         if (searchRes && searchRes.ok) {
@@ -437,6 +454,7 @@ const WEATHER = {
                     if (candidates.some(c => c.dist < 5)) {
                         break;
                     }
+                }
                 }
 
                 if (candidates.length === 0) return null;
