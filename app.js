@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101380';
+window.APP_VERSION = 'v101390';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -90,6 +90,172 @@ window.debounce = function(fn, wait = 100) {
     return function(...args) {
         clearTimeout(timeout);
         timeout = setTimeout(() => fn.apply(this, args), wait);
+    };
+};
+
+// Top-Level Australian Seasonal Closure & Regulation Status Engines
+window.checkSeasonalClosure = function(seasonStr, targetDate = new Date()) {
+    const s = String(seasonStr || '').toLowerCase().trim();
+    if (!s || s === 'open all year' || s.includes('no limit')) {
+        return { hasClosure: false, isActiveNow: false, summary: 'Open All Year' };
+    }
+
+    const hasClosure = s.includes('closed') || s.includes('closure') || s.includes('prohibit') || s.includes('protect') || s.includes('opens ');
+    if (!hasClosure) {
+        return { hasClosure: false, isActiveNow: false, summary: 'Open' };
+    }
+
+    const months = {
+        'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+        'jul': 7, 'aug': 8, 'sep': 9, 'sept': 9, 'oct': 10, 'nov': 11, 'dec': 12
+    };
+
+    const curM = targetDate.getMonth() + 1; // 1-12
+    const curD = targetDate.getDate();
+
+    // 1. Explicit Date range pattern: e.g. "Closed Sept 1 - Nov 30" or "closed Aug 1 - Oct 31" or "closed July 15 - Aug 15"
+    const m = s.match(/closed\s+([a-z]+)\s*(\d{1,2})?\s*[-–to]+\s*([a-z]+)\s*(\d{1,2})?/i);
+    if (m) {
+        const smStr = m[1].toLowerCase().slice(0, 3);
+        const sd = m[2] ? parseInt(m[2], 10) : 1;
+        const emStr = m[3].toLowerCase().slice(0, 3);
+        const ed = m[4] ? parseInt(m[4], 10) : 28;
+
+        const sm = months[smStr];
+        const em = months[emStr];
+        if (sm && em) {
+            let isActive = false;
+            if (sm <= em) {
+                if ((curM > sm || (curM === sm && curD >= sd)) && (curM < em || (curM === em && curD <= ed))) {
+                    isActive = true;
+                }
+            } else {
+                if ((curM > sm || (curM === sm && curD >= sd)) || (curM < em || (curM === em && curD <= ed))) {
+                    isActive = true;
+                }
+            }
+            const capStart = smStr.charAt(0).toUpperCase() + smStr.slice(1);
+            const capEnd = emStr.charAt(0).toUpperCase() + emStr.slice(1);
+            return {
+                hasClosure: true,
+                isActiveNow: isActive,
+                summary: `Closed ${capStart} ${sd} - ${capEnd} ${ed}`
+            };
+        }
+    }
+
+    // 2. Long weekend pattern (NSW/ACT Trout streams: June long weekend - Oct long weekend)
+    if (s.includes('june') && s.includes('oct') && (s.includes('weekend') || s.includes('streams closed'))) {
+        const isActive = (curM >= 6 && curM <= 9) || (curM === 10 && curD <= 5);
+        return {
+            hasClosure: true,
+            isActiveNow: isActive,
+            summary: 'Streams Closed (June - Oct long weekend)'
+        };
+    }
+
+    // 3. Victorian Trout streams: closed June long weekend to Sept first Saturday
+    if (s.includes('june') && s.includes('sept') && s.includes('weekend')) {
+        const isActive = (curM >= 6 && curM <= 8) || (curM === 9 && curD < 5);
+        return {
+            hasClosure: true,
+            isActiveNow: isActive,
+            summary: 'Streams Closed (June - Sept 1st Sat)'
+        };
+    }
+
+    // General closure / restriction noted
+    return {
+        hasClosure: true,
+        isActiveNow: false,
+        summary: 'Seasonal Closure'
+    };
+};
+
+window.getRegulationStatusInfo = function(fish, targetDate = new Date()) {
+    const minSizeStr = String(fish.minSize || '').toLowerCase();
+    const maxSizeStr = String(fish.maxSize || '').toLowerCase();
+    const bagLimitStr = String(fish.bagLimit || '').toLowerCase();
+    const seasonStr = String(fish.season || '').toLowerCase();
+
+    // 1. Protected
+    const isProtected = minSizeStr.includes('protect') || bagLimitStr === '0' || bagLimitStr.includes('protect') || 
+                        seasonStr.includes('prohibit') || seasonStr.includes('protect') || seasonStr.includes('total prohibition') || seasonStr.includes('total closure');
+    if (isProtected) {
+        return {
+            type: 'PROTECTED',
+            label: 'Protected',
+            isProtected: true,
+            hasClosure: false,
+            isActiveNow: false,
+            isSlot: false,
+            badgeClass: 'badge-danger',
+            badgeHtml: `<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); font-weight: 700; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">🚫 PROTECTED</span>`
+        };
+    }
+
+    const closureInfo = window.checkSeasonalClosure(fish.season, targetDate);
+    const hasSlot = (typeof fish.maxSize === 'number' && fish.maxSize > 0) || 
+                    (typeof fish.maxSize === 'string' && fish.maxSize !== 'N/A' && fish.maxSize !== 'No Limit' && fish.maxSize !== '' && !maxSizeStr.includes('n/a')) || 
+                    seasonStr.includes('slot') || bagLimitStr.includes('slot') || seasonStr.includes('max size') || seasonStr.includes('max length');
+
+    // 2. Active Seasonal Closure (NOW) - HIGHEST PRIORITY!
+    if (closureInfo.hasClosure && closureInfo.isActiveNow) {
+        return {
+            type: 'CLOSURE',
+            label: 'Closed Season (Now)',
+            isProtected: false,
+            hasClosure: true,
+            isActiveNow: true,
+            isSlot: hasSlot,
+            closureSummary: closureInfo.summary,
+            badgeClass: 'badge-danger',
+            badgeHtml: `<span class="badge" style="background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.5); font-weight: 800; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; box-shadow: 0 0 6px rgba(239,68,68,0.25);">🚫 CLOSED NOW</span>`
+        };
+    }
+
+    // 3. Slot Limit
+    if (hasSlot) {
+        return {
+            type: 'SLOT',
+            label: 'Slot Limit',
+            isProtected: false,
+            hasClosure: closureInfo.hasClosure,
+            isActiveNow: false,
+            isSlot: true,
+            closureSummary: closureInfo.summary,
+            badgeClass: 'badge-warning',
+            badgeHtml: closureInfo.hasClosure ? 
+                `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 700; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">📏 SLOT LIMIT</span><span class="badge" style="background: rgba(234, 88, 12, 0.15); color: #fb923c; border: 1px solid rgba(234, 88, 12, 0.3); font-weight: 600; font-size: 9.5px; padding: 1px 5px; border-radius: 4px; margin-left: 4px;">⚠️ CLOSURE</span>` :
+                `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 700; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">📏 SLOT LIMIT</span>`
+        };
+    }
+
+    // 4. Seasonal Closure (Upcoming / General closure without slot)
+    if (closureInfo.hasClosure) {
+        return {
+            type: 'CLOSURE',
+            label: 'Seasonal Closure',
+            isProtected: false,
+            hasClosure: true,
+            isActiveNow: false,
+            isSlot: false,
+            closureSummary: closureInfo.summary,
+            badgeClass: 'badge-warning',
+            badgeHtml: `<span class="badge" style="background: rgba(234, 88, 12, 0.2); color: #fb923c; border: 1px solid rgba(234, 88, 12, 0.4); font-weight: 700; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">⚠️ SEASON CLOSURE</span>`
+        };
+    }
+
+    // 5. Open Take
+    return {
+        type: 'OPEN',
+        label: 'Open Take',
+        isProtected: false,
+        hasClosure: false,
+        isActiveNow: false,
+        isSlot: false,
+        badgeClass: 'badge-success',
+        badgeHtml: `<span class="badge" style="background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); font-weight: 700; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">🟢 OPEN TAKE</span>`
     };
 };
 
@@ -3676,56 +3842,8 @@ window.initMainApp = async function() {
         }
     }
 
-    function getRegulationStatusInfo(fish) {
-        const minSizeStr = String(fish.minSize || '').toLowerCase();
-        const maxSizeStr = String(fish.maxSize || '').toLowerCase();
-        const bagLimitStr = String(fish.bagLimit || '').toLowerCase();
-        const seasonStr = String(fish.season || '').toLowerCase();
-
-        // 1. Protected
-        const isProtected = minSizeStr.includes('protect') || bagLimitStr === '0' || bagLimitStr.includes('protect') || 
-                            seasonStr.includes('prohibit') || seasonStr.includes('protect') || seasonStr.includes('total prohibition');
-        if (isProtected) {
-            return {
-                type: 'PROTECTED',
-                label: 'Protected',
-                badgeClass: 'badge-danger',
-                badgeHtml: `<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); font-weight: 700; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">🚫 PROTECTED</span>`
-            };
-        }
-
-        // 2. Slot Limit
-        const hasSlot = (typeof fish.maxSize === 'number' && fish.maxSize > 0) || 
-                        (typeof fish.maxSize === 'string' && fish.maxSize !== 'N/A' && fish.maxSize !== 'No Limit' && fish.maxSize !== '' && !maxSizeStr.includes('n/a')) || 
-                        seasonStr.includes('slot') || bagLimitStr.includes('slot') || seasonStr.includes('max size') || seasonStr.includes('max length');
-        if (hasSlot) {
-            return {
-                type: 'SLOT',
-                label: 'Slot Limit',
-                badgeClass: 'badge-warning',
-                badgeHtml: `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 700; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">📏 SLOT LIMIT</span>`
-            };
-        }
-
-        // 3. Seasonal Closure / Regional Restrictions
-        const isClosure = seasonStr.includes('closed') || bagLimitStr.includes('closed') || seasonStr.includes('closure') || seasonStr.includes('restricted');
-        if (isClosure) {
-            return {
-                type: 'CLOSURE',
-                label: 'Seasonal Closure',
-                badgeClass: 'badge-warning',
-                badgeHtml: `<span class="badge" style="background: rgba(234, 88, 12, 0.2); color: #fb923c; border: 1px solid rgba(234, 88, 12, 0.4); font-weight: 700; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">⚠️ CLOSURE / RESTRICTED</span>`
-            };
-        }
-
-        // 4. Open Take
-        return {
-            type: 'OPEN',
-            label: 'Open Take',
-            badgeClass: 'badge-success',
-            badgeHtml: `<span class="badge" style="background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); font-weight: 700; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">🟢 OPEN TAKE</span>`
-        };
-    }
+    const checkSeasonalClosure = window.checkSeasonalClosure;
+    const getRegulationStatusInfo = window.getRegulationStatusInfo;
 
     function renderRegulations() {
         if (!elements.regTbody) return;
@@ -3760,9 +3878,17 @@ window.initMainApp = async function() {
                 fishList.forEach(fish => {
                     const statusInfo = getRegulationStatusInfo(fish);
 
-                    // Filter by quick status pill
-                    if (statusFilter !== 'ALL' && statusInfo.type !== statusFilter) {
-                        return;
+                    // Filter by quick status pill (ALL, OPEN, SLOT, PROTECTED, CLOSURE)
+                    if (statusFilter !== 'ALL') {
+                        if (statusFilter === 'CLOSURE' && !(statusInfo.type === 'CLOSURE' || statusInfo.hasClosure)) {
+                            return;
+                        } else if (statusFilter === 'SLOT' && !(statusInfo.type === 'SLOT' || statusInfo.isSlot)) {
+                            return;
+                        } else if (statusFilter === 'OPEN' && !(statusInfo.type === 'OPEN' || (!statusInfo.isActiveNow && !statusInfo.isProtected))) {
+                            return;
+                        } else if (statusFilter === 'PROTECTED' && statusInfo.type !== 'PROTECTED') {
+                            return;
+                        }
                     }
 
                     // Pre-match database to obtain scientific name and category for search
@@ -3887,7 +4013,12 @@ window.initMainApp = async function() {
                         <td style="color: var(--accent-orange); font-weight:600;">${maxSize}</td>
                         <td>${fish.bagLimit}</td>
                         <td style="color: var(--accent-teal); font-weight:600;">${fish.possessionLimit || 'N/A'}</td>
-                        <td style="font-size:12px; color:var(--text-secondary);">${fish.season}</td>
+                        ${statusInfo.isActiveNow ? 
+                            `<td style="font-size:12px; color: #f87171; font-weight: 700; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); border-radius: 4px; padding: 4px 6px;">🚫 ${fish.season}</td>` :
+                            (statusInfo.hasClosure ? 
+                                `<td style="font-size:12px; color: #fb923c; font-weight: 600;">⚠️ ${fish.season}</td>` :
+                                `<td style="font-size:12px; color:var(--text-secondary);">${fish.season}</td>`
+                            )}
                     </tr>
                 `);
             }
@@ -3905,7 +4036,17 @@ window.initMainApp = async function() {
                         <div style="padding: 16px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between;">
                             <div>
                                 <h3 style="margin: 0 0 2px 0; font-size: 16px; color: var(--text-primary);">🐟 ${fish.name}</h3>
-                                <div style="font-size: 11.5px; color: var(--accent-teal); font-style: italic; margin-bottom: 12px;">${sciName}</div>
+                                <div style="font-size: 11.5px; color: var(--accent-teal); font-style: italic; margin-bottom: 10px;">${sciName}</div>
+                                
+                                ${statusInfo.isActiveNow ? `
+                                <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.45); border-radius: 6px; padding: 6px 10px; margin-bottom: 12px; font-size: 11.5px; color: #fca5a5; display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 15px;">🚫</span>
+                                    <div><strong style="color: #f87171;">CLOSED BREEDING SEASON (NOW):</strong> ${fish.season}</div>
+                                </div>` : (statusInfo.hasClosure ? `
+                                <div style="background: rgba(234, 88, 12, 0.08); border: 1px solid rgba(234, 88, 12, 0.25); border-radius: 6px; padding: 5px 9px; margin-bottom: 12px; font-size: 11.5px; color: #fed7aa; display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 13px;">⚠️</span>
+                                    <div><strong style="color: #fb923c;">Seasonal Closure Note:</strong> ${fish.season}</div>
+                                </div>` : '')}
                                 
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; margin-bottom: 12px; background: rgba(255,255,255,0.03); padding: 10px; border-radius: 8px;">
                                     <div>
@@ -3927,7 +4068,7 @@ window.initMainApp = async function() {
                                 </div>
                             </div>
 
-                            <div style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.4; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px;">
+                            <div style="font-size: 11.5px; ${statusInfo.isActiveNow ? 'color: #fca5a5; font-weight: 600;' : (statusInfo.hasClosure ? 'color: #fed7aa;' : 'color: var(--text-secondary);')} line-height: 1.4; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px;">
                                 ℹ️ <b>Season & Rules:</b> ${fish.season}
                             </div>
                         </div>
@@ -3936,6 +4077,7 @@ window.initMainApp = async function() {
             }
         });
     }
+    window.renderRegulations = renderRegulations;
 
     // Switch between Table View and DPI Species Cards View
     window.switchRegView = function(mode) {
@@ -6118,6 +6260,7 @@ window.initMainApp = async function() {
         if (matchedRule) {
             const isProtected = String(matchedRule.minSize).toLowerCase().includes('protected') || matchedRule.bagLimit === '0';
             const isPest = String(matchedRule.minSize).toLowerCase().includes('pest') || String(matchedRule.season).toLowerCase().includes('pest');
+            const closureInfo = (typeof checkSeasonalClosure === 'function') ? checkSeasonalClosure(matchedRule.season) : { hasClosure: false, isActiveNow: false };
             
             let badgeHtml = '<span class="regulation-badge open">🟢 OPEN SEASON</span>';
             if (isProtected) {
@@ -6126,11 +6269,29 @@ window.initMainApp = async function() {
             } else if (isPest) {
                 badgeHtml = '<span class="regulation-badge pest">⚠️ DECLARED PEST</span>';
                 regBox.style.borderLeftColor = 'var(--accent-orange)';
+            } else if (closureInfo.hasClosure && closureInfo.isActiveNow) {
+                badgeHtml = '<span class="regulation-badge" style="background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.5); font-weight: 800; font-size: 11px; padding: 2px 7px; border-radius: 4px;">🚫 CLOSED SEASON (NOW)</span>';
+                regBox.style.borderLeftColor = 'var(--danger)';
+            } else if (closureInfo.hasClosure) {
+                badgeHtml = '<span class="regulation-badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.5); font-weight: 700; font-size: 11px; padding: 2px 7px; border-radius: 4px;">⚠️ SEASONAL CLOSURE RULES</span>';
+                regBox.style.borderLeftColor = 'var(--accent-orange)';
+            } else if (matchedRule.maxSize) {
+                badgeHtml = '<span class="regulation-badge" style="background: rgba(0, 210, 255, 0.2); color: #38bdf8; border: 1px solid rgba(0, 210, 255, 0.4); font-weight: 700; font-size: 11px; padding: 2px 7px; border-radius: 4px;">📏 SLOT LIMIT</span>';
+                regBox.style.borderLeftColor = 'var(--accent-teal)';
             } else {
                 regBox.style.borderLeftColor = 'var(--accent-teal)';
             }
 
             const sizeText = matchedRule.maxSize ? `${matchedRule.minSize} cm - ${matchedRule.maxSize} cm (Slot)` : (matchedRule.minSize > 0 ? `Min ${matchedRule.minSize} cm` : 'No Size Limit');
+
+            const seasonCallout = (closureInfo.hasClosure && closureInfo.isActiveNow) ?
+                `<div style="background: rgba(239, 68, 68, 0.18); border: 1px solid rgba(239, 68, 68, 0.45); border-radius: 5px; padding: 5px 8px; margin-top: 6px; font-size: 11.5px; color: #fca5a5;">
+                    <strong>🚫 CURRENTLY CLOSED BREEDING SEASON:</strong> ${matchedRule.season}
+                </div>` :
+                (closureInfo.hasClosure ? 
+                    `<div style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 5px; padding: 5px 8px; margin-top: 6px; font-size: 11.5px; color: #fde68a;">
+                        <strong>⚠️ Seasonal Restrictions Note:</strong> ${matchedRule.season}
+                    </div>` : '');
 
             regBox.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -6144,6 +6305,7 @@ window.initMainApp = async function() {
                     <span>📦 <b>Possession:</b> ${matchedRule.possessionLimit}</span>
                     <span>📅 <b>Season Note:</b> ${matchedRule.season}</span>
                 </div>
+                ${seasonCallout}
                 ${extraNotes ? `<div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.1); font-size: 11px; color: var(--text-secondary);">🌐 <b>AI Analysis:</b> ${extraNotes}</div>` : ''}
             `;
             regBox.style.display = 'block';
@@ -6186,6 +6348,7 @@ window.initMainApp = async function() {
             regBox.style.display = 'block';
         }
     }
+    window.displayRegulationBox = displayRegulationBox;
 
     async function analyzeFishPhoto(photoSrc, fileName, lat, lng) {
         const scanOverlay = document.getElementById('photo-scan-overlay');
