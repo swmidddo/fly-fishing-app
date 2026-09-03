@@ -915,9 +915,29 @@ window.selectHatchFlyForCatchLog = function(flyName, hookSize) {
     if (window.showLogCatchModal) {
         window.showLogCatchModal();
         setTimeout(() => {
-            const flyInput = document.getElementById('catch-fly-used') || document.getElementById('catch-fly');
+            const flyInput = document.getElementById('rig-fly') || document.getElementById('catch-fly-used') || document.getElementById('catch-fly');
             if (flyInput) {
-                flyInput.value = `${flyName} (${hookSize || '#14'})`;
+                const val = `${flyName} (${hookSize || '#14'})`;
+                if (flyInput.tagName === 'SELECT') {
+                    let optFound = false;
+                    for (let i = 0; i < flyInput.options.length; i++) {
+                        const opt = flyInput.options[i];
+                        if (opt.value.toLowerCase().includes(flyName.toLowerCase())) {
+                            flyInput.selectedIndex = i;
+                            optFound = true;
+                            break;
+                        }
+                    }
+                    if (!optFound) {
+                        const newOpt = document.createElement('option');
+                        newOpt.value = val;
+                        newOpt.textContent = val;
+                        newOpt.selected = true;
+                        flyInput.appendChild(newOpt);
+                    }
+                } else {
+                    flyInput.value = val;
+                }
             }
         }, 150);
         if (window.showSyncToast) window.showSyncToast(`🎣 Pre-selected "${flyName}" for your catch log!`);

@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101370';
+window.APP_VERSION = 'v101380';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -902,6 +902,12 @@ window.initMainApp = async function() {
     }
 
     // Request GPS location on app initialization
+    function initLocationTracking() {
+        if (typeof window.requestGpsLocation === 'function') {
+            window.requestGpsLocation();
+        }
+    }
+    window.initLocationTracking = initLocationTracking;
     window.requestGpsLocation();
 
     // 4. Map Interface Actions
@@ -2485,7 +2491,9 @@ window.initMainApp = async function() {
         document.getElementById('catch-search').addEventListener('input', window.debounce(renderCatches, 90));
     }
     elements.catchFilterWater = document.getElementById('catch-filter-water');
-    elements.catchFilterWater.addEventListener('change', renderCatches);
+    if (elements.catchFilterWater) {
+        elements.catchFilterWater.addEventListener('change', renderCatches);
+    }
 
     // Dynamic Environmental Clarity & Prey Selector based on Water Type
     function updateEnvironmentalSelectsByWaterType(waterType = 'freshwater', selectedClarity = '', selectedHatch = '') {
@@ -3228,7 +3236,13 @@ window.initMainApp = async function() {
             ctx.fillText(`🌊 ${waterStr}`, W - 56, 102);
 
             // 2. Render Hero Catch Photo
-            const photoSrc = (typeof getFishPhoto === 'function') ? getFishPhoto(catchItem) : (catchItem.photo || './images/fly_rod_default.png');
+            let fullPhoto = null;
+            if (window.DB && typeof window.DB.getFullPhoto === 'function' && catchItem.id) {
+                try {
+                    fullPhoto = await window.DB.getFullPhoto(catchItem.id, 'catch');
+                } catch(e){}
+            }
+            const photoSrc = fullPhoto || ((typeof getFishPhoto === 'function') ? getFishPhoto(catchItem) : (catchItem.photo || './images/fly_rod_default.png'));
             
             let photoX, photoY, photoW, photoH;
             if (isPortrait) {
@@ -3297,10 +3311,14 @@ window.initMainApp = async function() {
             await new Promise(resolve => {
                 img.onload = () => {
                     drawPhoto(img);
+                    img.onload = null;
+                    img.onerror = null;
                     resolve();
                 };
                 img.onerror = () => {
                     drawPhoto(null);
+                    img.onload = null;
+                    img.onerror = null;
                     resolve();
                 };
                 img.src = photoSrc;
@@ -5033,27 +5051,8 @@ window.initMainApp = async function() {
         }
     });
 
-    function initSettings() {
-        // WillyWeather Settings
-        const willyInput = document.getElementById('settings-willyweather-key');
-        const btnSaveWilly = document.getElementById('btn-save-willyweather-settings');
-
-        if (willyInput) {
-            willyInput.value = localStorage.getItem('willyWeatherApiKey') || 'MjlkNjAwNWVjMzA4MTFlOGEwZjMyY2';
-        }
-        if (btnSaveWilly && willyInput) {
-            btnSaveWilly.addEventListener('click', async () => {
-                const val = willyInput.value.trim();
-                localStorage.setItem('willyWeatherApiKey', val);
-                alert("WillyWeather API Key saved! Connecting to nearby Personal Weather Stations (<30km)...");
-                if (AppState.userCoords) {
-                    await loadWeatherAndTides(AppState.userCoords.lat, AppState.userCoords.lng);
-                }
-            });
-        }
-
-        // Master Vault Live Summary Update
-        window.updateVaultSummaryUI = async function() {
+    // Master Vault Live Summary Update
+    window.updateVaultSummaryUI = async function() {
             try {
                 const catches = await window.DB.getAllCatches();
                 const tackle = await window.DB.getAllTackle();
@@ -5302,7 +5301,6 @@ window.initMainApp = async function() {
                 }
             });
         }
-    }
 
     function initLeaderTippetCalculator() {
         const specInput = document.getElementById('tackle-spec');
