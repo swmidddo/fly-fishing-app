@@ -372,7 +372,7 @@ const DB = {
     addRig(item) {
         return getStore('rigs', 'readwrite').then((store) => {
             return new Promise((resolve, reject) => {
-                const request = store.add(item);
+                const request = store.put(item);
                 request.onsuccess = () => resolve(request.result);
                 request.onerror = () => reject(request.error);
             });
@@ -413,7 +413,7 @@ const DB = {
     addLicense(item) {
         return getStore('licenses', 'readwrite').then((store) => {
             return new Promise((resolve, reject) => {
-                const request = store.add(item);
+                const request = store.put(item);
                 request.onsuccess = () => resolve(request.result);
                 request.onerror = () => reject(request.error);
             });

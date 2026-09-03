@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101440';
+window.APP_VERSION = 'v101450';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -1410,7 +1410,6 @@ window.initMainApp = async function() {
         }
     }
     window.initLocationTracking = initLocationTracking;
-    window.requestGpsLocation();
 
     // 4. Map Interface Actions
     // (loadCatches and renderDashboardRecent defined in Section 11 & 12 below)
@@ -7236,7 +7235,9 @@ window.initMainApp = async function() {
     try { initSettings(); } catch (e) { console.error("Settings init failed", e); }
     try { initLocationTracking(); } catch (e) { console.error("GPS init failed", e); }
     try { initRegulations(); } catch (e) { console.error("Regulations init failed", e); }
-    try { loadWeatherAndTides(defaultLat, defaultLon, true); } catch (e) { console.error("Weather init failed", e); }
+    if (!lastWeatherFetchTime && (!AppState.userCoords || !AppState.userCoords.lat)) {
+        try { loadWeatherAndTides(defaultLat, defaultLon, false); } catch (e) { console.error("Weather init failed", e); }
+    }
     try { initTacklePredictiveText(); } catch (e) { console.error("Tackle predictive text init failed", e); }
     try { initFishPredictiveText(); } catch (e) { console.error("Fish predictive text init failed", e); }
     try { initMapEngine(); } catch (e) { console.error("Map init failed", e); }
@@ -7256,20 +7257,7 @@ window.initMainApp = async function() {
         }
     })();
 
-    // Unregister any stale Service Worker to ensure instant live updates
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then((registrations) => {
-            for (let registration of registrations) {
-                registration.unregister();
-            }
-        }).catch(err => console.warn("SW unregister notice:", err));
-    }
-    if ('caches' in window) {
-        caches.keys().then((keys) => {
-            keys.forEach((key) => caches.delete(key));
-        }).catch(err => console.warn("Cache delete notice:", err));
-    }
-
+    // PWA Update notification helper
     function showUpdateNotificationToast(waitingWorker) {
         let toast = document.getElementById('pwa-update-toast');
         if (!toast) {

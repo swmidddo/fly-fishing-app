@@ -130,7 +130,7 @@ const AppMap = {
             }, 8000);
 
             const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__initGoogleMapCallback`;
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__initGoogleMapCallback&loading=async`;
             script.async = true;
             script.defer = true;
             window.__initGoogleMapCallback = () => {
