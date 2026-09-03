@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101450';
+window.APP_VERSION = 'v101460';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -420,57 +420,9 @@ window.setupInteractiveSolunarTimeline = function(containerEl, badgeEl, solunar,
 // Top-Level Global Navigation & Weather Entrypoints
 
 window.loadWeatherAndTides = async function(lat, lon, forceRefresh = false) {
-    if (!lat || !lon) {
-        const storedCoordsStr = localStorage.getItem('user_last_coords');
-        const saved = storedCoordsStr ? JSON.parse(storedCoordsStr) : null;
-        lat = saved ? saved.lat : -30.3622;
-        lon = saved ? saved.lng : 149.8336;
+    if (typeof window.__internalLoadWeatherAndTides === 'function') {
+        return await window.__internalLoadWeatherAndTides(lat, lon, forceRefresh);
     }
-    try {
-        const nowObj = new Date();
-        const moon = window.WEATHER ? window.WEATHER.getMoonPhase(nowObj) : { label: 'Waning Crescent', icon: '🌘', illumination: 58 };
-        const tides = window.WEATHER ? window.WEATHER.getTideData(lat, lon, nowObj) : { currentHeight: '-0.36m', tideDirection: 'Falling', nextEvents: [] };
-        
-        const moonIconEl = document.getElementById('dash-moon-icon');
-        const moonPhaseEl = document.getElementById('dash-moon-phase');
-        const moonIllumEl = document.getElementById('dash-moon-illum');
-        const tideHeightEl = document.getElementById('dash-tide-height');
-        const tideDirEl = document.getElementById('dash-tide-dir');
-
-        if (moonIconEl) moonIconEl.textContent = moon.icon || '🌘';
-        if (moonPhaseEl) moonPhaseEl.textContent = moon.label || 'Waning Crescent';
-        if (moonIllumEl) moonIllumEl.textContent = `${moon.illumination || 58}% Illumination`;
-        if (tideHeightEl) tideHeightEl.textContent = tides.currentHeight || '-0.36m';
-        if (tideDirEl) {
-            tideDirEl.textContent = tides.tideDirection || 'Falling';
-            tideDirEl.style.color = (tides.tideDirection === 'Rising') ? 'var(--accent-teal)' : 'var(--accent-orange)';
-        }
-    } catch(e) { console.warn("Astro notice:", e); }
-
-    try {
-        const weather = window.WEATHER ? await window.WEATHER.fetchForecast(lat, lon, forceRefresh) : null;
-        if (weather && weather.current) {
-            const badgeEl = document.getElementById('dash-weather-station-badge');
-            const iconEl = document.getElementById('dash-weather-icon');
-            const tempEl = document.getElementById('dash-weather-temp');
-            const descEl = document.getElementById('dash-weather-desc');
-            const windEl = document.getElementById('dash-wind');
-            const pressEl = document.getElementById('dash-pressure');
-
-            if (badgeEl) {
-                if (weather.stationName) {
-                    badgeEl.innerHTML = weather.stationName.startsWith('📡') ? weather.stationName : `📡 Weather Station: ${weather.stationName}`;
-                } else {
-                    badgeEl.innerHTML = `📡 WillyWeather Station: Live Station (< 1.0 km away)`;
-                }
-            }
-            if (iconEl) iconEl.textContent = weather.current.icon || '☀️';
-            if (tempEl) tempEl.textContent = `${Math.round(weather.current.temp || 10)}°C`;
-            if (descEl) descEl.textContent = weather.current.condition || 'Clear sky';
-            if (windEl) windEl.textContent = `${weather.current.windSpeed || 8} km/h SSE (${weather.current.windDirection || 154}°)`;
-            if (pressEl) pressEl.textContent = `${weather.current.pressure || 997} hPa`;
-        }
-    } catch(e) { console.warn("Weather notice:", e); }
 };
 
 window.initMainApp = async function() {
@@ -4460,11 +4412,26 @@ window.initMainApp = async function() {
 
     async function loadWeatherAndTides(lat, lon, forceRefresh = false) {
         window.loadWeatherAndTides = loadWeatherAndTides;
+        window.__internalLoadWeatherAndTides = loadWeatherAndTides;
         if (!lat || !lon) {
             const storedCoordsStr = localStorage.getItem('user_last_coords');
             const saved = storedCoordsStr ? JSON.parse(storedCoordsStr) : null;
             lat = saved ? saved.lat : -30.3183;
             lon = saved ? saved.lng : 149.8265;
+        }
+
+        // 1. ALWAYS render Astronomical & Solunar data immediately (0ms local CPU math, zero network delay)
+        try {
+            const nowObj = new Date();
+            const moon = window.WEATHER ? window.WEATHER.getMoonPhase(nowObj) : { label: 'New Moon', icon: '🌑', illumination: 0 };
+            const tides = window.WEATHER ? window.WEATHER.getTideData(lat, lon, nowObj) : { currentHeight: '1.2m', tideDirection: 'Rising', nextEvents: [] };
+
+            AppState.moonData = moon;
+            AppState.tideData = tides;
+
+            displayAstroData(moon, tides, lat, lon);
+        } catch (e) {
+            console.error("Astro display error:", e);
         }
 
         const now = Date.now();
@@ -4480,7 +4447,7 @@ window.initMainApp = async function() {
             distanceKm = 6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
         }
 
-        // Throttle: Re-fetch only if forced, or > 5 minutes passed, or moved > 0.2 km
+        // Throttle ONLY the external network BOM/WillyWeather fetch (5 mins or > 0.2 km)
         if (!forceRefresh && lastWeatherFetchTime > 0 && timeDiff < 300000 && distanceKm < 0.2) {
             return;
         }
@@ -4488,19 +4455,6 @@ window.initMainApp = async function() {
         lastWeatherFetchTime = now;
         lastWeatherFetchLat = lat;
         lastWeatherFetchLon = lon;
-
-        try {
-            const nowObj = new Date();
-            const moon = window.WEATHER ? window.WEATHER.getMoonPhase(nowObj) : { label: 'New Moon', icon: '🌑', illumination: 0 };
-            const tides = window.WEATHER ? window.WEATHER.getTideData(lat, lon, nowObj) : { currentHeight: '1.2m', tideDirection: 'Rising', nextEvents: [] };
-
-            AppState.moonData = moon;
-            AppState.tideData = tides;
-
-            displayAstroData(moon, tides, lat, lon);
-        } catch (e) {
-            console.error("Astro display error:", e);
-        }
 
         try {
             const weather = window.WEATHER ? await window.WEATHER.fetchForecast(lat, lon, forceRefresh) : null;
@@ -4511,6 +4465,10 @@ window.initMainApp = async function() {
                 if (typeof window.drawPressureChart === 'function') {
                     const curP = (weather && weather.current) ? weather.current.pressure : 1016;
                     window.drawPressureChart(null, curP);
+                }
+                // Refresh solunar with updated live barometric pressure from BOM observation
+                if (AppState.moonData && AppState.tideData) {
+                    displayAstroData(AppState.moonData, AppState.tideData, lat, lon);
                 }
             }
         } catch (e) {
@@ -4591,7 +4549,10 @@ window.initMainApp = async function() {
 
         // Render 24-Hour Feeding Activity Bars with Full Interactive Touch & Tap
         if (solunarTimeline && solunar.hourlyTimeline && solunar.hourlyTimeline.length > 0) {
-            setupInteractiveSolunarTimeline(solunarTimeline, solunarPressNote, solunar, { dayIndex: 0 });
+            const setupFn = (typeof window.setupInteractiveSolunarTimeline === 'function')
+                ? window.setupInteractiveSolunarTimeline
+                : (typeof setupInteractiveSolunarTimeline === 'function' ? setupInteractiveSolunarTimeline : null);
+            if (setupFn) setupFn(solunarTimeline, solunarPressNote, solunar, { dayIndex: 0 });
         }
 
         // Weather Tab detailed
@@ -4778,7 +4739,10 @@ window.initMainApp = async function() {
         const timelineBars = document.getElementById('solunar-timeline-bars');
         const inspectBadge = document.getElementById('solunar-hour-inspect-badge');
         if (timelineBars && solunar.hourlyTimeline && solunar.hourlyTimeline.length > 0) {
-            setupInteractiveSolunarTimeline(timelineBars, inspectBadge, solunar, dayData);
+            const setupFn = (typeof window.setupInteractiveSolunarTimeline === 'function')
+                ? window.setupInteractiveSolunarTimeline
+                : (typeof setupInteractiveSolunarTimeline === 'function' ? setupInteractiveSolunarTimeline : null);
+            if (setupFn) setupFn(timelineBars, inspectBadge, solunar, dayData);
         }
 
         // Tactic Box
@@ -7235,9 +7199,8 @@ window.initMainApp = async function() {
     try { initSettings(); } catch (e) { console.error("Settings init failed", e); }
     try { initLocationTracking(); } catch (e) { console.error("GPS init failed", e); }
     try { initRegulations(); } catch (e) { console.error("Regulations init failed", e); }
-    if (!lastWeatherFetchTime && (!AppState.userCoords || !AppState.userCoords.lat)) {
-        try { loadWeatherAndTides(defaultLat, defaultLon, false); } catch (e) { console.error("Weather init failed", e); }
-    }
+    // Immediately render Solunar Feeding Windows, Moon & Tides on startup (0ms CPU math)
+    try { loadWeatherAndTides(defaultLat, defaultLon, false); } catch (e) { console.error("Weather init failed", e); }
     try { initTacklePredictiveText(); } catch (e) { console.error("Tackle predictive text init failed", e); }
     try { initFishPredictiveText(); } catch (e) { console.error("Fish predictive text init failed", e); }
     try { initMapEngine(); } catch (e) { console.error("Map init failed", e); }
