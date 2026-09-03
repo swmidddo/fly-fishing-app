@@ -2410,6 +2410,32 @@ body.high-contrast-mode .badge {
     border-color: #a3e635 !important;
 }
 
+/* Interactive Solunar Hour Bar Heatmap (Touch, Tap & Scrub) */
+.solunar-hour-bar {
+    flex: 1;
+    position: relative;
+    border-radius: 3px 3px 0 0;
+    cursor: pointer;
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), filter 0.15s ease, background 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: pan-y;
+}
+
+.solunar-hour-bar:hover,
+.solunar-hour-bar:active,
+.solunar-hour-bar.active-inspect {
+    transform: scaleY(1.12) scaleX(1.2);
+    z-index: 10;
+    filter: brightness(1.35) drop-shadow(0 0 8px rgba(56, 189, 248, 0.7));
+    border-top: 2.5px solid #ffffff !important;
+}
+
+.solunar-hour-bar.current-hour {
+    border-left: 1.5px solid rgba(255, 255, 255, 0.9);
+    border-right: 1.5px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.7);
+}
+
 /* Interactive Knot Stepper & Left/Right Handed Mirror Styles */
 .knot-diagram-container {
     position: relative;

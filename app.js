@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101390';
+window.APP_VERSION = 'v101400';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -257,6 +257,164 @@ window.getRegulationStatusInfo = function(fish, targetDate = new Date()) {
         badgeClass: 'badge-success',
         badgeHtml: `<span class="badge" style="background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); font-weight: 700; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;">🟢 OPEN TAKE</span>`
     };
+};
+
+// Interactive Solunar 24-Hour Feeding Timeline Engine (Full Mobile Touch, Tap & Scrub Support)
+window.setupInteractiveSolunarTimeline = function(containerEl, badgeEl, solunar, dayData) {
+    if (!containerEl || !solunar || !solunar.hourlyTimeline || solunar.hourlyTimeline.length === 0) return;
+
+    const isToday = dayData ? (dayData.dayIndex === 0) : true;
+    const timeline = solunar.hourlyTimeline;
+
+    function inspectHour(index) {
+        if (index < 0 || index >= timeline.length) return;
+        const item = timeline[index];
+
+        // 1. Highlight the inspected bar and reset others
+        const barEls = containerEl.querySelectorAll('.solunar-hour-bar');
+        barEls.forEach((b, i) => {
+            if (i === index) {
+                b.classList.add('active-inspect');
+            } else {
+                b.classList.remove('active-inspect');
+            }
+        });
+
+        // 2. Format detailed hour label
+        const hr = item.hour;
+        const timeStr = hr === 0 ? '12 AM' : hr === 12 ? '12 PM' : hr > 12 ? `${hr - 12} PM` : `${hr} AM`;
+
+        // 3. Determine feeding tier badge & color
+        let tierNote = '⚪ Low Bite';
+        let tierColor = 'var(--text-secondary)';
+        if (item.activity >= 85) {
+            tierNote = '🔥 Prime Bite Spike';
+            tierColor = '#a3e635';
+        } else if (item.activity >= 70) {
+            tierNote = '🟢 High Activity';
+            tierColor = '#34d399';
+        } else if (item.activity >= 50) {
+            tierNote = '🟡 Moderate Activity';
+            tierColor = '#60a5fa';
+        }
+
+        // Check if falls in Major / Minor window
+        let windowNote = '';
+        if (solunar.majorWindows) {
+            const matchMajor = solunar.majorWindows.find(w => {
+                const startH = parseInt((w.start || '').split(':')[0], 10);
+                return Math.abs(hr - startH) <= 1;
+            });
+            if (matchMajor) windowNote = (matchMajor.title && matchMajor.title.includes('Overhead')) ? '🌕 Overhead' : '🌑 Underfoot';
+        }
+        if (!windowNote && solunar.minorWindows) {
+            const matchMinor = solunar.minorWindows.find(w => {
+                const startH = parseInt((w.start || '').split(':')[0], 10);
+                return Math.abs(hr - startH) === 0;
+            });
+            if (matchMinor) windowNote = (matchMinor.title && matchMinor.title.includes('Moonrise')) ? '🌅 Moonrise' : '🌇 Moonset';
+        }
+
+        const liveTag = (isToday && item.isCurrentHour) ? ' • 🔴 LIVE NOW' : '';
+        const fullNote = windowNote ? `${windowNote} • ${tierNote}` : tierNote;
+
+        if (badgeEl) {
+            badgeEl.innerHTML = `<strong>🕐 ${timeStr}:</strong> <span style="color: ${tierColor}; font-weight: 800; font-size: 11.5px;">${item.activity}%</span> <span style="font-size: 10px; color: ${tierColor}; opacity: 0.95;">(${fullNote}${liveTag})</span>`;
+            badgeEl.style.borderColor = tierColor;
+            badgeEl.style.background = 'rgba(0,0,0,0.45)';
+        }
+    }
+
+    // Render bars with touch and click attributes
+    containerEl.innerHTML = timeline.map((item, idx) => {
+        const heightPct = Math.max(16, Math.min(100, item.activity));
+        let barColor = 'rgba(0, 210, 255, 0.3)';
+        if (item.activity >= 85) barColor = '#a3e635';
+        else if (item.activity >= 70) barColor = '#34d399';
+        else if (item.activity >= 50) barColor = '#60a5fa';
+
+        const currentHourClass = (isToday && item.isCurrentHour) ? 'current-hour' : '';
+
+        return `
+            <div class="solunar-hour-bar ${currentHourClass}" 
+                 data-hour-index="${idx}"
+                 style="flex: 1; height: ${heightPct}%; background: ${barColor};" 
+                 title="${item.label}: ${item.activity}% Feeding Activity">
+            </div>
+        `;
+    }).join('');
+
+    // Attach event listener helper calculating index from X position
+    function getHourIndexFromEvent(e) {
+        const rect = containerEl.getBoundingClientRect();
+        let clientX = e.clientX;
+        if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+        } else if (e.changedTouches && e.changedTouches.length > 0) {
+            clientX = e.changedTouches[0].clientX;
+        }
+        if (clientX === undefined) return -1;
+        const x = clientX - rect.left;
+        const pct = Math.max(0, Math.min(0.999, x / rect.width));
+        return Math.floor(pct * timeline.length);
+    }
+
+    // Direct per-bar interaction
+    const barEls = containerEl.querySelectorAll('.solunar-hour-bar');
+    barEls.forEach((bar, idx) => {
+        bar.addEventListener('click', (e) => {
+            e.stopPropagation();
+            inspectHour(idx);
+        });
+        bar.addEventListener('mouseenter', () => inspectHour(idx));
+        bar.addEventListener('pointerdown', (e) => {
+            inspectHour(idx);
+        });
+    });
+
+    // Container-level touch scrubbing & click handling
+    containerEl.addEventListener('click', function(e) {
+        const idx = getHourIndexFromEvent(e);
+        if (idx >= 0) inspectHour(idx);
+    });
+
+    containerEl.addEventListener('pointermove', function(e) {
+        if (e.buttons > 0 || e.pointerType === 'mouse') {
+            const idx = getHourIndexFromEvent(e);
+            if (idx >= 0) inspectHour(idx);
+        }
+    });
+
+    containerEl.addEventListener('pointerdown', function(e) {
+        const idx = getHourIndexFromEvent(e);
+        if (idx >= 0) inspectHour(idx);
+    });
+
+    containerEl.addEventListener('touchstart', function(e) {
+        const idx = getHourIndexFromEvent(e);
+        if (idx >= 0) inspectHour(idx);
+    }, { passive: true });
+
+    containerEl.addEventListener('touchmove', function(e) {
+        const idx = getHourIndexFromEvent(e);
+        if (idx >= 0) inspectHour(idx);
+    }, { passive: true });
+
+    // Initialize: inspect current hour if today, or peak hour if future day
+    let initialHourIdx = 12;
+    if (isToday) {
+        const curIdx = timeline.findIndex(t => t.isCurrentHour);
+        if (curIdx >= 0) initialHourIdx = curIdx;
+    } else {
+        let maxAct = -1;
+        timeline.forEach((t, i) => {
+            if (t.activity > maxAct) {
+                maxAct = t.activity;
+                initialHourIdx = i;
+            }
+        });
+    }
+    inspectHour(initialHourIdx);
 };
 
 // Top-Level Global Navigation & Weather Entrypoints
@@ -4183,6 +4341,8 @@ window.initMainApp = async function() {
         }
     }
 
+    const setupInteractiveSolunarTimeline = window.setupInteractiveSolunarTimeline;
+
     function displayAstroData(moon, tides, lat, lon) {
         const now = new Date();
         
@@ -4252,20 +4412,9 @@ window.initMainApp = async function() {
             `;
         }
 
-        // Render 24-Hour Feeding Activity Bars
+        // Render 24-Hour Feeding Activity Bars with Full Interactive Touch & Tap
         if (solunarTimeline && solunar.hourlyTimeline && solunar.hourlyTimeline.length > 0) {
-            solunarTimeline.innerHTML = solunar.hourlyTimeline.map(item => {
-                const heightPct = Math.max(15, Math.min(100, item.activity));
-                let barColor = 'rgba(0, 210, 255, 0.3)';
-                if (item.activity >= 85) barColor = 'var(--accent-teal)';
-                else if (item.activity >= 70) barColor = '#34d399';
-                else if (item.activity >= 50) barColor = '#60a5fa';
-
-                const borderStyle = item.isCurrentHour ? 'border: 1.5px solid #fff; box-shadow: 0 0 8px #fff;' : '';
-                return `
-                    <div style="flex: 1; height: ${heightPct}%; background: ${barColor}; border-radius: 2px 2px 0 0; ${borderStyle} transition: height 0.3s ease;" title="${item.label}: ${item.activity}% Feeding Activity${item.isCurrentHour ? ' (CURRENT TIME)' : ''}"></div>
-                `;
-            }).join('');
+            setupInteractiveSolunarTimeline(solunarTimeline, solunarPressNote, solunar, { dayIndex: 0 });
         }
 
         // Weather Tab detailed
@@ -4448,21 +4597,11 @@ window.initMainApp = async function() {
             `;
         }
 
-        // Timeline Bars
+        // Timeline Bars with Full Interactive Touch, Tap & Scrub
         const timelineBars = document.getElementById('solunar-timeline-bars');
+        const inspectBadge = document.getElementById('solunar-hour-inspect-badge');
         if (timelineBars && solunar.hourlyTimeline && solunar.hourlyTimeline.length > 0) {
-            timelineBars.innerHTML = solunar.hourlyTimeline.map(item => {
-                const heightPct = Math.max(15, Math.min(100, item.activity));
-                let barColor = 'rgba(0, 210, 255, 0.3)';
-                if (item.activity >= 85) barColor = '#a3e635';
-                else if (item.activity >= 70) barColor = '#34d399';
-                else if (item.activity >= 50) barColor = '#60a5fa';
-
-                const borderStyle = (dayData.dayIndex === 0 && item.isCurrentHour) ? 'border: 1.5px solid #fff; box-shadow: 0 0 8px #fff;' : '';
-                return `
-                    <div style="flex: 1; height: ${heightPct}%; background: ${barColor}; border-radius: 2px 2px 0 0; ${borderStyle} transition: height 0.3s ease;" title="${item.label}: ${item.activity}% Feeding Activity${(dayData.dayIndex === 0 && item.isCurrentHour) ? ' (CURRENT LIVE HOUR)' : ''}"></div>
-                `;
-            }).join('');
+            setupInteractiveSolunarTimeline(timelineBars, inspectBadge, solunar, dayData);
         }
 
         // Tactic Box
