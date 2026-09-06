@@ -80,9 +80,29 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101490';
+window.APP_VERSION = 'v101500';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
+
+// Top-Level Application State Container
+window.AppState = {
+    activeTab: 'dashboard',
+    gpsWatchId: null,
+    userCoords: { lat: -30.3183, lng: 149.8265 },
+    tackle: [],
+    catches: [],
+    rigs: [],
+    licenses: [],
+    activeTackleFilter: 'all',
+    weatherData: null,
+    tideData: null,
+    moonData: null,
+    hasCenteredOnUser: false,
+    editingRigId: null,
+    editingLicenseId: null,
+    editingCatchId: null,
+    photoMetadata: null
+};
 
 // High-Performance Event Debounce Utility (Limits heavy DOM rendering on fast typing)
 window.debounce = function(fn, wait = 100) {
@@ -431,24 +451,8 @@ window.initMainApp = async function() {
     const savedCoordsStr = localStorage.getItem('user_last_coords');
     const initialCoords = savedCoordsStr ? JSON.parse(savedCoordsStr) : { lat: -30.3183, lng: 149.8265 };
 
-    const AppState = {
-        activeTab: 'dashboard',
-        gpsWatchId: null,
-        userCoords: initialCoords,
-        tackle: [],
-        catches: [],
-        rigs: [],
-        licenses: [],
-        activeTackleFilter: 'all',
-        weatherData: null,
-        tideData: null,
-        moonData: null,
-        hasCenteredOnUser: false,
-        editingRigId: null,
-        editingLicenseId: null,
-        editingCatchId: null,
-        photoMetadata: null
-    };
+    const AppState = window.AppState;
+    AppState.userCoords = initialCoords;
 
     // UI Cache Elements
     const elements = {
@@ -493,6 +497,8 @@ window.initMainApp = async function() {
         rigComboLine: document.getElementById('rig-combo-line'),
         rigComboLeader: document.getElementById('rig-combo-leader'),
         rigComboTippet: document.getElementById('rig-combo-tippet'),
+        rigComboPointFly: document.getElementById('rig-combo-point-fly'),
+        rigComboDropperFly: document.getElementById('rig-combo-dropper-fly'),
         rigComboNotes: document.getElementById('rig-combo-notes'),
         rigComboSelect: document.getElementById('rig-combo-select'),
         
@@ -1832,10 +1838,14 @@ window.initMainApp = async function() {
             console.error("Failed to load tackle library:", error);
         }
     }
+    window.loadTackle = loadTackle;
 
     function renderTackleList() {
         if (!elements.tackleList) return;
         elements.tackleList.innerHTML = '';
+
+        const flyBoxFlies = (window.FlyBoxApp && Array.isArray(window.FlyBoxApp.flies)) ? window.FlyBoxApp.flies : [];
+        const flyCount = flyBoxFlies.length;
 
         if (AppState.activeTackleFilter === 'combo') {
             // Render rigs / combos
@@ -1861,6 +1871,20 @@ window.initMainApp = async function() {
                 const leaderName = leader ? `${leader.brand || ''} ${leader.name}`.trim() : 'N/A';
                 const tippetName = tippet ? `${tippet.brand || ''} ${tippet.name}`.trim() : 'N/A';
 
+                const pointFlyRow = rig.pointFly ? `
+                    <div class="combo-fly-row">
+                        <span style="font-weight: 600; color: var(--accent-teal);">🪰 Point Fly:</span>
+                        <strong style="color: var(--text-primary); font-size: 13px;">${rig.pointFly}</strong>
+                    </div>
+                ` : '';
+
+                const dropperFlyRow = rig.dropperFly ? `
+                    <div class="combo-fly-row">
+                        <span style="font-weight: 600; color: var(--accent-blue);">🪱 Dropper Fly:</span>
+                        <strong style="color: var(--text-primary); font-size: 13px;">${rig.dropperFly}</strong>
+                    </div>
+                ` : '';
+
                 card.innerHTML = `
                     <div class="card-content-body">
                         <span class="card-badge" style="border-color: var(--accent-teal); color: var(--accent-teal);">⚙️ COMBO</span>
@@ -1871,6 +1895,8 @@ window.initMainApp = async function() {
                             <div><span>🧵 Line:</span> <strong>${lineName}</strong></div>
                             <div><span>🖇️ Leader:</span> <strong>${leaderName}</strong></div>
                             <div><span>🪢 Tippet:</span> <strong>${tippetName}</strong></div>
+                            ${pointFlyRow}
+                            ${dropperFlyRow}
                         </div>
                         <p class="card-notes">${rig.notes || 'No description provided.'}</p>
                         <div class="card-actions-row">
@@ -1884,61 +1910,178 @@ window.initMainApp = async function() {
             return;
         }
 
+        if (AppState.activeTackleFilter === 'fly') {
+            // Dedicated Virtual Fly Box Portal View in Tackle Library
+            const portalCard = document.createElement('div');
+            portalCard.className = 'card glass tackle-flybox-portal';
+            
+            // Count categories
+            let dryCount = 0, nymphCount = 0, streamerCount = 0, saltwaterCount = 0;
+            flyBoxFlies.forEach(f => {
+                const cat = (f.category || '').toLowerCase();
+                if (cat.includes('dry')) dryCount++;
+                else if (cat.includes('nymph')) nymphCount++;
+                else if (cat.includes('streamer')) streamerCount++;
+                else if (cat.includes('saltwater')) saltwaterCount++;
+            });
+
+            portalCard.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                            <span style="font-size: 32px;">🪰</span>
+                            <div>
+                                <h2 style="margin: 0; font-size: 20px; color: var(--text-primary);">Virtual Fly Box</h2>
+                                <span style="font-size: 11px; color: var(--accent-teal); font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">Primary Home for All Flies</span>
+                            </div>
+                        </div>
+                        <p style="color: var(--text-secondary); font-size: 13.5px; max-width: 620px; line-height: 1.5; margin: 10px 0 16px 0;">
+                            To prevent gear clutter among your rods, reels, and lines, all flies are organized in the <strong>Virtual Fly Box</strong> — with full foam compartment views, macro tying photos, hook size tracking, and aquatic insect hatch matching.
+                        </p>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px;">
+                            <span class="badge" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); font-size: 12px; padding: 5px 10px;">
+                                📦 ${flyCount} Total Patterns Stocked
+                            </span>
+                            <span class="badge" style="background: rgba(255, 255, 255, 0.08); color: var(--text-primary); font-size: 12px; padding: 5px 10px;">
+                                🦟 ${dryCount} Dries
+                            </span>
+                            <span class="badge" style="background: rgba(255, 255, 255, 0.08); color: var(--text-primary); font-size: 12px; padding: 5px 10px;">
+                                🪱 ${nymphCount} Nymphs
+                            </span>
+                            <span class="badge" style="background: rgba(255, 255, 255, 0.08); color: var(--text-primary); font-size: 12px; padding: 5px 10px;">
+                                🪶 ${streamerCount} Streamers
+                            </span>
+                            ${saltwaterCount > 0 ? `<span class="badge" style="background: rgba(255, 255, 255, 0.08); color: var(--text-primary); font-size: 12px; padding: 5px 10px;">🦐 ${saltwaterCount} Saltwater</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 16px;">
+                    <button class="btn btn-primary" onclick="window.switchTab('flybox')" style="display: flex; align-items: center; gap: 8px; font-weight: 600;">
+                        <span>🪰</span> Open Virtual Fly Box <span>➔</span>
+                    </button>
+                    <button class="btn btn-glass" onclick="window.showAddFlyModal()" style="display: flex; align-items: center; gap: 6px;">
+                        <span>➕</span> Add New Fly
+                    </button>
+                </div>
+            `;
+            elements.tackleList.appendChild(portalCard);
+
+            // Check if there are any legacy flies in AppState.tackle
+            const tackleFlies = AppState.tackle.filter(item => item.type === 'fly');
+            if (tackleFlies.length > 0) {
+                const legacyHeader = document.createElement('div');
+                legacyHeader.style.gridColumn = '1 / -1';
+                legacyHeader.style.marginTop = '20px';
+                legacyHeader.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+                        <span style="font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Flies in Tackle Storage (${tackleFlies.length})</span>
+                        <span style="font-size: 11px; color: var(--accent-teal);">✓ Mirrored to Fly Box</span>
+                    </div>
+                `;
+                elements.tackleList.appendChild(legacyHeader);
+
+                tackleFlies.forEach(item => {
+                    const card = renderSingleTackleCard(item);
+                    elements.tackleList.appendChild(card);
+                });
+            }
+            return;
+        }
+
+        // When 'all', show top Fly Box Quick Banner + hardware equipment (filtering out individual flies to keep gear clean)
+        if (AppState.activeTackleFilter === 'all') {
+            const banner = document.createElement('div');
+            banner.className = 'tackle-flybox-banner card glass';
+            banner.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <div style="font-size: 28px; line-height: 1;">🪰</div>
+                    <div>
+                        <div style="font-weight: 700; font-size: 14px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                            Virtual Fly Box
+                            <span class="badge" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); font-size: 11px;">${flyCount} Patterns Stocked</span>
+                        </div>
+                        <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 2px;">Flies and aquatic hatch matching are organized in your Fly Box to keep your gear uncluttered.</div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-glass btn-sm" onclick="window.showAddFlyModal()" style="font-size: 11.5px;">+ Add Fly</button>
+                    <button class="btn btn-primary btn-sm" onclick="window.switchTab('flybox')" style="font-size: 11.5px; display: flex; align-items: center; gap: 4px;">
+                        Open Fly Box <span>➔</span>
+                    </button>
+                </div>
+            `;
+            elements.tackleList.appendChild(banner);
+        }
+
         const filtered = AppState.tackle.filter(item => {
-            if (AppState.activeTackleFilter === 'all') return true;
+            if (AppState.activeTackleFilter === 'all') {
+                // In 'all', show hardware/gear (exclude individual flies so gear is uncluttered)
+                return item.type !== 'fly';
+            }
             return item.type === AppState.activeTackleFilter;
         });
 
-        if (filtered.length === 0) {
+        if (filtered.length === 0 && AppState.activeTackleFilter !== 'all') {
             elements.tackleList.innerHTML = `<p class="placeholder-text">No equipment logged in this category.</p>`;
+            return;
+        } else if (filtered.length === 0 && AppState.activeTackleFilter === 'all') {
+            const p = document.createElement('p');
+            p.className = 'placeholder-text';
+            p.textContent = 'No rods, reels, lines, or gear logged yet. Click "+ Add Equipment" to add your hardware!';
+            elements.tackleList.appendChild(p);
             return;
         }
 
         filtered.forEach(item => {
-            const card = document.createElement('div');
-            card.className = `card glass tackle-card ${item.type}`;
-            
-            let icon = '🎣';
-            if (item.type === 'reel') icon = '⚙️';
-            else if (item.type === 'flyline') icon = '🧵';
-            else if (item.type === 'leader') icon = '🖇️';
-            else if (item.type === 'tippet') icon = '🪢';
-            else if (item.type === 'fly') icon = '🪰';
-
-            const nicknameBadge = item.nickname ? `<div style="margin-top: 6px;"><span class="badge" style="background: rgba(0, 210, 255, 0.12); color: var(--accent-teal); border: 1px solid rgba(0, 210, 255, 0.25); font-size: 11px; padding: 2px 8px; border-radius: 4px;">🏷️ ${item.nickname}</span></div>` : '';
-
-            const photoThumbnail = item.photo ? `
-                <div style="width: 50px; height: 50px; flex-shrink: 0; border-radius: 8px; overflow: hidden; border: 1.5px solid var(--accent-teal); cursor: pointer; margin-right: 12px; box-shadow: 0 2px 6px rgba(0, 210, 255, 0.25);" onclick="window.previewTacklePhoto('${item.id}')" title="Tap to view full photo">
-                    <img src="${item.photo}" alt="${item.name}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
-                </div>
-            ` : '';
-
-            card.innerHTML = `
-                <div class="card-content-body">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
-                        <div style="display: flex; align-items: center;">
-                            ${photoThumbnail}
-                            <div>
-                                <span class="card-badge" style="border-color: var(--accent-blue); color: var(--accent-blue); font-size: 11px;">${icon} ${item.type.toUpperCase()}</span>
-                                <h4 style="margin: 4px 0 0 0;">${item.name}</h4>
-                            </div>
-                        </div>
-                    </div>
-                    ${nicknameBadge}
-                    <div class="card-specs mt-10">
-                        <span>Brand: <strong>${item.brand || 'N/A'}</strong></span>
-                        <span>Spec: <strong>${item.spec || 'N/A'}</strong></span>
-                    </div>
-                    <p class="card-notes">${item.notes || 'No description provided.'}</p>
-                    <div class="card-actions-row">
-                        <button class="btn btn-glass btn-sm" onclick="window.duplicateTackleUI(${item.id})" title="Quick copy brand & details for another size / weight class">📋 Duplicate</button>
-                        <button class="btn btn-glass btn-sm" onclick="window.editTackleUI(${item.id})">Edit</button>
-                        <button class="btn btn-glass btn-danger btn-sm" onclick="window.deleteTackleUI(${item.id})">Delete</button>
-                    </div>
-                </div>
-            `;
+            const card = renderSingleTackleCard(item);
             elements.tackleList.appendChild(card);
         });
+    }
+
+    function renderSingleTackleCard(item) {
+        const card = document.createElement('div');
+        card.className = `card glass tackle-card ${item.type}`;
+        
+        let icon = '🎣';
+        if (item.type === 'reel') icon = '⚙️';
+        else if (item.type === 'flyline') icon = '🧵';
+        else if (item.type === 'leader') icon = '🖇️';
+        else if (item.type === 'tippet') icon = '🪢';
+        else if (item.type === 'fly') icon = '🪰';
+
+        const nicknameBadge = item.nickname ? `<div style="margin-top: 6px;"><span class="badge" style="background: rgba(0, 210, 255, 0.12); color: var(--accent-teal); border: 1px solid rgba(0, 210, 255, 0.25); font-size: 11px; padding: 2px 8px; border-radius: 4px;">🏷️ ${item.nickname}</span></div>` : '';
+
+        const photoThumbnail = item.photo ? `
+            <div style="width: 50px; height: 50px; flex-shrink: 0; border-radius: 8px; overflow: hidden; border: 1.5px solid var(--accent-teal); cursor: pointer; margin-right: 12px; box-shadow: 0 2px 6px rgba(0, 210, 255, 0.25);" onclick="window.previewTacklePhoto('${item.id}')" title="Tap to view full photo">
+                <img src="${item.photo}" alt="${item.name}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+            </div>
+        ` : '';
+
+        card.innerHTML = `
+            <div class="card-content-body">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                    <div style="display: flex; align-items: center;">
+                        ${photoThumbnail}
+                        <div>
+                            <span class="card-badge" style="border-color: var(--accent-blue); color: var(--accent-blue); font-size: 11px;">${icon} ${item.type.toUpperCase()}</span>
+                            <h4 style="margin: 4px 0 0 0;">${item.name}</h4>
+                        </div>
+                    </div>
+                </div>
+                ${nicknameBadge}
+                <div class="card-specs mt-10">
+                    <span>Brand: <strong>${item.brand || 'N/A'}</strong></span>
+                    <span>Spec: <strong>${item.spec || 'N/A'}</strong></span>
+                </div>
+                <p class="card-notes">${item.notes || 'No description provided.'}</p>
+                <div class="card-actions-row">
+                    <button class="btn btn-glass btn-sm" onclick="window.duplicateTackleUI(${item.id})" title="Quick copy brand & details for another size / weight class">📋 Duplicate</button>
+                    <button class="btn btn-glass btn-sm" onclick="window.editTackleUI(${item.id})">Edit</button>
+                    <button class="btn btn-glass btn-danger btn-sm" onclick="window.deleteTackleUI(${item.id})">Delete</button>
+                </div>
+            </div>
+        `;
+        return card;
     }
 
     window.previewTacklePhoto = (id) => {
@@ -2046,7 +2189,7 @@ window.initMainApp = async function() {
     }
     window.populateFlyDropdowns = populateTackleDropdowns;
 
-    // Populate dropdowns inside the Combo modal with Rods, Reels, Lines, Leaders, and Tippets from Library
+    // Populate dropdowns inside the Combo modal with Rods, Reels, Lines, Leaders, Tippets, and Flies from Fly Box
     function populateComboTackleDropdowns() {
         if (!elements.rigComboRod) return;
         
@@ -2066,7 +2209,32 @@ window.initMainApp = async function() {
             else if (item.type === 'leader') elements.rigComboLeader.insertAdjacentHTML('beforeend', option);
             else if (item.type === 'tippet') elements.rigComboTippet.insertAdjacentHTML('beforeend', option);
         });
+
+        // Populate Point Fly and Dropper Fly directly from Virtual Fly Box
+        const flyBoxFlies = (window.FlyBoxApp && Array.isArray(window.FlyBoxApp.flies)) ? window.FlyBoxApp.flies : [];
+        if (elements.rigComboPointFly) {
+            elements.rigComboPointFly.innerHTML = '<option value="">-- None / Select Point Fly from Fly Box --</option>';
+            flyBoxFlies.forEach(fly => {
+                const sizesStr = Array.isArray(fly.hookSizes) ? ` (${fly.hookSizes.join(', ')})` : (fly.hookSizes ? ` (${fly.hookSizes})` : '');
+                const opt = document.createElement('option');
+                opt.value = fly.name;
+                opt.textContent = `${fly.icon || '🪰'} ${fly.name}${sizesStr} [${fly.category || 'Fly'}]`;
+                elements.rigComboPointFly.appendChild(opt);
+            });
+        }
+
+        if (elements.rigComboDropperFly) {
+            elements.rigComboDropperFly.innerHTML = '<option value="">-- None / Select Dropper Fly from Fly Box --</option>';
+            flyBoxFlies.forEach(fly => {
+                const sizesStr = Array.isArray(fly.hookSizes) ? ` (${fly.hookSizes.join(', ')})` : (fly.hookSizes ? ` (${fly.hookSizes})` : '');
+                const opt = document.createElement('option');
+                opt.value = fly.name;
+                opt.textContent = `${fly.icon || '🪰'} ${fly.name}${sizesStr} [${fly.category || 'Fly'}]`;
+                elements.rigComboDropperFly.appendChild(opt);
+            });
+        }
     }
+    window.populateComboTackleDropdowns = populateComboTackleDropdowns;
 
     // Populate the rigs selector inside the Log Catch form
     function populateRigDropdowns() {
@@ -2095,6 +2263,13 @@ window.initMainApp = async function() {
         const chipsContainer = document.getElementById('tackle-popular-chips');
 
         if (!typeSelect || !window.TACKLE_DATABASE) return;
+
+        const flyTipBox = document.getElementById('tackle-fly-tip-box');
+        typeSelect.addEventListener('change', () => {
+            if (flyTipBox) {
+                flyTipBox.style.display = (typeSelect.value === 'fly') ? 'block' : 'none';
+            }
+        });
 
         window.updateTackleSuggestions = () => {
             populateDatalistsAndChips();
@@ -2237,8 +2412,10 @@ window.initMainApp = async function() {
         const titleEl = document.getElementById('modal-tackle-title');
         const submitBtn = document.getElementById('btn-tackle-submit');
         const labelPhoto = document.getElementById('label-tackle-photo');
+        const flyTipBox = document.getElementById('tackle-fly-tip-box');
         if (titleEl) titleEl.textContent = "Add Fly to Virtual Fly Box";
         if (submitBtn) submitBtn.textContent = "Save to Fly Box";
+        if (flyTipBox) flyTipBox.style.display = 'block';
         if (labelPhoto) {
             const span = labelPhoto.querySelector('span');
             if (span) span.innerHTML = `📷 Fly Photograph / Picture <span style="font-size: 10.5px; color: var(--accent-teal); font-weight: normal;">(Optional)</span>`;
@@ -2253,6 +2430,8 @@ window.initMainApp = async function() {
         const titleEl = document.getElementById('modal-tackle-title');
         const submitBtn = document.getElementById('btn-tackle-submit');
         const labelPhoto = document.getElementById('label-tackle-photo');
+        const flyTipBox = document.getElementById('tackle-fly-tip-box');
+        if (flyTipBox) flyTipBox.style.display = isFly ? 'block' : 'none';
         if (!AppState.editingTackleId && !isFly) {
             if (titleEl) titleEl.textContent = "Add Tackle or Equipment";
             if (submitBtn) submitBtn.textContent = "Save Equipment";
@@ -2269,10 +2448,12 @@ window.initMainApp = async function() {
         elements.formAddTackle.reset();
         window.removeTacklePhoto();
         
-        // Restore modal title and submit button text
+        // Restore modal title, tip box and submit button text
         const titleEl = document.getElementById('modal-tackle-title');
         const submitBtn = document.getElementById('btn-tackle-submit');
         const labelPhoto = document.getElementById('label-tackle-photo');
+        const flyTipBox = document.getElementById('tackle-fly-tip-box');
+        if (flyTipBox) flyTipBox.style.display = 'none';
         if (titleEl) titleEl.textContent = "Add Tackle or Equipment";
         if (submitBtn) submitBtn.textContent = "Save Equipment";
         if (labelPhoto) {
@@ -2480,6 +2661,8 @@ window.initMainApp = async function() {
         const submitBtn = document.getElementById('btn-rig-submit');
         if (titleEl) titleEl.textContent = "Create Tackle Combo / Rig";
         if (submitBtn) submitBtn.textContent = "Save Combo";
+        if (elements.rigComboPointFly) elements.rigComboPointFly.value = '';
+        if (elements.rigComboDropperFly) elements.rigComboDropperFly.value = '';
         AppState.editingRigId = null;
     };
 
@@ -2499,6 +2682,8 @@ window.initMainApp = async function() {
         elements.rigComboLine.value = rig.lineId;
         elements.rigComboLeader.value = rig.leaderId || '';
         elements.rigComboTippet.value = rig.tippetId || '';
+        if (elements.rigComboPointFly) elements.rigComboPointFly.value = rig.pointFly || '';
+        if (elements.rigComboDropperFly) elements.rigComboDropperFly.value = rig.dropperFly || '';
         elements.rigComboNotes.value = rig.notes || '';
 
         // Update titles
@@ -2529,6 +2714,8 @@ window.initMainApp = async function() {
         const lineId = elements.rigComboLine.value;
         const leaderId = elements.rigComboLeader.value;
         const tippetId = elements.rigComboTippet.value;
+        const pointFly = elements.rigComboPointFly ? elements.rigComboPointFly.value.trim() : '';
+        const dropperFly = elements.rigComboDropperFly ? elements.rigComboDropperFly.value.trim() : '';
         const notes = elements.rigComboNotes.value.trim();
 
         if (!name || !rodId || !reelId || !lineId) {
@@ -2543,6 +2730,8 @@ window.initMainApp = async function() {
             lineId: Number(lineId),
             leaderId: leaderId ? Number(leaderId) : null,
             tippetId: tippetId ? Number(tippetId) : null,
+            pointFly: pointFly || null,
+            dropperFly: dropperFly || null,
             notes
         };
 
@@ -2589,6 +2778,7 @@ window.initMainApp = async function() {
                 if (!rod && rRod) rod = getTackleDisambiguatedLabel(rRod, AppState.tackle);
                 if (!reel && rReel) reel = getTackleDisambiguatedLabel(rReel, AppState.tackle);
                 if (!flyline && rLine) flyline = getTackleDisambiguatedLabel(rLine, AppState.tackle);
+                if (!fly && rig.pointFly) fly = rig.pointFly;
             }
         }
 
@@ -2612,7 +2802,10 @@ window.initMainApp = async function() {
                 const lineMatch = !flyline || (rLine && (rLine.name.toLowerCase() === cleanLine || lineLabel === cleanLine || cleanLine.includes(rLine.name.toLowerCase())));
                 return rodMatch && reelMatch && lineMatch;
             });
-            if (matchingRig) combo = matchingRig.name;
+            if (matchingRig) {
+                combo = matchingRig.name;
+                if (!fly && matchingRig.pointFly) fly = matchingRig.pointFly;
+            }
         }
 
         return { rod, reel, flyline, fly, combo };
@@ -2650,6 +2843,22 @@ window.initMainApp = async function() {
                 if (rod && elements.rigRod) selectDropdownOption(elements.rigRod, rod);
                 if (reel && elements.rigReel) selectDropdownOption(elements.rigReel, reel);
                 if (line && elements.rigFlyline) selectDropdownOption(elements.rigFlyline, line);
+
+                // Auto-populate fly field from the combo's configured Point Fly
+                if (rig.pointFly && elements.rigFly) {
+                    let flyFound = false;
+                    for (let i = 0; i < elements.rigFly.options.length; i++) {
+                        const opt = elements.rigFly.options[i];
+                        if (opt.value === rig.pointFly || opt.text === rig.pointFly || opt.text.includes(rig.pointFly)) {
+                            elements.rigFly.selectedIndex = i;
+                            flyFound = true;
+                            break;
+                        }
+                    }
+                    if (!flyFound) {
+                        elements.rigFly.value = rig.pointFly;
+                    }
+                }
             }
         });
     }
@@ -8831,7 +9040,7 @@ Respond ONLY in valid JSON format:
 };
 
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initMainApp);
+    document.addEventListener('DOMContentLoaded', () => window.initMainApp());
 } else {
-    initMainApp();
+    window.initMainApp();
 }

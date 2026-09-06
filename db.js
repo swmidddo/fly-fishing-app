@@ -167,7 +167,7 @@ const DB = {
 
     // Tackle Operations
     async addTackle(item) {
-        if (!item.id) item.id = Date.now();
+        if (!item.id) item.id = Date.now() + Math.floor(Math.random() * 100000);
 
         // If item has a large photo, store full photo in IndexedDB and keep lightweight thumb
         if (item.photo && item.photo.length > 50000) {

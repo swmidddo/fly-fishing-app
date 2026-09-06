@@ -213,6 +213,7 @@ const FlyBoxApp = {
         this.loadFliesFromStorage();
         this.renderFlyBoxUI();
         this.renderHatchGuideUI();
+        if (window.populateComboTackleDropdowns) window.populateComboTackleDropdowns();
     },
 
     loadFliesFromStorage() {
@@ -248,6 +249,7 @@ const FlyBoxApp = {
         if (window.showSyncToast) window.showSyncToast(`🪰 Added "${flyObj.name}" to your Virtual Fly Box!`);
         else alert(`Added "${flyObj.name}" to your Virtual Fly Box!`);
         if (window.populateFlyDropdowns) window.populateFlyDropdowns();
+        if (window.populateComboTackleDropdowns) window.populateComboTackleDropdowns();
     },
 
     quickAddFromHatch(patternName, category, hookSize, desc) {
@@ -335,6 +337,7 @@ const FlyBoxApp = {
         this.saveFliesToStorage();
         this.renderFlyBoxUI();
         if (window.populateFlyDropdowns) window.populateFlyDropdowns();
+        if (window.populateComboTackleDropdowns) window.populateComboTackleDropdowns();
         return newFly;
     },
 
@@ -344,6 +347,7 @@ const FlyBoxApp = {
             this.saveFliesToStorage();
             this.renderFlyBoxUI();
             if (window.populateFlyDropdowns) window.populateFlyDropdowns();
+            if (window.populateComboTackleDropdowns) window.populateComboTackleDropdowns();
         }
     },
 
