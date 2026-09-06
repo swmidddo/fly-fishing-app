@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101470';
+window.APP_VERSION = 'v101480';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -2493,6 +2493,27 @@ window.initMainApp = async function() {
         if (item && item.photo && item.photo.length > 20) {
             return item.photo;
         }
+        if (item && item.isNoCatchTrip) {
+            return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                <svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250">
+                    <defs>
+                        <linearGradient id="sky" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#091428"/>
+                            <stop offset="100%" stop-color="#142c4b"/>
+                        </linearGradient>
+                        <linearGradient id="river" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#00d2ff" stop-opacity="0.6"/>
+                            <stop offset="100%" stop-color="#2ed573" stop-opacity="0.3"/>
+                        </linearGradient>
+                    </defs>
+                    <rect width="400" height="250" fill="url(#sky)"/>
+                    <path d="M 0 160 Q 100 130 200 155 T 400 140 L 400 250 L 0 250 Z" fill="#0c1b2f"/>
+                    <path d="M 50 250 Q 180 180 200 155 Q 220 180 350 250 Z" fill="url(#river)"/>
+                    <text x="200" y="95" font-size="42" text-anchor="middle">🏕️</text>
+                    <text x="200" y="130" font-family="Inter, sans-serif" font-size="14" font-weight="700" fill="#f59e0b" text-anchor="middle">RIVER RECONNAISSANCE</text>
+                </svg>
+            `);
+        }
         if (item && item.species && window.FISH_DATABASE) {
             const cleanSp = item.species.toLowerCase().trim();
             const dbMatch = window.FISH_DATABASE.find(f => 
@@ -2524,8 +2545,9 @@ window.initMainApp = async function() {
         const recentCatches = [...AppState.catches].reverse().slice(0, 3);
 
         recentCatches.forEach(item => {
+            const isRecon = !!item.isNoCatchTrip;
             const card = document.createElement('div');
-            card.className = 'card glass catch-card expanded';
+            card.className = isRecon ? 'card glass catch-card recon-session expanded' : 'card glass catch-card expanded';
             card.style.cursor = 'pointer';
             
             const photoSrc = getFishPhoto(item);
@@ -2548,24 +2570,44 @@ window.initMainApp = async function() {
             if (displayLine) tackleParts.push(`🧵 ${displayLine}`);
             const tackleText = tackleParts.join(' | ') || 'N/A';
 
-            card.innerHTML = `
-                <div class="card-img-wrapper">
-                    <img src="${photoSrc}" alt="${item.species}" loading="lazy">
-                    <span class="card-badge">${item.length ? item.length + ' cm' : '--'}</span>
-                    <span class="card-badge-type">${item.waterType || 'freshwater'}</span>
-                </div>
-                <div class="card-content-body">
-                    <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center;">
-                        <h4 style="margin: 0;">🐟 ${item.species}</h4>
-                        <button class="btn btn-glass btn-sm" onclick="event.stopPropagation(); window.openTrophyCardModal('${item.id}')" style="font-size: 10.5px; padding: 2px 7px; color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.1);">🏆 Trophy Card</button>
+            if (isRecon) {
+                card.innerHTML = `
+                    <div class="card-img-wrapper">
+                        <img src="${photoSrc}" alt="River Recon" loading="lazy">
+                        <span class="card-badge-recon">🏕️ Recon</span>
+                        <span class="card-badge-type">${item.waterType || 'freshwater'}</span>
                     </div>
-                    <p style="font-size: 11px; color: var(--accent-teal); margin-top: 2px; margin-bottom: 0;">📅 ${dateStr} ${item.time || ''}</p>
-                    <div class="card-specs mt-10">
-                        <span>Weight: <strong>${item.weight ? item.weight + ' kg' : '--'}</strong></span>
-                        <span>Tackle: <strong>${tackleText}</strong></span>
+                    <div class="card-content-body">
+                        <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h4 style="margin: 0; color: #f59e0b;">🏕️ ${item.sessionOutcome || 'River Recon'}</h4>
+                        </div>
+                        <p style="font-size: 11px; color: var(--accent-teal); margin-top: 2px; margin-bottom: 0;">📅 ${dateStr} ${item.time || ''}</p>
+                        <div class="card-specs mt-10">
+                            <span>Targeted: <strong>${item.targetSpecies || item.species || 'All Species'}</strong></span>
+                            <span>Tackle: <strong>${tackleText}</strong></span>
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            } else {
+                card.innerHTML = `
+                    <div class="card-img-wrapper">
+                        <img src="${photoSrc}" alt="${item.species}" loading="lazy">
+                        <span class="card-badge">${item.length ? item.length + ' cm' : '--'}</span>
+                        <span class="card-badge-type">${item.waterType || 'freshwater'}</span>
+                    </div>
+                    <div class="card-content-body">
+                        <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h4 style="margin: 0;">🐟 ${item.species}</h4>
+                            <button class="btn btn-glass btn-sm" onclick="event.stopPropagation(); window.openTrophyCardModal('${item.id}')" style="font-size: 10.5px; padding: 2px 7px; color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.1);">🏆 Trophy Card</button>
+                        </div>
+                        <p style="font-size: 11px; color: var(--accent-teal); margin-top: 2px; margin-bottom: 0;">📅 ${dateStr} ${item.time || ''}</p>
+                        <div class="card-specs mt-10">
+                            <span>Weight: <strong>${item.weight ? item.weight + ' kg' : '--'}</strong></span>
+                            <span>Tackle: <strong>${tackleText}</strong></span>
+                        </div>
+                    </div>
+                `;
+            }
 
             // Clicking any recent catch card switches tab to Catches tab and opens edit modal
             card.addEventListener('click', () => {
@@ -2631,24 +2673,32 @@ window.initMainApp = async function() {
         const search = searchEl ? searchEl.value.toLowerCase() : '';
         const waterFilterEl = document.getElementById('catch-filter-water');
         const waterFilter = waterFilterEl ? waterFilterEl.value : 'all';
+        const typeFilterEl = document.getElementById('catch-filter-type');
+        const typeFilter = typeFilterEl ? typeFilterEl.value : 'all';
 
         const catchItems = AppState.catches || [];
         const filtered = catchItems.filter(item => {
             const matchesSearch = (item.species || '').toLowerCase().includes(search) || 
+                                  (item.targetSpecies || '').toLowerCase().includes(search) ||
+                                  (item.sessionOutcome || '').toLowerCase().includes(search) ||
                                   (item.notes && item.notes.toLowerCase().includes(search)) ||
                                   (item.fly && item.fly.toLowerCase().includes(search));
             const matchesWater = waterFilter === 'all' || !waterFilter || (item.waterType || 'freshwater') === waterFilter;
-            return matchesSearch && matchesWater;
+            const matchesType = typeFilter === 'all' || !typeFilter ||
+                                (typeFilter === 'catches' && !item.isNoCatchTrip) ||
+                                (typeFilter === 'trips' && item.isNoCatchTrip);
+            return matchesSearch && matchesWater && matchesType;
         });
 
         if (filtered.length === 0) {
-            container.innerHTML = `<p class="placeholder-text">No catches match your query.</p>`;
+            container.innerHTML = `<p class="placeholder-text">No catches or sessions match your query.</p>`;
             return;
         }
 
         filtered.forEach(item => {
+            const isRecon = !!item.isNoCatchTrip;
             const card = document.createElement('div');
-            card.className = 'card glass catch-card expanded';
+            card.className = isRecon ? 'card glass catch-card recon-session expanded' : 'card glass catch-card expanded';
             
             const photoSrc = getFishPhoto(item);
             const locationText = item.lat && item.lng ? `Lat: ${item.lat.toFixed(4)}, Lng: ${item.lng.toFixed(4)}` : 'No location tagged';
@@ -2679,39 +2729,77 @@ window.initMainApp = async function() {
 
             const safeId = String(item.id).replace(/'/g, "\\'");
 
-            card.innerHTML = `
-                <div class="card-img-wrapper">
-                    <img src="${photoSrc}" alt="${item.species}" loading="lazy">
-                    <span class="card-badge">${item.length || '--'} cm</span>
-                    <span class="card-badge-type">${item.waterType || 'freshwater'}</span>
-                </div>
-                <div class="card-content-body" style="position: relative;">
-                    <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; padding-right: 20px;">
-                        <h4 style="margin: 0;">🐟 ${item.species}</h4>
-                        <span class="expand-chevron">▼</span>
+            if (isRecon) {
+                card.innerHTML = `
+                    <div class="card-img-wrapper">
+                        <img src="${photoSrc}" alt="River Recon" loading="lazy">
+                        <span class="card-badge-recon">🏕️ Recon</span>
+                        <span class="card-badge-type">${item.waterType || 'freshwater'}</span>
                     </div>
-                    <p style="font-size: 11px; color: var(--accent-teal); margin-top: 2px; margin-bottom: 0;">📅 ${dateDisplay} ${item.time || ''}</p>
-                    
-                    <div class="catch-card-details">
-                        <div class="card-specs mt-10">
-                            <span>Weight: <strong>${item.weight || '--'} kg</strong></span>
-                            <span>Location: <strong style="font-size:10px;">${locationText}</strong></span>
-                            <span>Fly/Lure: <strong>${displayFly || 'N/A'}</strong></span>
-                            <span>Rod Used: <strong>${displayRod || 'N/A'}</strong></span>
-                            ${displayReel ? `<span>Reel Used: <strong>${displayReel}</strong></span>` : ''}
-                            ${displayLine ? `<span>Line Used: <strong>${displayLine}</strong></span>` : ''}
-                            ${displayCombo ? `<span style="grid-column: span 2;">Rig Combo: <strong style="color: var(--accent-teal);">${displayCombo}</strong></span>` : ''}
+                    <div class="card-content-body" style="position: relative;">
+                        <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; padding-right: 20px;">
+                            <h4 style="margin: 0; color: #f59e0b;">🏕️ ${item.sessionOutcome || 'River Recon Session'}</h4>
+                            <span class="expand-chevron">▼</span>
                         </div>
-                        <p class="card-notes" style="display: block; -webkit-line-clamp: unset; overflow: visible; white-space: pre-wrap;">${item.notes || 'No notes recorded.'}</p>
-                        ${environmentalStrip}
-                        <div class="card-actions-row">
-                            <button class="btn btn-glass btn-sm" onclick="event.stopPropagation(); window.openTrophyCardModal('${safeId}')" style="color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.1);">🏆 Trophy Card</button>
-                            <button class="btn btn-glass btn-sm" onclick="event.stopPropagation(); window.editCatchUI('${safeId}')">✏️ Edit</button>
-                            <button class="btn btn-glass btn-danger btn-sm" onclick="event.stopPropagation(); window.deleteCatchUI('${safeId}')">🗑️ Delete</button>
+                        <div style="margin-top: 3px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <p style="font-size: 11px; color: var(--accent-teal); margin: 0;">📅 ${dateDisplay} ${item.time || ''}</p>
+                            <span class="trip-outcome-pill">🎯 Targeted: ${item.targetSpecies || item.species || 'All Species'}</span>
+                        </div>
+                        
+                        <div class="catch-card-details">
+                            <div class="card-specs mt-10">
+                                <span>Outcome: <strong style="color: var(--accent-gold);">${item.sessionOutcome || 'No Fish Landed'}</strong></span>
+                                <span>Location: <strong style="font-size:10px;">${locationText}</strong></span>
+                                <span>Tested Fly: <strong>${displayFly || 'N/A'}</strong></span>
+                                <span>Rod Used: <strong>${displayRod || 'N/A'}</strong></span>
+                                ${displayReel ? `<span>Reel Used: <strong>${displayReel}</strong></span>` : ''}
+                                ${displayLine ? `<span>Line Used: <strong>${displayLine}</strong></span>` : ''}
+                                ${displayCombo ? `<span style="grid-column: span 2;">Rig Combo: <strong style="color: var(--accent-teal);">${displayCombo}</strong></span>` : ''}
+                            </div>
+                            <p class="card-notes" style="display: block; -webkit-line-clamp: unset; overflow: visible; white-space: pre-wrap;">${item.notes || 'No notes recorded.'}</p>
+                            ${environmentalStrip}
+                            <div class="card-actions-row">
+                                <button class="btn btn-glass btn-sm" onclick="event.stopPropagation(); window.editCatchUI('${safeId}')">✏️ Edit</button>
+                                <button class="btn btn-glass btn-danger btn-sm" onclick="event.stopPropagation(); window.deleteCatchUI('${safeId}')">🗑️ Delete</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
+                `;
+            } else {
+                card.innerHTML = `
+                    <div class="card-img-wrapper">
+                        <img src="${photoSrc}" alt="${item.species}" loading="lazy">
+                        <span class="card-badge">${item.length || '--'} cm</span>
+                        <span class="card-badge-type">${item.waterType || 'freshwater'}</span>
+                    </div>
+                    <div class="card-content-body" style="position: relative;">
+                        <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; padding-right: 20px;">
+                            <h4 style="margin: 0;">🐟 ${item.species}</h4>
+                            <span class="expand-chevron">▼</span>
+                        </div>
+                        <p style="font-size: 11px; color: var(--accent-teal); margin-top: 2px; margin-bottom: 0;">📅 ${dateDisplay} ${item.time || ''}</p>
+                        
+                        <div class="catch-card-details">
+                            <div class="card-specs mt-10">
+                                <span>Weight: <strong>${item.weight || '--'} kg</strong></span>
+                                <span>Location: <strong style="font-size:10px;">${locationText}</strong></span>
+                                <span>Fly/Lure: <strong>${displayFly || 'N/A'}</strong></span>
+                                <span>Rod Used: <strong>${displayRod || 'N/A'}</strong></span>
+                                ${displayReel ? `<span>Reel Used: <strong>${displayReel}</strong></span>` : ''}
+                                ${displayLine ? `<span>Line Used: <strong>${displayLine}</strong></span>` : ''}
+                                ${displayCombo ? `<span style="grid-column: span 2;">Rig Combo: <strong style="color: var(--accent-teal);">${displayCombo}</strong></span>` : ''}
+                            </div>
+                            <p class="card-notes" style="display: block; -webkit-line-clamp: unset; overflow: visible; white-space: pre-wrap;">${item.notes || 'No notes recorded.'}</p>
+                            ${environmentalStrip}
+                            <div class="card-actions-row">
+                                <button class="btn btn-glass btn-sm" onclick="event.stopPropagation(); window.openTrophyCardModal('${safeId}')" style="color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.1);">🏆 Trophy Card</button>
+                                <button class="btn btn-glass btn-sm" onclick="event.stopPropagation(); window.editCatchUI('${safeId}')">✏️ Edit</button>
+                                <button class="btn btn-glass btn-danger btn-sm" onclick="event.stopPropagation(); window.deleteCatchUI('${safeId}')">🗑️ Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
 
             card.addEventListener('click', () => {
                 card.classList.toggle('expanded');
@@ -2781,35 +2869,39 @@ window.initMainApp = async function() {
             catchesGalleryEl.innerHTML = `
                 <div class="card glass text-center" style="grid-column: 1 / -1; padding: 40px 20px;">
                     <span style="font-size: 48px; display: block; margin-bottom: 15px;">📸</span>
-                    <h3>No Catches Logged Yet</h3>
-                    <p class="text-secondary mb-20">Click "+ Log Catch" to add your first catch!</p>
+                    <h3>No Catches or Sessions Logged Yet</h3>
+                    <p class="text-secondary mb-20">Click "+ Log Catch" to add your first catch or reconnaissance trip!</p>
                 </div>
             `;
             return;
         }
 
         allCatches.forEach(c => {
+            const isRecon = !!c.isNoCatchTrip;
             const photoSrc = getFishPhoto(c);
             const dateFormatted = formatDateSafe(c.date);
-            const sizeStr = c.length ? `${c.length} cm` : (c.weight ? `${c.weight} kg` : 'Logged Catch');
+            const sizeStr = isRecon ? 'River Recon (0 Fish)' : (c.length ? `${c.length} cm` : (c.weight ? `${c.weight} kg` : 'Logged Catch'));
+            const titleStr = isRecon ? (c.sessionOutcome || 'River Recon Session') : c.species;
             const clarityBadge = c.waterClarity ? `<span style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); font-size: 9.5px; padding: 2px 6px; border-radius: 8px;">💧 ${c.waterClarity}</span>` : '';
             const hatchBadge = c.activeHatch ? `<span style="background: rgba(0,210,255,0.15); border: 1px solid var(--accent-teal); color: var(--accent-teal); font-size: 9.5px; padding: 2px 6px; border-radius: 8px;">🪰 ${c.activeHatch}</span>` : '';
+            const targetBadge = isRecon && c.targetSpecies ? `<span style="background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); color: #f59e0b; font-size: 9.5px; padding: 2px 6px; border-radius: 8px;">🎯 ${c.targetSpecies}</span>` : '';
             const safeId = String(c.id).replace(/'/g, "\\'");
+            const trophyBtn = isRecon ? '' : `<button class="btn btn-glass btn-sm" onclick="event.stopPropagation(); window.openTrophyCardModal('${safeId}')" style="position: absolute; top: 10px; right: 10px; font-size: 10.5px; padding: 3px 8px; color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.5); background: rgba(5, 10, 24, 0.75); backdrop-filter: blur(4px);">🏆 Trophy Card</button>`;
 
             catchesGalleryEl.insertAdjacentHTML('beforeend', `
-                <div class="card glass shadow-lg photo-gallery-item" style="padding: 0; overflow: hidden; border-radius: 12px; position: relative; cursor: pointer;" onclick="window.editCatchUI('${safeId}')">
-                    <img src="${photoSrc}" alt="${c.species}" style="width: 100%; height: 210px; object-fit: cover; display: block;">
-                    <button class="btn btn-glass btn-sm" onclick="event.stopPropagation(); window.openTrophyCardModal('${safeId}')" style="position: absolute; top: 10px; right: 10px; font-size: 10.5px; padding: 3px 8px; color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.5); background: rgba(5, 10, 24, 0.75); backdrop-filter: blur(4px);">🏆 Trophy Card</button>
+                <div class="card glass shadow-lg photo-gallery-item" style="padding: 0; overflow: hidden; border-radius: 12px; position: relative; cursor: pointer; ${isRecon ? 'border: 1px solid rgba(245,158,11,0.4);' : ''}" onclick="window.editCatchUI('${safeId}')">
+                    <img src="${photoSrc}" alt="${titleStr}" style="width: 100%; height: 210px; object-fit: cover; display: block;">
+                    ${trophyBtn}
                     <div style="padding: 12px; background: rgba(15, 23, 42, 0.95);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <strong style="font-size: 15px; color: var(--accent-teal);">${c.species}</strong>
+                            <strong style="font-size: 15px; color: ${isRecon ? 'var(--accent-gold)' : 'var(--accent-teal)'};">${isRecon ? '🏕️ ' : '🐟 '}${titleStr}</strong>
                             <span class="water-badge ${c.waterType || 'fresh'}">${(c.waterType || 'fresh').toUpperCase()}</span>
                         </div>
                         <div style="font-size: 11.5px; margin-top: 4px; color: var(--text-secondary);">
-                            📏 <b>${sizeStr}</b> &bull; 📅 ${dateFormatted}
+                            <b>${sizeStr}</b> &bull; 📅 ${dateFormatted}
                         </div>
                         <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px;">
-                            ${clarityBadge} ${hatchBadge}
+                            ${clarityBadge} ${hatchBadge} ${targetBadge}
                         </div>
                     </div>
                 </div>
@@ -2817,25 +2909,34 @@ window.initMainApp = async function() {
         });
     }
 
-
-
     // Stats calculations & Dashboard Intelligence
     function updateStats() {
-        const total = AppState.catches ? AppState.catches.length : 0;
+        const allEntries = AppState.catches || [];
+        const fishCatches = allEntries.filter(c => !c.isNoCatchTrip);
+        const reconTrips = allEntries.filter(c => c.isNoCatchTrip);
+        const totalFish = fishCatches.length;
+        const totalRecon = reconTrips.length;
+
         const elTotal = document.getElementById('stat-total-catches');
-        if (elTotal) elTotal.textContent = total;
+        if (elTotal) elTotal.textContent = totalFish;
 
         const badgeTotal = document.getElementById('dash-analytics-total-badge');
-        if (badgeTotal) badgeTotal.textContent = `${total} Catch${total === 1 ? '' : 'es'} Recorded`;
+        if (badgeTotal) {
+            if (totalRecon > 0) {
+                badgeTotal.textContent = `${totalFish} Catch${totalFish === 1 ? '' : 'es'} • ${totalRecon} Recon Session${totalRecon === 1 ? '' : 's'}`;
+            } else {
+                badgeTotal.textContent = `${totalFish} Catch${totalFish === 1 ? '' : 'es'} Recorded`;
+            }
+        }
 
-        if (total > 0) {
+        if (totalFish > 0) {
             const speciesCounts = {};
             const rodCounts = {};
             const flyCounts = {};
             const speciesPBs = {};
             let peakSolunarCount = 0;
 
-            AppState.catches.forEach(c => {
+            fishCatches.forEach(c => {
                 const sp = (c.species || 'Gamefish').trim();
                 const rod = (c.rod || '').trim();
                 const fly = (c.fly || c.lure || c.pattern || '').trim();
@@ -2864,7 +2965,7 @@ window.initMainApp = async function() {
             const sortedFlies = Object.entries(flyCounts).sort((a, b) => b[1] - a[1]);
             const topSpecies = sortedSpecies.length > 0 ? sortedSpecies[0][0] : '-';
             const topFly = sortedFlies.length > 0 ? sortedFlies[0][0] : '-';
-            const solunarRate = Math.round((peakSolunarCount / total) * 100);
+            const solunarRate = Math.round((peakSolunarCount / totalFish) * 100);
 
             if (document.getElementById('stat-fav-species')) document.getElementById('stat-fav-species').textContent = topSpecies;
             if (document.getElementById('stat-top-fly')) document.getElementById('stat-top-fly').textContent = topFly;
@@ -2877,7 +2978,7 @@ window.initMainApp = async function() {
                     const topFourFlies = sortedFlies.slice(0, 4);
                     const colors = ['var(--accent-teal)', 'var(--accent-blue)', '#a3e635', '#f59e0b'];
                     fliesContainer.innerHTML = topFourFlies.map(([flyName, count], idx) => {
-                        const pct = Math.round((count / total) * 100);
+                        const pct = Math.round((count / totalFish) * 100);
                         return `
                             <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0; width: 100%; box-sizing: border-box;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; gap: 6px; min-width: 0;">
@@ -2904,7 +3005,7 @@ window.initMainApp = async function() {
             if (specBar) {
                 const barColors = ['#00d2ff', '#2ed573', '#ffa502', '#ff4757', '#9b59b6', '#34495e'];
                 specBar.innerHTML = sortedSpecies.map(([spName, count], idx) => {
-                    const pct = (count / total) * 100;
+                    const pct = (count / totalFish) * 100;
                     return `<div style="width: ${pct}%; height: 100%; background: ${barColors[idx % barColors.length]};" title="${spName}: ${count} (${Math.round(pct)}%)"></div>`;
                 }).join('');
             }
@@ -2930,7 +3031,7 @@ window.initMainApp = async function() {
             const specBar = document.getElementById('dash-species-breakdown-bar');
             if (specBar) specBar.innerHTML = '';
             const pbList = document.getElementById('dash-species-pb-list');
-            if (pbList) pbList.innerHTML = `<div style="font-size: 11px; color: var(--text-secondary); text-align: center; padding: 10px 0;">No species logged yet.</div>`;
+            if (pbList) pbList.innerHTML = `<div style="font-size: 11px; color: var(--text-secondary); text-align: center; padding: 10px 0;">${totalRecon > 0 ? totalRecon + ' recon session(s) logged. Land a fish to record species PBs!' : 'No species logged yet.'}</div>`;
         }
 
         // Also refresh Catch Logs tab analytics if available
@@ -2946,6 +3047,10 @@ window.initMainApp = async function() {
     elements.catchFilterWater = document.getElementById('catch-filter-water');
     if (elements.catchFilterWater) {
         elements.catchFilterWater.addEventListener('change', renderCatches);
+    }
+    const catchFilterTypeEl = document.getElementById('catch-filter-type');
+    if (catchFilterTypeEl) {
+        catchFilterTypeEl.addEventListener('change', renderCatches);
     }
 
     // Dynamic Environmental Clarity & Prey Selector based on Water Type
@@ -3048,10 +3153,55 @@ window.initMainApp = async function() {
     }
     window.updateEnvironmentalSelectsByWaterType = updateEnvironmentalSelectsByWaterType;
 
-    // Catch Modal Actions
+    // Catch & River Recon Modal Actions
+    window.setCatchModalMode = function(mode) {
+        AppState.catchModalMode = mode;
+        const btnCatch = document.getElementById('btn-mode-catch');
+        const btnTrip = document.getElementById('btn-mode-trip');
+        const tripRow = document.getElementById('trip-outcome-row');
+        const sizeRow = document.getElementById('catch-size-row');
+        const speciesLabel = document.getElementById('label-catch-species');
+        const speciesInput = document.getElementById('catch-species');
+        const submitBtn = document.getElementById('btn-submit-catch');
+        const modalTitle = document.getElementById('modal-log-catch-title');
+
+        if (mode === 'trip') {
+            if (btnCatch) btnCatch.classList.remove('active');
+            if (btnTrip) btnTrip.classList.add('active');
+            if (tripRow) tripRow.style.display = 'flex';
+            if (sizeRow) sizeRow.style.display = 'none';
+            if (speciesLabel) speciesLabel.textContent = 'Targeted Species';
+            if (speciesInput) {
+                speciesInput.placeholder = 'What were you targeting? (e.g. Brown Trout, or General Recon)';
+                speciesInput.required = false;
+            }
+            if (submitBtn) submitBtn.textContent = 'Save River Session';
+            if (modalTitle) modalTitle.textContent = AppState.editingCatchId ? 'Edit River Session' : 'Log River Session / Recon Trip';
+        } else {
+            if (btnCatch) btnCatch.classList.add('active');
+            if (btnTrip) btnTrip.classList.remove('active');
+            if (tripRow) tripRow.style.display = 'none';
+            if (sizeRow) sizeRow.style.display = 'flex';
+            if (speciesLabel) speciesLabel.textContent = 'Fish Species *';
+            if (speciesInput) {
+                speciesInput.placeholder = 'Type fish species name...';
+                speciesInput.required = true;
+            }
+            if (submitBtn) submitBtn.textContent = 'Save Catch';
+            if (modalTitle) modalTitle.textContent = AppState.editingCatchId ? 'Edit Catch Log' : 'Log Fish Catch';
+        }
+    };
+
+    window.showLogTripModal = () => {
+        window.showLogCatchModal();
+        window.setCatchModalMode('trip');
+    };
+
     window.showLogCatchModal = () => {
         AppState.editingCatchId = null;
         AppState.photoMetadata = null;
+        window.setCatchModalMode('catch');
+        if (document.getElementById('trip-outcome')) document.getElementById('trip-outcome').selectedIndex = 0;
         if (elements.modalLogCatchTitle) elements.modalLogCatchTitle.textContent = 'Log Fish Catch';
         
         // Refresh tackle, combo, and fly box dropdowns
@@ -3130,6 +3280,7 @@ window.initMainApp = async function() {
         if (scanOverlay) scanOverlay.style.display = 'none';
         AppState.editingCatchId = null;
         AppState.photoMetadata = null;
+        window.setCatchModalMode('catch');
         if (elements.modalLogCatchTitle) elements.modalLogCatchTitle.textContent = 'Log Fish Catch';
         
         // Clear temporary map pin
@@ -3144,14 +3295,22 @@ window.initMainApp = async function() {
         if (!catchItem) return;
 
         AppState.editingCatchId = id;
-        if (elements.modalLogCatchTitle) elements.modalLogCatchTitle.textContent = 'Edit Catch Log';
+        if (catchItem.isNoCatchTrip) {
+            window.setCatchModalMode('trip');
+            const outcomeEl = document.getElementById('trip-outcome');
+            if (outcomeEl && catchItem.sessionOutcome) {
+                outcomeEl.value = catchItem.sessionOutcome;
+            }
+        } else {
+            window.setCatchModalMode('catch');
+        }
 
         // Populate fields
-        document.getElementById('catch-species').value = catchItem.species || '';
+        document.getElementById('catch-species').value = (catchItem.isNoCatchTrip ? (catchItem.targetSpecies || catchItem.species) : catchItem.species) || '';
         document.getElementById('catch-water').value = catchItem.waterType || 'freshwater';
         updateEnvironmentalSelectsByWaterType(catchItem.waterType || 'freshwater', catchItem.waterClarity, catchItem.activeHatch);
-        document.getElementById('catch-length').value = catchItem.length !== null ? catchItem.length : '';
-        document.getElementById('catch-weight').value = catchItem.weight !== null ? catchItem.weight : '';
+        document.getElementById('catch-length').value = catchItem.length !== null && catchItem.length !== undefined ? catchItem.length : '';
+        document.getElementById('catch-weight').value = catchItem.weight !== null && catchItem.weight !== undefined ? catchItem.weight : '';
         if (elements.catchLatInput) elements.catchLatInput.value = catchItem.lat !== null && catchItem.lat !== undefined ? catchItem.lat : '';
         if (elements.catchLngInput) elements.catchLngInput.value = catchItem.lng !== null && catchItem.lng !== undefined ? catchItem.lng : '';
         if (elements.catchDate) elements.catchDate.value = catchItem.date || '';
@@ -3413,9 +3572,15 @@ window.initMainApp = async function() {
         const date = rawDate;
         const time = rawTime;
 
+        const isTripMode = AppState.catchModalMode === 'trip';
+        const sessionOutcome = isTripMode ? (document.getElementById('trip-outcome') ? document.getElementById('trip-outcome').value : 'Skunked (Zero Takes / Quiet River)') : null;
+        const targetSpecies = isTripMode ? (speciesInput || 'All Species') : null;
+
         // Auto-resolve missing species input from candidate chips or default fallback
         let species = speciesInput;
-        if (!species) {
+        if (isTripMode) {
+            species = targetSpecies || 'River Recon';
+        } else if (!species) {
             const firstChip = document.querySelector('.candidate-chip');
             if (firstChip && firstChip.dataset && firstChip.dataset.species) {
                 species = firstChip.dataset.species;
@@ -3467,9 +3632,12 @@ window.initMainApp = async function() {
 
         const newCatch = {
             species,
+            isNoCatchTrip: isTripMode,
+            sessionOutcome,
+            targetSpecies,
             waterType,
-            length,
-            weight,
+            length: isTripMode ? null : length,
+            weight: isTripMode ? null : weight,
             lat,
             lng,
             photo,
@@ -3515,7 +3683,7 @@ window.initMainApp = async function() {
 
             try {
                 await window.DB.updateCatch(newCatch);
-                if (photo && species && window.DB.addTrainingSample) {
+                if (photo && species && !isTripMode && window.DB.addTrainingSample) {
                     window.DB.addTrainingSample(species, photo);
                 }
                 saveBackupData();
@@ -3543,7 +3711,7 @@ window.initMainApp = async function() {
 
             try {
                 await window.DB.addCatch(newCatch);
-                if (photo && species && window.DB.addTrainingSample) {
+                if (photo && species && !isTripMode && window.DB.addTrainingSample) {
                     window.DB.addTrainingSample(species, photo);
                 }
                 saveBackupData();

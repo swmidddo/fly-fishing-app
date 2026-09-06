@@ -12,12 +12,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style -->
-    <link rel="stylesheet" href="styles.css?v=101470">
+    <link rel="stylesheet" href="styles.css?v=101480">
     <script>
         // Backcountry Offline PWA Service Worker Registration & Live Auto-Update Engine
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=101470')
+                navigator.serviceWorker.register('sw.js?v=101480')
                     .then(function(reg) {
                         console.log('[Backcountry SW] Registered successfully with scope:', reg.scope);
                         window.__BACKCOUNTRY_SW_REG__ = reg;
@@ -284,7 +284,7 @@
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
-                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v101470</span>
+                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v101480</span>
                     </div>
                 </div>
             </div>
@@ -718,8 +718,9 @@
                         <h1>Catch Logs</h1>
                         <p class="subtitle">Complete catalog of your angling success.</p>
                     </div>
-                    <div style="display: flex; gap: 8px;">
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                         <button class="btn btn-glass" onclick="window.openTripJournalModal()">📄 Export Trip Journal PDF</button>
+                        <button class="btn btn-glass" onclick="window.showLogTripModal()" style="border-color: rgba(245, 158, 11, 0.4); color: var(--accent-gold);">+ 🏕️ Log Recon / Trip</button>
                         <button class="btn btn-primary" onclick="window.showLogCatchModal()">+ Log New Catch</button>
                     </div>
                 </header>
@@ -784,6 +785,11 @@
                             <option value="all">All Water</option>
                             <option value="freshwater">Freshwater</option>
                             <option value="saltwater">Saltwater</option>
+                        </select>
+                        <select id="catch-filter-type" class="form-select" style="min-width: 140px;">
+                            <option value="all">All Logs (Catches &amp; Trips)</option>
+                            <option value="catches">🐟 Catches Only</option>
+                            <option value="trips">🏕️ Recon / No-Catch Trips</option>
                         </select>
                     </div>
                     <div class="view-toggle-group" style="display: flex; gap: 5px; background: rgba(255,255,255,0.05); padding: 3px; border-radius: 8px;">
@@ -1531,7 +1537,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
                             <div>
                                 <strong style="font-size: 13px; color: var(--text-primary);">Installed Version:</strong>
-                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101470 (Latest Build)</span>
+                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101480 (Latest Build)</span>
                             </div>
                             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                                 <button class="btn btn-glass btn-sm" id="btn-precache-backcountry" onclick="window.downloadFullBackcountryPack()">
@@ -1645,10 +1651,32 @@
         <div class="modal-content glass">
             <span class="modal-close" onclick="window.hideLogCatchModal()">&times;</span>
             <h2 id="modal-log-catch-title">Log Fish Catch</h2>
+            
+            <!-- Mode Switcher: Fish Catch vs River Recon / No-Catch Trip -->
+            <div class="catch-modal-mode-switch" style="display: flex; gap: 8px; margin-bottom: 16px; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 8px;">
+                <button type="button" id="btn-mode-catch" class="btn btn-sm btn-glass active" onclick="window.setCatchModalMode('catch')" style="flex: 1; border-radius: 6px; font-weight: 600; padding: 7px 10px; font-size: 12px;">🐟 Fish Catch</button>
+                <button type="button" id="btn-mode-trip" class="btn btn-sm btn-glass" onclick="window.setCatchModalMode('trip')" style="flex: 1; border-radius: 6px; font-weight: 600; padding: 7px 10px; font-size: 12px;">🏕️ River Recon / No-Catch Trip</button>
+            </div>
+
             <form id="form-log-catch" class="modal-form">
+                <!-- Trip Outcome Row (Shown in River Recon / No-Catch Trip mode) -->
+                <div class="form-row" id="trip-outcome-row" style="display: none; margin-bottom: 12px;">
+                    <div class="form-group flex-1">
+                        <label for="trip-outcome">Session Outcome / Observation *</label>
+                        <select id="trip-outcome" class="form-select" style="border-color: rgba(245, 158, 11, 0.4);">
+                            <option value="Skunked (Zero Takes / Quiet River)">🦨 Skunked (Zero Takes / Quiet River)</option>
+                            <option value="Fish Sighted / Refused Flies">👀 Fish Sighted / Refused Flies (Spooky Fish)</option>
+                            <option value="Strikes &amp; Missed Takes">⚡ Strikes &amp; Missed Takes (Long Distance Release)</option>
+                            <option value="River Blown Out / High Flow">🌊 River Blown Out / High Muddy Water</option>
+                            <option value="Water Recon &amp; Habitat Scouting">🔍 Water Recon &amp; Habitat Scouting</option>
+                            <option value="Casting &amp; Technique Practice">🎯 Casting &amp; Technique Practice</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="form-row">
                     <div class="form-group flex-2">
-                        <label for="catch-species">Fish Species *</label>
+                        <label for="catch-species" id="label-catch-species">Fish Species *</label>
                         <input type="text" id="catch-species" class="form-input" list="fish-species-list" placeholder="Type fish species name..." required>
                         <datalist id="fish-species-list">
                             <option value="Rainbow Trout">Freshwater</option>
@@ -1687,7 +1715,7 @@
                     </div>
                 </div>
 
-                <div class="form-row">
+                <div class="form-row" id="catch-size-row">
                     <div class="form-group">
                         <label for="catch-length">Length (cm)</label>
                         <input type="number" id="catch-length" class="form-input" placeholder="e.g. 45" step="0.1">
@@ -1806,7 +1834,7 @@
 
                 <div class="modal-actions">
                     <button type="button" class="btn btn-glass" onclick="window.hideLogCatchModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Catch</button>
+                    <button type="submit" class="btn btn-primary" id="btn-submit-catch">Save Catch</button>
                 </div>
             </form>
         </div>
@@ -2433,16 +2461,16 @@
     <!-- Scripts -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
-    <script src="db.js?v=101470"></script>
-    <script src="regulations.js?v=101470"></script>
-    <script src="weather.js?v=101470"></script>
-    <script src="exif.js?v=101470"></script>
-    <script src="map.js?v=101470"></script>
-    <script src="tackle_db.js?v=101470"></script>
-    <script src="fish_db.js?v=101470"></script>
-    <script src="fly_box.js?v=101470"></script>
-    <script src="knots.js?v=101470"></script>
-    <script src="auth.js?v=101470"></script>
-    <script src="app.js?v=101470"></script>
+    <script src="db.js?v=101480"></script>
+    <script src="regulations.js?v=101480"></script>
+    <script src="weather.js?v=101480"></script>
+    <script src="exif.js?v=101480"></script>
+    <script src="map.js?v=101480"></script>
+    <script src="tackle_db.js?v=101480"></script>
+    <script src="fish_db.js?v=101480"></script>
+    <script src="fly_box.js?v=101480"></script>
+    <script src="knots.js?v=101480"></script>
+    <script src="auth.js?v=101480"></script>
+    <script src="app.js?v=101480"></script>
 </body>
 </html>

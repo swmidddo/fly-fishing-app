@@ -804,40 +804,66 @@ const AppMap = {
 
             const pos = this.isGoogleMaps ? new google.maps.LatLng(lat, lng) : [lat, lng];
 
+            const isRecon = !!catchItem.isNoCatchTrip;
+            const markerTitle = isRecon 
+                ? `Recon: ${catchItem.sessionOutcome || 'River Exploration'}` 
+                : `Catch: ${catchItem.species}`;
+
             const imgHtml = catchItem.photo ? `<img src="${catchItem.photo}" style="width:100%; max-height:100px; object-fit:cover; border-radius:5px; margin-top:5px;"/>` : '';
             const tackleSummary = [catchItem.fly, catchItem.rod, catchItem.reel, catchItem.flyline, catchItem.rigCombo].filter(Boolean).join(' | ') || 'N/A';
             const safeId = String(catchItem.id).replace(/'/g, "\\'");
 
+            const popupContent = isRecon ? `
+                <div style="color: #000; font-family: sans-serif; min-width: 170px; padding: 4px;">
+                    <h4 style="margin:0 0 4px 0; color: #b45309; font-size: 15px;">🏕️ ${catchItem.sessionOutcome || 'River Recon Session'}</h4>
+                    <p style="margin:2px 0 4px 0; font-size:12px; color: #475569;"><b>Targeted:</b> ${catchItem.targetSpecies || catchItem.species || 'All Species'}</p>
+                    <p style="margin:2px 0; font-size:11.5px; color: #334155;"><b>Tested Gear:</b> ${tackleSummary}</p>
+                    ${catchItem.waterClarity ? `<p style="margin:2px 0; font-size:11px; color: #0284c7;"><b>Water Clarity:</b> ${catchItem.waterClarity}</p>` : ''}
+                    ${imgHtml}
+                    <div style="display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #cbd5e1; padding-top: 6px;">
+                        <button onclick="window.editCatchUI('${safeId}')" style="flex:1; background: #0284c7; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">✏️ Edit</button>
+                        <button onclick="window.deleteCatchUI('${safeId}')" style="flex:1; background: #ef4444; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">🗑️ Delete</button>
+                    </div>
+                </div>
+            ` : `
+                <div style="color: #000; font-family: sans-serif; min-width: 170px; padding: 4px;">
+                    <h4 style="margin:0 0 6px 0; color: #0f172a; font-size: 15px;">🐟 ${catchItem.species}</h4>
+                    <p style="margin:3px 0; font-size:12.5px; color: #334155;"><b>Length:</b> ${catchItem.length || '--'} cm</p>
+                    <p style="margin:3px 0; font-size:12.5px; color: #334155;"><b>Tackle:</b> ${tackleSummary}</p>
+                    ${imgHtml}
+                    <div style="display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #cbd5e1; padding-top: 6px;">
+                        <button onclick="window.editCatchUI('${safeId}')" style="flex:1; background: #0284c7; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">✏️ Edit</button>
+                        <button onclick="window.deleteCatchUI('${safeId}')" style="flex:1; background: #ef4444; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">🗑️ Delete</button>
+                    </div>
+                </div>
+            `;
+
             if (this.isGoogleMaps) {
+                const iconSvg = isRecon ? `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+                        <circle cx="20" cy="20" r="18" fill="#1c1917" stroke="#f59e0b" stroke-width="2.5"/>
+                        <text x="20" y="27" font-size="20" text-anchor="middle">🏕️</text>
+                    </svg>
+                ` : `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+                        <circle cx="20" cy="20" r="18" fill="#0d2838" stroke="#64ffda" stroke-width="2.5"/>
+                        <text x="20" y="27" font-size="20" text-anchor="middle">🐟</text>
+                    </svg>
+                `;
+
                 const marker = new google.maps.Marker({
                     position: pos,
                     map: this.map,
-                    title: `Catch: ${catchItem.species}`,
+                    title: markerTitle,
                     icon: {
-                        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
-                                <circle cx="20" cy="20" r="18" fill="#0d2838" stroke="#64ffda" stroke-width="2.5"/>
-                                <text x="20" y="27" font-size="20" text-anchor="middle">🐟</text>
-                            </svg>
-                        `),
+                        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(iconSvg),
                         scaledSize: new google.maps.Size(40, 40),
                         anchor: new google.maps.Point(20, 20)
                     }
                 });
 
                 const infoWindow = new google.maps.InfoWindow({
-                    content: `
-                        <div style="color: #000; font-family: sans-serif; min-width: 170px; padding: 4px;">
-                            <h4 style="margin:0 0 6px 0; color: #0f172a; font-size: 15px;">🐟 ${catchItem.species}</h4>
-                            <p style="margin:3px 0; font-size:12.5px; color: #334155;"><b>Length:</b> ${catchItem.length || '--'} cm</p>
-                            <p style="margin:3px 0; font-size:12.5px; color: #334155;"><b>Tackle:</b> ${tackleSummary}</p>
-                            ${imgHtml}
-                            <div style="display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #cbd5e1; padding-top: 6px;">
-                                <button onclick="window.editCatchUI('${safeId}')" style="flex:1; background: #0284c7; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">✏️ Edit</button>
-                                <button onclick="window.deleteCatchUI('${safeId}')" style="flex:1; background: #ef4444; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">🗑️ Delete</button>
-                            </div>
-                        </div>
-                    `
+                    content: popupContent
                 });
 
                 marker.addListener('click', () => {
@@ -846,6 +872,9 @@ const AppMap = {
 
                 this.markers.catches.push(marker);
             } else {
+                const borderColor = isRecon ? '#f59e0b' : '#64ffda';
+                const shadowColor = isRecon ? 'rgba(245, 158, 11, 0.6)' : 'rgba(100, 255, 218, 0.6)';
+                const iconEmoji = isRecon ? '🏕️' : '🐟';
                 const catchPinIcon = L.divIcon({
                     className: 'catch-fish-icon-wrapper',
                     html: `
@@ -855,14 +884,14 @@ const AppMap = {
                             height: 42px; 
                             border-radius: 50%; 
                             background: linear-gradient(135deg, #051923 0%, #0d2838 100%); 
-                            border: 2.5px solid #64ffda; 
-                            box-shadow: 0 0 15px rgba(100, 255, 218, 0.6), 0 4px 10px rgba(0, 0, 0, 0.5); 
+                            border: 2.5px solid ${borderColor}; 
+                            box-shadow: 0 0 15px ${shadowColor}, 0 4px 10px rgba(0, 0, 0, 0.5); 
                             display: flex; 
                             align-items: center; 
                             justify-content: center;
                             cursor: pointer;
                         ">
-                            <span style="font-size: 24px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); transform: scaleX(-1);">🐟</span>
+                            <span style="font-size: 22px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">${iconEmoji}</span>
                         </div>
                     `,
                     iconSize: [42, 42],
@@ -871,18 +900,7 @@ const AppMap = {
 
                 const marker = L.marker(pos, { icon: catchPinIcon })
                     .addTo(this.map)
-                    .bindPopup(`
-                        <div style="font-family: sans-serif; min-width: 170px; padding: 4px;">
-                            <h4 style="margin:0 0 6px 0; color:#0f172a; font-size: 15px;">🐟 ${catchItem.species}</h4>
-                            <p style="margin:3px 0; font-size:12.5px; color:#334155;"><b>Length:</b> ${catchItem.length || '--'} cm</p>
-                            <p style="margin:3px 0; font-size:12.5px; color:#334155;"><b>Tackle:</b> ${tackleSummary}</p>
-                            ${imgHtml}
-                            <div style="display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #cbd5e1; padding-top: 6px;">
-                                <button onclick="window.editCatchUI('${safeId}')" style="flex:1; background: #0284c7; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">✏️ Edit</button>
-                                <button onclick="window.deleteCatchUI('${safeId}')" style="flex:1; background: #ef4444; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">🗑️ Delete</button>
-                            </div>
-                        </div>
-                    `);
+                    .bindPopup(popupContent);
                 this.markers.catches.push(marker);
             }
         });

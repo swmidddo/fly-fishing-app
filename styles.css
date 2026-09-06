@@ -2632,3 +2632,57 @@ body.high-contrast-mode .badge {
     border-color: var(--accent-teal) !important;
     box-shadow: 0 0 10px rgba(0, 210, 255, 0.35);
 }
+
+/* Catch vs River Recon Mode Switcher in Modal */
+.catch-modal-mode-switch .btn {
+    transition: all 0.2s ease;
+}
+
+.catch-modal-mode-switch #btn-mode-catch.active {
+    background: linear-gradient(135deg, rgba(0, 210, 255, 0.2), rgba(100, 255, 218, 0.15)) !important;
+    color: var(--accent-teal) !important;
+    border-color: var(--accent-teal) !important;
+    box-shadow: 0 0 12px rgba(0, 210, 255, 0.25);
+}
+
+.catch-modal-mode-switch #btn-mode-trip.active {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.15)) !important;
+    color: var(--accent-gold) !important;
+    border-color: var(--accent-gold) !important;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.3);
+}
+
+/* River Recon & No-Catch Session Card Styling */
+.catch-card.recon-session {
+    border-left: 4px solid var(--accent-gold) !important;
+}
+
+.catch-card.recon-session .card-badge-recon {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(245, 158, 11, 0.9);
+    color: #050a18;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.trip-outcome-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 6px;
+    margin-top: 4px;
+}
+
