@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101480';
+window.APP_VERSION = 'v101490';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -1907,12 +1907,23 @@ window.initMainApp = async function() {
 
             const nicknameBadge = item.nickname ? `<div style="margin-top: 6px;"><span class="badge" style="background: rgba(0, 210, 255, 0.12); color: var(--accent-teal); border: 1px solid rgba(0, 210, 255, 0.25); font-size: 11px; padding: 2px 8px; border-radius: 4px;">🏷️ ${item.nickname}</span></div>` : '';
 
+            const photoThumbnail = item.photo ? `
+                <div style="width: 50px; height: 50px; flex-shrink: 0; border-radius: 8px; overflow: hidden; border: 1.5px solid var(--accent-teal); cursor: pointer; margin-right: 12px; box-shadow: 0 2px 6px rgba(0, 210, 255, 0.25);" onclick="window.previewTacklePhoto('${item.id}')" title="Tap to view full photo">
+                    <img src="${item.photo}" alt="${item.name}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                </div>
+            ` : '';
+
             card.innerHTML = `
                 <div class="card-content-body">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span class="card-badge" style="border-color: var(--accent-blue); color: var(--accent-blue);">${icon} ${item.type.toUpperCase()}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                        <div style="display: flex; align-items: center;">
+                            ${photoThumbnail}
+                            <div>
+                                <span class="card-badge" style="border-color: var(--accent-blue); color: var(--accent-blue); font-size: 11px;">${icon} ${item.type.toUpperCase()}</span>
+                                <h4 style="margin: 4px 0 0 0;">${item.name}</h4>
+                            </div>
+                        </div>
                     </div>
-                    <h4 style="margin-top: 10px;">${item.name}</h4>
                     ${nicknameBadge}
                     <div class="card-specs mt-10">
                         <span>Brand: <strong>${item.brand || 'N/A'}</strong></span>
@@ -1929,6 +1940,27 @@ window.initMainApp = async function() {
             elements.tackleList.appendChild(card);
         });
     }
+
+    window.previewTacklePhoto = (id) => {
+        const item = AppState.tackle.find(t => t.id === Number(id));
+        if (!item || !item.photo) return;
+        const modal = document.getElementById('modal-fly-photo-lightbox');
+        const title = document.getElementById('fly-lightbox-title');
+        const img = document.getElementById('fly-lightbox-img');
+        const details = document.getElementById('fly-lightbox-details');
+        if (title) title.textContent = `${item.brand ? item.brand + ' ' : ''}${item.name}`;
+        if (img) img.src = item.photo;
+        if (details) {
+            details.innerHTML = `
+                <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 6px; flex-wrap: wrap;">
+                    <span class="badge" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-blue);">${item.type.toUpperCase()}</span>
+                    ${item.spec ? `<span class="badge" style="background: rgba(100, 255, 218, 0.15); color: var(--accent-teal);">${item.spec}</span>` : ''}
+                </div>
+                ${item.notes ? `<p style="margin: 6px 0 0 0; color: #cbd5e1;">${item.notes}</p>` : ''}
+            `;
+        }
+        if (modal) modal.classList.add('active');
+    };
 
     // Helper to format tackle item labels with duplicate disambiguation
     function getTackleDisambiguatedLabel(item, allTackleList) {
@@ -2100,29 +2132,153 @@ window.initMainApp = async function() {
         populateDatalistsAndChips();
     }
 
+    // Tackle & Fly Photo Attachment Handlers
+    window.setTacklePhotoPreview = (dataUrl) => {
+        const preview = document.getElementById('tackle-photo-preview');
+        const container = document.getElementById('tackle-photo-preview-container');
+        const badge = document.getElementById('tackle-photo-badge');
+        if (preview && container) {
+            preview.src = dataUrl;
+            container.style.display = 'block';
+            if (badge) badge.style.display = 'inline-block';
+        }
+    };
+
+    window.removeTacklePhoto = () => {
+        const preview = document.getElementById('tackle-photo-preview');
+        const container = document.getElementById('tackle-photo-preview-container');
+        const badge = document.getElementById('tackle-photo-badge');
+        const fileInput = document.getElementById('tackle-photo-input');
+        const cameraInput = document.getElementById('tackle-camera-input');
+        if (preview) preview.src = '';
+        if (container) container.style.display = 'none';
+        if (badge) badge.style.display = 'none';
+        if (fileInput) fileInput.value = '';
+        if (cameraInput) cameraInput.value = '';
+    };
+
+    window.handleTacklePhotoSelect = async (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        try {
+            const dataUrl = await resizeImageToDataUrl(file, 1200);
+            window.setTacklePhotoPreview(dataUrl);
+            if (window.showSyncToast) window.showSyncToast("📷 Photo attached! Ready to save.");
+        } catch(err) {
+            console.error("Error setting tackle photo:", err);
+            alert("Could not load photo. Please choose another image.");
+        }
+    };
+
+    // Synchronize Fly item between Tackle Library and Virtual Fly Box
+    window.syncTackleFlyToFlyBox = (item) => {
+        if (!window.FlyBoxApp || !Array.isArray(window.FlyBoxApp.flies)) return;
+        const name = (item.name || '').trim();
+        if (!name) return;
+        const spec = (item.spec || '').trim();
+        const notes = (item.notes || '').trim();
+        const photo = item.photo || null;
+        const brand = (item.brand || '').trim();
+
+        // Check if fly already exists in FlyBoxApp.flies (match by name)
+        let fly = window.FlyBoxApp.flies.find(f => f.name.toLowerCase() === name.toLowerCase());
+        if (fly) {
+            if (photo) fly.photo = photo;
+            if (brand) fly.region = brand;
+            if (spec && (!fly.hookSizes || !fly.hookSizes.length)) fly.hookSizes = [spec];
+            if (notes && !fly.description) fly.description = notes;
+        } else {
+            // Categorize fly based on spec, name, or notes
+            const lower = (name + ' ' + spec + ' ' + notes).toLowerCase();
+            let category = 'Dry Fly';
+            let icon = '🪰';
+            if (lower.includes('nymph') || lower.includes('beadhead') || lower.includes('scud') || lower.includes('copper john') || lower.includes('hare')) {
+                category = 'Nymph';
+                icon = '🪱';
+            } else if (lower.includes('streamer') || lower.includes('bugger') || lower.includes('zonker') || lower.includes('minnow') || lower.includes('clouser') || lower.includes('leech')) {
+                category = 'Streamer';
+                icon = '🪶';
+            } else if (lower.includes('saltwater') || lower.includes('crab') || lower.includes('shrimp') || lower.includes('candy') || lower.includes('deceiver') || lower.includes('charlie')) {
+                category = 'Saltwater';
+                icon = '🦐';
+            } else if (lower.includes('beetle') || lower.includes('hopper') || lower.includes('ant') || lower.includes('cicada')) {
+                category = 'Dry Fly';
+                icon = '🪲';
+            }
+
+            fly = {
+                id: 'fly_tackle_' + item.id,
+                name: name,
+                category: category,
+                region: brand ? `${brand}` : 'Stocked Fly',
+                seasons: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+                hookSizes: [spec || '#14'],
+                icon: icon,
+                photo: photo,
+                description: notes || `${brand ? brand + ' ' : ''}${name} fly pattern in your personal fly box.`,
+                rating: 5,
+                catchCount: 0
+            };
+            window.FlyBoxApp.flies.unshift(fly);
+        }
+        window.FlyBoxApp.saveFliesToStorage();
+        window.FlyBoxApp.renderFlyBoxUI();
+        if (window.populateFlyDropdowns) window.populateFlyDropdowns();
+    };
+
     // Tackle Modals
     window.showAddFlyModal = (prefillCategory = 'fly') => {
+        window.removeTacklePhoto();
         const tackleTypeEl = document.getElementById('tackle-type');
         if (tackleTypeEl) {
             tackleTypeEl.value = prefillCategory;
             tackleTypeEl.dispatchEvent(new Event('change'));
+        }
+        const titleEl = document.getElementById('modal-tackle-title');
+        const submitBtn = document.getElementById('btn-tackle-submit');
+        const labelPhoto = document.getElementById('label-tackle-photo');
+        if (titleEl) titleEl.textContent = "Add Fly to Virtual Fly Box";
+        if (submitBtn) submitBtn.textContent = "Save to Fly Box";
+        if (labelPhoto) {
+            const span = labelPhoto.querySelector('span');
+            if (span) span.innerHTML = `📷 Fly Photograph / Picture <span style="font-size: 10.5px; color: var(--accent-teal); font-weight: normal;">(Optional)</span>`;
         }
         window.showAddTackleModal();
     };
 
     window.showAddTackleModal = () => {
         if (window.updateTackleSuggestions) window.updateTackleSuggestions();
+        const tackleTypeEl = document.getElementById('tackle-type');
+        const isFly = tackleTypeEl && tackleTypeEl.value === 'fly';
+        const titleEl = document.getElementById('modal-tackle-title');
+        const submitBtn = document.getElementById('btn-tackle-submit');
+        const labelPhoto = document.getElementById('label-tackle-photo');
+        if (!AppState.editingTackleId && !isFly) {
+            if (titleEl) titleEl.textContent = "Add Tackle or Equipment";
+            if (submitBtn) submitBtn.textContent = "Save Equipment";
+            if (labelPhoto) {
+                const span = labelPhoto.querySelector('span');
+                if (span) span.innerHTML = `📷 Photo / Picture <span style="font-size: 10.5px; color: var(--accent-teal); font-weight: normal;">(Optional)</span>`;
+            }
+        }
         elements.modalAddTackle.classList.add('active');
     };
+
     window.hideAddTackleModal = () => {
         elements.modalAddTackle.classList.remove('active');
         elements.formAddTackle.reset();
+        window.removeTacklePhoto();
         
         // Restore modal title and submit button text
         const titleEl = document.getElementById('modal-tackle-title');
         const submitBtn = document.getElementById('btn-tackle-submit');
+        const labelPhoto = document.getElementById('label-tackle-photo');
         if (titleEl) titleEl.textContent = "Add Tackle or Equipment";
         if (submitBtn) submitBtn.textContent = "Save Equipment";
+        if (labelPhoto) {
+            const span = labelPhoto.querySelector('span');
+            if (span) span.innerHTML = `📷 Photo / Picture <span style="font-size: 10.5px; color: var(--accent-teal); font-weight: normal;">(Optional)</span>`;
+        }
         AppState.editingTackleId = null;
     };
 
@@ -2143,11 +2299,24 @@ window.initMainApp = async function() {
         if (barcodeEl) barcodeEl.value = item.barcode || '';
         document.getElementById('tackle-notes').value = item.notes || '';
 
+        // Load photo preview
+        if (item.photo) {
+            window.setTacklePhotoPreview(item.photo);
+        } else {
+            window.removeTacklePhoto();
+        }
+
         // Update titles
+        const isFly = item.type === 'fly';
         const titleEl = document.getElementById('modal-tackle-title');
         const submitBtn = document.getElementById('btn-tackle-submit');
-        if (titleEl) titleEl.textContent = "Edit Equipment";
-        if (submitBtn) submitBtn.textContent = "Save Changes";
+        const labelPhoto = document.getElementById('label-tackle-photo');
+        if (titleEl) titleEl.textContent = isFly ? "Edit Fly Pattern" : "Edit Equipment";
+        if (submitBtn) submitBtn.textContent = isFly ? "Update Fly" : "Save Changes";
+        if (labelPhoto) {
+            const span = labelPhoto.querySelector('span');
+            if (span) span.innerHTML = isFly ? `📷 Fly Photograph / Picture <span style="font-size: 10.5px; color: var(--accent-teal); font-weight: normal;">(Optional)</span>` : `📷 Photo / Picture <span style="font-size: 10.5px; color: var(--accent-teal); font-weight: normal;">(Optional)</span>`;
+        }
 
         window.showAddTackleModal();
     };
@@ -2170,6 +2339,13 @@ window.initMainApp = async function() {
         const barcodeEl = document.getElementById('tackle-barcode');
         if (barcodeEl) barcodeEl.value = '';
         document.getElementById('tackle-notes').value = item.notes || '';
+
+        // Load photo preview
+        if (item.photo) {
+            window.setTacklePhotoPreview(item.photo);
+        } else {
+            window.removeTacklePhoto();
+        }
 
         // Update titles
         const titleEl = document.getElementById('modal-tackle-title');
@@ -2198,15 +2374,21 @@ window.initMainApp = async function() {
         const nickname = document.getElementById('tackle-nickname') ? document.getElementById('tackle-nickname').value.trim() : '';
         const barcode = document.getElementById('tackle-barcode') ? document.getElementById('tackle-barcode').value.trim() : '';
         const notes = document.getElementById('tackle-notes').value.trim();
+        const photoPreview = document.getElementById('tackle-photo-preview');
+        const photo = (photoPreview && photoPreview.src && photoPreview.src.startsWith('data:')) ? photoPreview.src : null;
 
         if (!name) {
             alert("Please enter an equipment name first.");
             return;
         }
 
-        const item = { type, name, brand, spec, nickname, barcode, notes };
+        const item = { type, name, brand, spec, nickname, barcode, notes, photo };
         try {
-            await window.DB.addTackle(item);
+            const savedId = await window.DB.addTackle(item);
+            item.id = savedId;
+            if (type === 'fly' && window.syncTackleFlyToFlyBox) {
+                window.syncTackleFlyToFlyBox(item);
+            }
             await loadTackle();
 
             // Clear spec, nickname & barcode for the next item, keep category, name, brand & notes
@@ -2236,25 +2418,36 @@ window.initMainApp = async function() {
         const nickname = document.getElementById('tackle-nickname') ? document.getElementById('tackle-nickname').value.trim() : '';
         const barcode = document.getElementById('tackle-barcode') ? document.getElementById('tackle-barcode').value.trim() : '';
         const notes = document.getElementById('tackle-notes').value.trim();
+        const photoPreview = document.getElementById('tackle-photo-preview');
+        const photo = (photoPreview && photoPreview.src && photoPreview.src.startsWith('data:')) ? photoPreview.src : null;
 
         if (!name) return;
 
-        const item = { type, name, brand, spec, nickname, barcode, notes };
+        const item = { type, name, brand, spec, nickname, barcode, notes, photo };
         
         if (AppState.editingTackleId) {
             item.id = Number(AppState.editingTackleId);
             try {
                 await window.DB.updateTackle(item);
+                if (type === 'fly' && window.syncTackleFlyToFlyBox) {
+                    window.syncTackleFlyToFlyBox(item);
+                }
                 window.hideAddTackleModal();
                 await loadTackle();
+                if (window.showSyncToast) window.showSyncToast(`✅ Updated ${item.name}!`);
             } catch (err) {
                 alert("Error updating tackle: " + err.message);
             }
         } else {
             try {
-                await window.DB.addTackle(item);
+                const savedId = await window.DB.addTackle(item);
+                item.id = savedId;
+                if (type === 'fly' && window.syncTackleFlyToFlyBox) {
+                    window.syncTackleFlyToFlyBox(item);
+                }
                 window.hideAddTackleModal();
                 await loadTackle();
+                if (window.showSyncToast) window.showSyncToast(`✅ Saved ${item.name} with photo to library!`);
             } catch (err) {
                 alert("Error saving tackle: " + err.message);
             }
@@ -8045,6 +8238,40 @@ window.initMainApp = async function() {
         }
     };
 
+    // Helper to resize photos to lightweight JPEG data URL
+    async function resizeImageToDataUrl(file, maxDimension = 1200) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                img.onload = () => {
+                    let w = img.width;
+                    let h = img.height;
+                    if (w > maxDimension || h > maxDimension) {
+                        if (w > h) {
+                            h = Math.round((h * maxDimension) / w);
+                            w = maxDimension;
+                        } else {
+                            w = Math.round((w * maxDimension) / h);
+                            h = maxDimension;
+                        }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    resolve(dataUrl);
+                };
+                img.onerror = reject;
+                img.src = e.target.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
     // Helper to resize iPhone/Android photos (up to 48MP) to lightweight 1200px JPEG for instant AI recognition
     async function resizeImageForAI(file, maxDimension = 1200) {
         return new Promise((resolve, reject) => {
@@ -8102,6 +8329,16 @@ window.initMainApp = async function() {
             badge.textContent = "⏳ Analyzing Photo & Barcode...";
         }
         if (window.showSyncToast) window.showSyncToast("🔍 Reading photo & cross-referencing product...");
+
+        // Automatically preserve the scanned photo and display it in the photo preview!
+        try {
+            const previewDataUrl = await resizeImageToDataUrl(file, 1200);
+            if (typeof window.setTacklePhotoPreview === 'function') {
+                window.setTacklePhotoPreview(previewDataUrl);
+            }
+        } catch(pErr) {
+            console.warn("Scan photo preview note:", pErr);
+        }
 
         // Step 1: Attempt Barcode extraction from the photo
         let detectedBarcode = null;

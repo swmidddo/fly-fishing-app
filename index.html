@@ -12,12 +12,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style -->
-    <link rel="stylesheet" href="styles.css?v=101480">
+    <link rel="stylesheet" href="styles.css?v=101490">
     <script>
         // Backcountry Offline PWA Service Worker Registration & Live Auto-Update Engine
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=101480')
+                navigator.serviceWorker.register('sw.js?v=101490')
                     .then(function(reg) {
                         console.log('[Backcountry SW] Registered successfully with scope:', reg.scope);
                         window.__BACKCOUNTRY_SW_REG__ = reg;
@@ -284,7 +284,7 @@
                     <span class="brand-name" style="display: block; font-size: 18px; font-weight: 700; line-height: 1.1; color: var(--text-primary);">Middo's</span>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <span style="font-size: 10px; color: var(--accent-teal); font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Fly Fishing</span>
-                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v101480</span>
+                        <span id="global-app-version-tag" style="font-size: 9px; color: var(--text-secondary); opacity: 0.8; font-weight: 600; background: rgba(255,255,255,0.06); padding: 1px 4px; border-radius: 4px;">v101490</span>
                     </div>
                 </div>
             </div>
@@ -1321,6 +1321,9 @@
                 <div class="flybox-grid grid-three-col" id="flybox-grid-container">
                     <!-- Dynamic fly cards render here -->
                 </div>
+
+                <!-- Hidden file input for one-tap photo uploads on existing fly cards -->
+                <input type="file" id="fly-quick-photo-input" accept="image/*" style="display: none;" onchange="FlyBoxApp.handleQuickFlyPhoto(event)">
             </section>
 
             <!-- Knots &amp; Tippet Guide View -->
@@ -1537,7 +1540,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
                             <div>
                                 <strong style="font-size: 13px; color: var(--text-primary);">Installed Version:</strong>
-                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101480 (Latest Build)</span>
+                                <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101490 (Latest Build)</span>
                             </div>
                             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                                 <button class="btn btn-glass btn-sm" id="btn-precache-backcountry" onclick="window.downloadFullBackcountryPack()">
@@ -1864,6 +1867,35 @@
                         </button>
                         <input type="file" id="tackle-package-camera-input" accept="image/jpeg,image/png,image/webp" capture="environment" style="display: none;" onchange="window.handleTacklePackagePhoto(event)">
                         <input type="file" id="tackle-package-gallery-input" accept="image/jpeg,image/png,image/webp" style="display: none;" onchange="window.handleTacklePackagePhoto(event)">
+                    </div>
+                </div>
+
+                <!-- Tackle / Fly Photo Attachment -->
+                <div class="form-group" id="tackle-photo-group" style="margin-bottom: 14px;">
+                    <label id="label-tackle-photo" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span>📷 Photo / Picture <span style="font-size: 10.5px; color: var(--accent-teal); font-weight: normal;">(Optional)</span></span>
+                        <span id="tackle-photo-badge" class="badge" style="display: none; background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); font-size: 10.5px;">✓ Photo Attached</span>
+                    </label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="file" id="tackle-photo-input" accept="image/*" style="display: none;" onchange="window.handleTacklePhotoSelect(event)">
+                        <input type="file" id="tackle-camera-input" accept="image/*" capture="environment" style="display: none;" onchange="window.handleTacklePhotoSelect(event)">
+                        <button type="button" class="btn btn-glass btn-sm" onclick="document.getElementById('tackle-photo-input').click()" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; padding: 8px 12px;">
+                            <span>🖼️</span> Choose Photo
+                        </button>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('tackle-camera-input').click()" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; padding: 8px 12px;">
+                            <span>📸</span> Take Photo
+                        </button>
+                    </div>
+                    <div id="tackle-photo-preview-container" style="display: none; position: relative; margin-top: 10px; text-align: center;">
+                        <img id="tackle-photo-preview" src="" alt="Photo Preview" style="max-width: 100%; max-height: 180px; border-radius: 8px; border: 1px solid rgba(0, 210, 255, 0.4); display: block; margin: 0 auto; object-fit: contain; background: rgba(0, 0, 0, 0.3);">
+                        <div style="display: flex; justify-content: center; gap: 8px; margin-top: 8px;">
+                            <button type="button" class="btn btn-sm btn-glass" onclick="document.getElementById('tackle-photo-input').click()" style="font-size: 11px; padding: 4px 10px;">
+                                🔄 Change
+                            </button>
+                            <button type="button" class="btn btn-sm btn-danger" onclick="window.removeTacklePhoto()" style="font-size: 11px; padding: 4px 10px;">
+                                ❌ Remove Photo
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -2458,19 +2490,42 @@
         </div>
     </div>
 
+    <!-- Fly Photo Lightbox Modal -->
+    <div class="modal" id="modal-fly-photo-lightbox">
+        <div class="modal-content glass" style="max-width: 500px; text-align: center; padding: 22px;">
+            <span class="modal-close" onclick="window.closeFlyPhotoLightbox()">&times;</span>
+            <h3 id="fly-lightbox-title" style="margin: 0 0 12px 0; font-size: 18px; color: var(--text-primary);">Fly Pattern Photo</h3>
+            <div style="position: relative; border-radius: 10px; overflow: hidden; border: 1px solid rgba(0, 210, 255, 0.35); margin-bottom: 14px; background: rgba(0,0,0,0.5); box-shadow: 0 8px 24px rgba(0,0,0,0.4);">
+                <img id="fly-lightbox-img" src="" alt="Fly Photo" style="width: 100%; max-height: 380px; object-fit: contain; display: block;">
+            </div>
+            <div id="fly-lightbox-details" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;"></div>
+            <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                <button type="button" class="btn btn-primary btn-sm" id="btn-fly-lightbox-change" onclick="window.changeFlyPhotoFromLightbox()">
+                    📷 Change Photo
+                </button>
+                <button type="button" class="btn btn-danger btn-sm" id="btn-fly-lightbox-remove" onclick="window.removeFlyPhotoFromLightbox()">
+                    🗑️ Remove Photo
+                </button>
+                <button type="button" class="btn btn-glass btn-sm" onclick="window.closeFlyPhotoLightbox()">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
-    <script src="db.js?v=101480"></script>
-    <script src="regulations.js?v=101480"></script>
-    <script src="weather.js?v=101480"></script>
-    <script src="exif.js?v=101480"></script>
-    <script src="map.js?v=101480"></script>
-    <script src="tackle_db.js?v=101480"></script>
-    <script src="fish_db.js?v=101480"></script>
-    <script src="fly_box.js?v=101480"></script>
-    <script src="knots.js?v=101480"></script>
-    <script src="auth.js?v=101480"></script>
-    <script src="app.js?v=101480"></script>
+    <script src="db.js?v=101490"></script>
+    <script src="regulations.js?v=101490"></script>
+    <script src="weather.js?v=101490"></script>
+    <script src="exif.js?v=101490"></script>
+    <script src="map.js?v=101490"></script>
+    <script src="tackle_db.js?v=101490"></script>
+    <script src="fish_db.js?v=101490"></script>
+    <script src="fly_box.js?v=101490"></script>
+    <script src="knots.js?v=101490"></script>
+    <script src="auth.js?v=101490"></script>
+    <script src="app.js?v=101490"></script>
 </body>
 </html>

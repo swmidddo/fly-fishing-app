@@ -202,6 +202,7 @@ const DEFAULT_FLY_PATTERNS = [
 
 const FlyBoxApp = {
     flies: [],
+    pendingPhotoFlyId: null,
     hatchFilters: {
         month: new Date().getMonth() + 1,
         order: 'all',
@@ -346,6 +347,65 @@ const FlyBoxApp = {
         }
     },
 
+    triggerFlyPhotoUpload(flyId) {
+        this.pendingPhotoFlyId = flyId;
+        const input = document.getElementById('fly-quick-photo-input');
+        if (input) {
+            input.value = '';
+            input.click();
+        }
+    },
+
+    async handleQuickFlyPhoto(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file || !this.pendingPhotoFlyId) return;
+
+        try {
+            const dataUrl = await resizeFlyPhoto(file, 1200);
+            this.setFlyPhoto(this.pendingPhotoFlyId, dataUrl);
+        } catch (err) {
+            console.error("Failed to process fly photo:", err);
+            alert("Could not process photo. Please try another image.");
+        }
+    },
+
+    setFlyPhoto(flyId, dataUrl) {
+        const fly = this.flies.find(f => f.id === flyId);
+        if (!fly) return;
+
+        fly.photo = dataUrl;
+        this.saveFliesToStorage();
+        this.renderFlyBoxUI();
+
+        // Also cross-sync with tackle library if present
+        if (window.AppState && Array.isArray(window.AppState.tackle)) {
+            const match = window.AppState.tackle.find(t => t.name.toLowerCase() === fly.name.toLowerCase() && t.type === 'fly');
+            if (match) {
+                match.photo = dataUrl;
+                if (window.DB && typeof window.DB.updateTackle === 'function') {
+                    window.DB.updateTackle(match).catch(e => console.warn("Tackle photo sync note:", e));
+                }
+            }
+        }
+
+        if (window.showSyncToast) {
+            window.showSyncToast(`📸 Photo updated for "${fly.name}"`);
+        }
+    },
+
+    deleteFlyPhoto(flyId) {
+        const fly = this.flies.find(f => f.id === flyId);
+        if (!fly) return;
+
+        delete fly.photo;
+        this.saveFliesToStorage();
+        this.renderFlyBoxUI();
+
+        if (window.showSyncToast) {
+            window.showSyncToast(`🗑️ Removed photo from "${fly.name}"`);
+        }
+    },
+
     renderFlyBoxUI(filterCategory = 'all') {
         const container = document.getElementById('flybox-grid-container');
         if (!container) return;
@@ -382,11 +442,21 @@ const FlyBoxApp = {
             });
             const catchCount = Math.max(matchingCatches.length, fly.catchCount || 0);
 
+            const photoEl = fly.photo ? `
+                <div style="position: relative; width: 56px; height: 56px; flex-shrink: 0; cursor: pointer;" onclick="window.previewFlyPhoto('${fly.id}')" title="Tap to inspect fly photo">
+                    <img src="${fly.photo}" alt="${fly.name}" class="fly-card-img" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1.5px solid var(--accent-teal); box-shadow: 0 2px 8px rgba(0, 210, 255, 0.25);">
+                </div>
+            ` : `
+                <div style="position: relative; width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; background: rgba(0, 210, 255, 0.05); border-radius: 8px; border: 1px dashed rgba(0, 210, 255, 0.25); flex-shrink: 0;">
+                    <span style="font-size: 28px;">${fly.icon || '🪰'}</span>
+                </div>
+            `;
+
             return `
                 <div class="card glass fly-card" style="border-top: 3px solid var(--accent-teal); position: relative; padding: 16px;">
                     <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 32px;">${fly.icon || '🪰'}</span>
+                            ${photoEl}
                             <div>
                                 <h4 style="margin: 0; font-size: 15px; color: var(--text-primary);">${fly.name}</h4>
                                 <span class="badge" style="background: rgba(100, 255, 218, 0.12); color: var(--accent-teal); font-size: 10px; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px;">${fly.category}</span>
@@ -394,7 +464,12 @@ const FlyBoxApp = {
                                 ${catchCount > 0 ? `<span class="badge" style="background: rgba(46, 213, 115, 0.15); color: #2ed573; border: 1px solid rgba(46, 213, 115, 0.3); font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">🎣 ${catchCount} Catch${catchCount === 1 ? '' : 'es'}</span>` : ''}
                             </div>
                         </div>
-                        <button class="btn btn-sm btn-danger" onclick="FlyBoxApp.deleteFly('${fly.id}')" style="padding: 4px 8px; font-size: 11px;">&times;</button>
+                        <div style="display: flex; gap: 4px; align-items: center; flex-shrink: 0;">
+                            <button type="button" class="btn btn-sm btn-glass btn-fly-quick-cam" onclick="FlyBoxApp.triggerFlyPhotoUpload('${fly.id}')" title="${fly.photo ? 'Change Fly Photo' : 'Add Photo of Tied Fly'}" style="padding: 4px 7px; font-size: 11px; color: var(--accent-teal); border-color: rgba(0, 210, 255, 0.35);">
+                                📷
+                            </button>
+                            <button type="button" class="btn btn-sm btn-danger" onclick="FlyBoxApp.deleteFly('${fly.id}')" style="padding: 4px 8px; font-size: 11px;" title="Remove Fly">&times;</button>
+                        </div>
                     </div>
                     <p style="font-size: 12px; color: var(--text-secondary); margin: 8px 0; line-height: 1.4;">${fly.description || ''}</p>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.06); padding-top: 8px; font-size: 11px; color: var(--text-secondary);">
@@ -1021,9 +1096,98 @@ window.loadSampleHatchSpecimen = function(specimenKey) {
     if (window.showSyncToast) window.showSyncToast(`🔬 Loaded sample specimen: ${specimen.commonName}`);
 };
 
+// Lightweight Image Compressor Helper for Fly Photos
+async function resizeFlyPhoto(file, maxDimension = 1200) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            img.onload = () => {
+                let w = img.width;
+                let h = img.height;
+                if (w > maxDimension || h > maxDimension) {
+                    if (w > h) {
+                        h = Math.round((h * maxDimension) / w);
+                        w = maxDimension;
+                    } else {
+                        w = Math.round((w * maxDimension) / h);
+                        h = maxDimension;
+                    }
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                resolve(dataUrl);
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+// Lightbox & Fly Photo Zoom Modal Handlers
+window.__currentLightboxFlyId = null;
+
+window.previewFlyPhoto = function(flyId) {
+    const fly = window.FlyBoxApp && window.FlyBoxApp.flies.find(f => f.id === flyId);
+    if (!fly || !fly.photo) return;
+
+    window.__currentLightboxFlyId = flyId;
+    const modal = document.getElementById('modal-fly-photo-lightbox');
+    const title = document.getElementById('fly-lightbox-title');
+    const img = document.getElementById('fly-lightbox-img');
+    const details = document.getElementById('fly-lightbox-details');
+
+    if (title) title.textContent = `${fly.name}`;
+    if (img) img.src = fly.photo;
+    if (details) {
+        const hooks = Array.isArray(fly.hookSizes) ? fly.hookSizes.join(', ') : (fly.hookSizes || 'Standard');
+        details.innerHTML = `
+            <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 6px; flex-wrap: wrap;">
+                <span class="badge" style="background: rgba(100, 255, 218, 0.15); color: var(--accent-teal);">${fly.category}</span>
+                ${fly.region ? `<span class="badge" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-blue);">${fly.region}</span>` : ''}
+                <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: var(--accent-gold);">Hook: ${hooks}</span>
+            </div>
+            ${fly.description ? `<p style="margin: 6px 0 0 0; color: #cbd5e1;">${fly.description}</p>` : ''}
+        `;
+    }
+
+    if (modal) modal.classList.add('active');
+};
+
+window.closeFlyPhotoLightbox = function() {
+    const modal = document.getElementById('modal-fly-photo-lightbox');
+    if (modal) modal.classList.remove('active');
+    window.__currentLightboxFlyId = null;
+};
+
+window.changeFlyPhotoFromLightbox = function() {
+    const flyId = window.__currentLightboxFlyId;
+    window.closeFlyPhotoLightbox();
+    if (flyId && window.FlyBoxApp) {
+        window.FlyBoxApp.triggerFlyPhotoUpload(flyId);
+    }
+};
+
+window.removeFlyPhotoFromLightbox = function() {
+    const flyId = window.__currentLightboxFlyId;
+    if (!flyId || !window.FlyBoxApp) return;
+
+    if (confirm("Are you sure you want to remove the picture from this fly?")) {
+        window.FlyBoxApp.deleteFlyPhoto(flyId);
+        window.closeFlyPhotoLightbox();
+    }
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         if (window.FlyBoxApp) window.FlyBoxApp.init();
         if (window.recommendFlyPattern) window.recommendFlyPattern();
     }, 200);
 });
+

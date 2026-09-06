@@ -2686,3 +2686,32 @@ body.high-contrast-mode .badge {
     margin-top: 4px;
 }
 
+/* Virtual Fly Box Photo & Lightbox Enhancements */
+.fly-card-img {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease;
+}
+
+.fly-card-img:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 16px rgba(0, 210, 255, 0.45) !important;
+}
+
+.btn-fly-quick-cam {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.btn-fly-quick-cam:hover {
+    background: var(--accent-teal) !important;
+    color: #050a18 !important;
+    transform: scale(1.15);
+    box-shadow: 0 0 10px rgba(0, 210, 255, 0.6);
+}
+
+#modal-fly-photo-lightbox .modal-content {
+    background: rgba(10, 20, 38, 0.95);
+    border: 1px solid rgba(0, 210, 255, 0.3);
+    backdrop-filter: blur(20px);
+}
+
+
