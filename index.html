@@ -12,12 +12,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style -->
-    <link rel="stylesheet" href="styles.css?v=101490">
+    <link rel="stylesheet" href="styles.css?v=101510">
     <script>
         // Backcountry Offline PWA Service Worker Registration & Live Auto-Update Engine
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=101490')
+                navigator.serviceWorker.register('sw.js?v=101510')
                     .then(function(reg) {
                         console.log('[Backcountry SW] Registered successfully with scope:', reg.scope);
                         window.__BACKCOUNTRY_SW_REG__ = reg;
@@ -1149,7 +1149,8 @@
                         <h1>🪰 Virtual Fly Box &amp; Aquatic Insect Hatch Guide</h1>
                         <p class="subtitle">Seasonal Australian &amp; global entomology guide, water temperature hatch triggers, and your personal fly box compartments.</p>
                     </div>
-                    <div style="display: flex; gap: 10px;">
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn btn-glass btn-sm" onclick="window.backfillAllFliesToFlyBox({ silent: false })" title="Scan tackle, catches, and rigs to backfill missing flies into Fly Box">🔄 Sync &amp; Backfill Flies</button>
                         <button class="btn btn-glass btn-sm" onclick="FlyBoxApp.autoSyncCurrentRiverConditions()">🌊 Auto-Sync Stream Conditions</button>
                         <button class="btn btn-primary btn-sm" onclick="window.showAddFlyModal()">+ Add New Fly</button>
                     </div>
@@ -1507,6 +1508,15 @@
                                 <input type="text" id="sync-share-url" class="form-input" readonly style="font-size: 12px; flex-grow: 1;">
                                 <button class="btn btn-glass" onclick="window.copyMobileSyncLink()">📋 Copy</button>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Virtual Fly Box & Tackle Synchronization Card -->
+                    <div class="card glass mb-20" style="border-left: 4px solid var(--accent-teal);">
+                        <h3>🪰 Virtual Fly Box &amp; Tackle Synchronization</h3>
+                        <p class="text-secondary mb-15">Scan and backfill all flies from your Tackle Library, historical catch records, and custom rigs into your Virtual Fly Box without creating duplicates.</p>
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <button class="btn btn-primary" onclick="window.backfillAllFliesToFlyBox({ silent: false })">🔄 Sync &amp; Backfill All Flies</button>
                         </div>
                     </div>
 
@@ -2536,16 +2546,16 @@
     <!-- Scripts -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
-    <script src="db.js?v=101500"></script>
-    <script src="regulations.js?v=101500"></script>
-    <script src="weather.js?v=101500"></script>
-    <script src="exif.js?v=101500"></script>
-    <script src="map.js?v=101500"></script>
-    <script src="tackle_db.js?v=101500"></script>
-    <script src="fish_db.js?v=101500"></script>
-    <script src="fly_box.js?v=101500"></script>
-    <script src="knots.js?v=101500"></script>
-    <script src="auth.js?v=101500"></script>
-    <script src="app.js?v=101500"></script>
+    <script src="db.js?v=101510"></script>
+    <script src="regulations.js?v=101510"></script>
+    <script src="weather.js?v=101510"></script>
+    <script src="exif.js?v=101510"></script>
+    <script src="map.js?v=101510"></script>
+    <script src="tackle_db.js?v=101510"></script>
+    <script src="fish_db.js?v=101510"></script>
+    <script src="fly_box.js?v=101510"></script>
+    <script src="knots.js?v=101510"></script>
+    <script src="auth.js?v=101510"></script>
+    <script src="app.js?v=101510"></script>
 </body>
 </html>

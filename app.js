@@ -1831,6 +1831,7 @@ window.initMainApp = async function() {
             AppState.rigs = await window.DB.getAllRigs();
             renderTackleList();
             populateTackleDropdowns();
+            populateComboTackleDropdowns();
             populateRigDropdowns();
             updateStats();
             saveBackupData();
@@ -1962,6 +1963,9 @@ window.initMainApp = async function() {
                     <button class="btn btn-glass" onclick="window.showAddFlyModal()" style="display: flex; align-items: center; gap: 6px;">
                         <span>➕</span> Add New Fly
                     </button>
+                    <button class="btn btn-glass" onclick="window.backfillAllFliesToFlyBox({ silent: false })" style="display: flex; align-items: center; gap: 6px;" title="Scan tackle, catches, and rigs to backfill missing flies into Fly Box">
+                        <span>🔄</span> Sync &amp; Backfill Flies
+                    </button>
                 </div>
             `;
             elements.tackleList.appendChild(portalCard);
@@ -1975,7 +1979,10 @@ window.initMainApp = async function() {
                 legacyHeader.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
                         <span style="font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Flies in Tackle Storage (${tackleFlies.length})</span>
-                        <span style="font-size: 11px; color: var(--accent-teal);">✓ Mirrored to Fly Box</span>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <span style="font-size: 11px; color: var(--accent-teal);">✓ Mirrored to Fly Box</span>
+                            <button class="btn btn-glass btn-sm" onclick="window.backfillAllFliesToFlyBox({ silent: false })" style="font-size: 11px; padding: 2px 8px;">🔄 Sync Now</button>
+                        </div>
                     </div>
                 `;
                 elements.tackleList.appendChild(legacyHeader);
@@ -2212,25 +2219,27 @@ window.initMainApp = async function() {
 
         // Populate Point Fly and Dropper Fly directly from Virtual Fly Box
         const flyBoxFlies = (window.FlyBoxApp && Array.isArray(window.FlyBoxApp.flies)) ? window.FlyBoxApp.flies : [];
-        if (elements.rigComboPointFly) {
-            elements.rigComboPointFly.innerHTML = '<option value="">-- None / Select Point Fly from Fly Box --</option>';
+        const pointFlyEl = elements.rigComboPointFly || document.getElementById('rig-combo-point-fly');
+        if (pointFlyEl) {
+            pointFlyEl.innerHTML = '<option value="">-- None / Select Point Fly from Fly Box --</option>';
             flyBoxFlies.forEach(fly => {
                 const sizesStr = Array.isArray(fly.hookSizes) ? ` (${fly.hookSizes.join(', ')})` : (fly.hookSizes ? ` (${fly.hookSizes})` : '');
                 const opt = document.createElement('option');
                 opt.value = fly.name;
                 opt.textContent = `${fly.icon || '🪰'} ${fly.name}${sizesStr} [${fly.category || 'Fly'}]`;
-                elements.rigComboPointFly.appendChild(opt);
+                pointFlyEl.appendChild(opt);
             });
         }
 
-        if (elements.rigComboDropperFly) {
-            elements.rigComboDropperFly.innerHTML = '<option value="">-- None / Select Dropper Fly from Fly Box --</option>';
+        const dropperFlyEl = elements.rigComboDropperFly || document.getElementById('rig-combo-dropper-fly');
+        if (dropperFlyEl) {
+            dropperFlyEl.innerHTML = '<option value="">-- None / Select Dropper Fly from Fly Box --</option>';
             flyBoxFlies.forEach(fly => {
                 const sizesStr = Array.isArray(fly.hookSizes) ? ` (${fly.hookSizes.join(', ')})` : (fly.hookSizes ? ` (${fly.hookSizes})` : '');
                 const opt = document.createElement('option');
                 opt.value = fly.name;
                 opt.textContent = `${fly.icon || '🪰'} ${fly.name}${sizesStr} [${fly.category || 'Fly'}]`;
-                elements.rigComboDropperFly.appendChild(opt);
+                dropperFlyEl.appendChild(opt);
             });
         }
     }
@@ -6074,6 +6083,9 @@ window.initMainApp = async function() {
             // Reload lists
             await loadTackle();
             await loadCatches();
+            if (window.FlyBoxApp && typeof window.FlyBoxApp.backfillAllFlies === 'function') {
+                await window.FlyBoxApp.backfillAllFlies({ silent: true });
+            }
             
             // Re-center map to the Victoria catch coordinates
             if (window.AppMap && window.AppMap.map) {
@@ -7785,6 +7797,10 @@ window.initMainApp = async function() {
             await loadTackle();
             await loadCatches();
             await loadLicenses();
+            // Silent automatic backfill of all added flies into Virtual Fly Box
+            if (window.FlyBoxApp && typeof window.FlyBoxApp.backfillAllFlies === 'function') {
+                await window.FlyBoxApp.backfillAllFlies({ silent: true });
+            }
         } catch (e) {
             console.error("Database background init notice", e);
         }

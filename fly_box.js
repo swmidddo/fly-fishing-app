@@ -603,10 +603,259 @@ const FlyBoxApp = {
 
     renderHatchMatcherUI() {
         this.renderHatchGuideUI();
+    },
+
+    async backfillAllFlies(options = {}) {
+        const silent = options && options.silent === true;
+        let tackleAdded = 0;
+        let catchesAdded = 0;
+        let rigsAdded = 0;
+        let enrichedCount = 0;
+
+        // 1. Ensure flies are loaded in memory
+        if (!Array.isArray(this.flies) || this.flies.length === 0) {
+            this.loadFliesFromStorage();
+        }
+
+        // Helper: Find existing fly by clean name (case-insensitive & trimmed)
+        const findFly = (name) => {
+            if (!name || typeof name !== 'string') return null;
+            const clean = name.trim().toLowerCase();
+            return this.flies.find(f => (f.name || '').trim().toLowerCase() === clean);
+        };
+
+        // Helper: Extract hook size (e.g., "#14", "size 12", "#6/0")
+        const extractHookSize = (str) => {
+            if (!str || typeof str !== 'string') return null;
+            const m = str.match(/(?:#|hook\s*|size\s*)?([0-9]{1,2}(?:\/0)?)/i);
+            if (m) {
+                return m[0].startsWith('#') ? m[0] : `#${m[1]}`;
+            }
+            return null;
+        };
+
+        // Helper: Infer category and icon from text & waterType
+        const inferCategoryAndIcon = (text, waterType = 'freshwater') => {
+            const lower = (text || '').toLowerCase();
+            if (lower.includes('nymph') || lower.includes('beadhead') || lower.includes('scud') || lower.includes('copper') || lower.includes('ptn') || lower.includes('hare') || lower.includes('buzzer') || lower.includes('bloodworm') || lower.includes('pupa')) {
+                return { category: 'Nymph', icon: '🪱' };
+            }
+            if (lower.includes('streamer') || lower.includes('bugger') || lower.includes('zonker') || lower.includes('matuka') || lower.includes('leech') || lower.includes('clouser') || lower.includes('deceiver') || lower.includes('pig') || lower.includes('minnow') || lower.includes('rabbit')) {
+                return { category: 'Streamer', icon: '🪶' };
+            }
+            if (waterType === 'saltwater' || lower.includes('saltwater') || lower.includes('crab') || lower.includes('shrimp') || lower.includes('squid') || lower.includes('charlie') || lower.includes('bonefish') || lower.includes('tarpon') || lower.includes('gotcha') || lower.includes('surf candy') || lower.includes('flathead')) {
+                return { category: 'Saltwater', icon: '🦐' };
+            }
+            if (lower.includes('hopper') || lower.includes('beetle') || lower.includes('ant') || lower.includes('cicada') || lower.includes('cricket') || lower.includes('blowfly')) {
+                return { category: 'Dry Fly', icon: '🪲' };
+            }
+            return { category: 'Dry Fly', icon: '🦟' };
+        };
+
+        // 2. Scan Tackle Library Items where type === 'fly'
+        let allTackle = [];
+        if (window.DB && typeof window.DB.getAllTackle === 'function') {
+            try {
+                allTackle = await window.DB.getAllTackle();
+            } catch (e) {
+                console.warn("[FlyBox Backfill] Could not read tackle from DB:", e);
+            }
+        }
+        if ((!allTackle || allTackle.length === 0) && window.AppState && Array.isArray(window.AppState.tackle)) {
+            allTackle = window.AppState.tackle;
+        }
+
+        if (Array.isArray(allTackle)) {
+            const tackleFlies = allTackle.filter(item => item && item.type === 'fly');
+            for (const item of tackleFlies) {
+                const rawName = (item.name || '').trim();
+                if (!rawName) continue;
+
+                let existing = findFly(rawName);
+                const specSize = extractHookSize(item.spec) || (item.spec ? item.spec.trim() : null);
+                const { category, icon } = inferCategoryAndIcon(`${rawName} ${item.spec || ''} ${item.notes || ''}`);
+
+                if (existing) {
+                    let changed = false;
+                    if (item.photo && !existing.photo) {
+                        existing.photo = item.photo;
+                        changed = true;
+                    }
+                    if (specSize && (!existing.hookSizes || !existing.hookSizes.length || !existing.hookSizes.includes(specSize))) {
+                        if (!existing.hookSizes) existing.hookSizes = [];
+                        if (!existing.hookSizes.includes(specSize)) existing.hookSizes.push(specSize);
+                        changed = true;
+                    }
+                    if (item.notes && !existing.description) {
+                        existing.description = item.notes;
+                        changed = true;
+                    }
+                    if (changed) enrichedCount++;
+                } else {
+                    const newFly = {
+                        id: 'fly_tackle_' + (item.id || (Date.now() + Math.floor(Math.random() * 10000))),
+                        name: rawName,
+                        category: category,
+                        region: item.brand ? `${item.brand}` : 'Stocked Fly',
+                        seasons: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+                        hookSizes: [specSize || '#14'],
+                        icon: icon,
+                        photo: item.photo || null,
+                        description: item.notes || `${item.brand ? item.brand + ' ' : ''}${rawName} fly pattern imported from tackle library.`,
+                        rating: 5,
+                        catchCount: 0
+                    };
+                    this.flies.push(newFly);
+                    tackleAdded++;
+                }
+            }
+        }
+
+        // 3. Scan All Historical Catches
+        let allCatches = [];
+        if (window.DB && typeof window.DB.getAllCatches === 'function') {
+            try {
+                allCatches = await window.DB.getAllCatches();
+            } catch (e) {
+                console.warn("[FlyBox Backfill] Could not read catches from DB:", e);
+            }
+        }
+        if ((!allCatches || allCatches.length === 0) && window.AppState && Array.isArray(window.AppState.catches)) {
+            allCatches = window.AppState.catches;
+        }
+
+        if (Array.isArray(allCatches)) {
+            for (const c of allCatches) {
+                const flyName = (c && (c.fly || c.lure)) ? (c.fly || c.lure).trim() : '';
+                if (!flyName || flyName.toLowerCase() === 'select fly/lure...' || flyName.toLowerCase() === 'standard pattern') continue;
+
+                let existing = findFly(flyName);
+                if (!existing) {
+                    // Check if removing hook size matches an existing base fly name
+                    const hookSize = extractHookSize(flyName);
+                    const baseClean = flyName.replace(/(?:#|hook\s*|size\s*)[0-9]{1,2}(?:\/0)?/gi, '').replace(/[-–()]/g, '').trim().toLowerCase();
+                    if (baseClean.length >= 4) {
+                        existing = this.flies.find(f => {
+                            const fBase = f.name.replace(/(?:#|hook\s*|size\s*)[0-9]{1,2}(?:\/0)?/gi, '').replace(/[-–()]/g, '').trim().toLowerCase();
+                            return fBase === baseClean;
+                        });
+                    }
+
+                    if (existing) {
+                        if (hookSize && (!existing.hookSizes || !existing.hookSizes.includes(hookSize))) {
+                            if (!existing.hookSizes) existing.hookSizes = [];
+                            existing.hookSizes.push(hookSize);
+                            enrichedCount++;
+                        }
+                    } else {
+                        const { category, icon } = inferCategoryAndIcon(flyName, c.waterType);
+                        const newFly = {
+                            id: 'fly_catch_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                            name: flyName,
+                            category: category,
+                            region: c.waterType === 'saltwater' ? 'Estuary / Saltwater' : 'Rivers & Lakes',
+                            seasons: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+                            hookSizes: [hookSize || '#14'],
+                            icon: icon,
+                            description: `Auto-cataloged from successful catch on ${c.date ? new Date(c.date).toLocaleDateString() : 'river trip'}.`,
+                            rating: 5,
+                            catchCount: 0
+                        };
+                        this.flies.push(newFly);
+                        catchesAdded++;
+                    }
+                }
+            }
+
+            // Recalculate precise catchCount for ALL flies based on historical catches
+            for (const fly of this.flies) {
+                const flyLower = fly.name.toLowerCase().trim();
+                const matchingCatches = allCatches.filter(c => {
+                    if (!c) return false;
+                    const cFly = (c.fly || c.lure || '').toLowerCase().trim();
+                    if (!cFly) return false;
+                    return cFly === flyLower || cFly.includes(flyLower) || flyLower.includes(cFly);
+                });
+                fly.catchCount = matchingCatches.length;
+            }
+        }
+
+        // 4. Scan Saved Combos / Rigs
+        let allRigs = [];
+        if (window.DB && typeof window.DB.getAllRigs === 'function') {
+            try {
+                allRigs = await window.DB.getAllRigs();
+            } catch (e) {
+                console.warn("[FlyBox Backfill] Could not read rigs from DB:", e);
+            }
+        }
+        if ((!allRigs || allRigs.length === 0) && window.AppState && Array.isArray(window.AppState.rigs)) {
+            allRigs = window.AppState.rigs;
+        }
+
+        if (Array.isArray(allRigs)) {
+            for (const rig of allRigs) {
+                const rigFlies = [rig.pointFly, rig.dropperFly].filter(Boolean);
+                for (const rf of rigFlies) {
+                    const cleanRf = rf.trim();
+                    if (!cleanRf) continue;
+                    let existing = findFly(cleanRf);
+                    if (!existing) {
+                        const hookSize = extractHookSize(cleanRf) || '#14';
+                        const { category, icon } = inferCategoryAndIcon(cleanRf);
+                        const newFly = {
+                            id: 'fly_rig_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                            name: cleanRf,
+                            category: category,
+                            region: 'Rig Pattern',
+                            seasons: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+                            hookSizes: [hookSize],
+                            icon: icon,
+                            description: `Configured in saved rig "${rig.name}".`,
+                            rating: 5,
+                            catchCount: 0
+                        };
+                        this.flies.push(newFly);
+                        rigsAdded++;
+                    }
+                }
+            }
+        }
+
+        const totalNewlyAdded = tackleAdded + catchesAdded + rigsAdded;
+        if (totalNewlyAdded > 0 || enrichedCount > 0 || (Array.isArray(allCatches) && allCatches.length > 0)) {
+            this.saveFliesToStorage();
+            this.renderFlyBoxUI();
+            if (window.populateFlyDropdowns) window.populateFlyDropdowns();
+            if (window.populateComboTackleDropdowns) window.populateComboTackleDropdowns();
+            if (window.renderTackleList) window.renderTackleList();
+        }
+
+        const summaryMsg = totalNewlyAdded > 0 
+            ? `🔄 Backfilled ${totalNewlyAdded} flies (${tackleAdded} from tackle, ${catchesAdded} from catches, ${rigsAdded} from rigs) into your Virtual Fly Box!`
+            : (enrichedCount > 0 
+                ? `🔄 Verified fly collection: enriched ${enrichedCount} existing flies with photos/sizes and synced catch counts!`
+                : `✅ All flies up-to-date! Your Virtual Fly Box is in full sync with your tackle, catches, and rigs (${this.flies.length} total patterns).`);
+
+        if (!silent) {
+            if (window.showSyncToast) window.showSyncToast(summaryMsg);
+            else alert(summaryMsg);
+        }
+
+        console.log(`[FlyBox Backfill] Complete: +${tackleAdded} tackle flies, +${catchesAdded} catch flies, +${rigsAdded} rig flies, ${enrichedCount} enriched. Total stocked flies: ${this.flies.length}.`);
+
+        return {
+            tackleAdded,
+            catchesAdded,
+            rigsAdded,
+            enrichedCount,
+            totalFlies: this.flies.length
+        };
     }
 };
 
 window.FlyBoxApp = FlyBoxApp;
+window.backfillAllFliesToFlyBox = (options) => window.FlyBoxApp.backfillAllFlies(options);
 
 window.recommendFlyPattern = function() {
     const targetEl = document.getElementById('hatch-wizard-target');
