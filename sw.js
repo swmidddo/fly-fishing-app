@@ -42,7 +42,6 @@ const CORE_ASSETS = [
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
     'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
-    'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js',
     'https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap'
 ];
 
@@ -105,7 +104,7 @@ self.addEventListener('fetch', (event) => {
                 })
                 .catch(() => {
                     console.log('[Backcountry SW] Offline navigation requested - serving cached app shell');
-                    return caches.match('./') || caches.match('index.html');
+                    return caches.match('./').then(res => res || caches.match('index.html'));
                 })
         );
         return;

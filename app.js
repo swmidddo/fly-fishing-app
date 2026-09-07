@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101500';
+window.APP_VERSION = 'v101520';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -445,7 +445,99 @@ window.loadWeatherAndTides = async function(lat, lon, forceRefresh = false) {
     }
 };
 
+// Global Tackle & Rig Disambiguation & Dropdown Engines (Available at parse time)
+window.getTackleDisambiguatedLabel = function(item, allTackleList) {
+    if (!item) return 'Tackle Item';
+    const specStr = item.spec ? ` (${item.spec})` : '';
+    const brandStr = item.brand ? `${item.brand} ` : '';
+    const baseName = `${brandStr}${item.name}${specStr}`.trim();
+
+    if (item.nickname && item.nickname.trim()) {
+        return `${baseName} • [${item.nickname.trim()}]`;
+    }
+
+    if (Array.isArray(allTackleList)) {
+        const duplicates = allTackleList.filter(t => 
+            t && t.type === item.type && 
+            (t.name || '').trim().toLowerCase() === (item.name || '').trim().toLowerCase() &&
+            (t.brand || '').trim().toLowerCase() === (item.brand || '').trim().toLowerCase() &&
+            (t.spec || '').trim().toLowerCase() === (item.spec || '').trim().toLowerCase()
+        );
+
+        if (duplicates.length > 1) {
+            const index = duplicates.findIndex(t => t && t.id === item.id);
+            return `${baseName} (#${index >= 0 ? index + 1 : 1})`;
+        }
+    }
+
+    return baseName;
+};
+
+window.populateComboTackleDropdowns = function() {
+    const rodEl = document.getElementById('rig-combo-rod');
+    const reelEl = document.getElementById('rig-combo-reel');
+    const lineEl = document.getElementById('rig-combo-line');
+    const leaderEl = document.getElementById('rig-combo-leader');
+    const tippetEl = document.getElementById('rig-combo-tippet');
+
+    if (rodEl) rodEl.innerHTML = '<option value="">Select a Rod from Library...</option>';
+    if (reelEl) reelEl.innerHTML = '<option value="">Select a Reel from Library...</option>';
+    if (lineEl) lineEl.innerHTML = '<option value="">Select a Fly Line from Library...</option>';
+    if (leaderEl) leaderEl.innerHTML = '<option value="">Select a Leader...</option>';
+    if (tippetEl) tippetEl.innerHTML = '<option value="">Select a Tippet...</option>';
+
+    const AppState = window.AppState;
+    if (AppState && Array.isArray(AppState.tackle)) {
+        AppState.tackle.forEach(item => {
+            if (!item) return;
+            const labelText = window.getTackleDisambiguatedLabel(item, AppState.tackle);
+            const option = `<option value="${item.id}">${labelText}</option>`;
+            
+            if (item.type === 'rod' && rodEl) rodEl.insertAdjacentHTML('beforeend', option);
+            else if (item.type === 'reel' && reelEl) reelEl.insertAdjacentHTML('beforeend', option);
+            else if (item.type === 'flyline' && lineEl) lineEl.insertAdjacentHTML('beforeend', option);
+            else if (item.type === 'leader' && leaderEl) leaderEl.insertAdjacentHTML('beforeend', option);
+            else if (item.type === 'tippet' && tippetEl) tippetEl.insertAdjacentHTML('beforeend', option);
+        });
+    }
+
+    // Populate Point Fly and Dropper Fly directly from Virtual Fly Box
+    const flyBoxFlies = (window.FlyBoxApp && Array.isArray(window.FlyBoxApp.flies)) ? window.FlyBoxApp.flies : [];
+    const pointFlyEl = document.getElementById('rig-combo-point-fly');
+    if (pointFlyEl) {
+        const currentPointVal = pointFlyEl.value;
+        pointFlyEl.innerHTML = '<option value="">-- None / Select Point Fly from Fly Box --</option>';
+        flyBoxFlies.forEach(fly => {
+            if (!fly) return;
+            const sizesStr = Array.isArray(fly.hookSizes) ? ` (${fly.hookSizes.join(', ')})` : (fly.hookSizes ? ` (${fly.hookSizes})` : '');
+            const opt = document.createElement('option');
+            opt.value = fly.name;
+            opt.textContent = `${fly.icon || '🪰'} ${fly.name}${sizesStr} [${fly.category || 'Fly'}]`;
+            pointFlyEl.appendChild(opt);
+        });
+        if (currentPointVal) pointFlyEl.value = currentPointVal;
+    }
+
+    const dropperFlyEl = document.getElementById('rig-combo-dropper-fly');
+    if (dropperFlyEl) {
+        const currentDropperVal = dropperFlyEl.value;
+        dropperFlyEl.innerHTML = '<option value="">-- None / Select Dropper Fly from Fly Box --</option>';
+        flyBoxFlies.forEach(fly => {
+            if (!fly) return;
+            const sizesStr = Array.isArray(fly.hookSizes) ? ` (${fly.hookSizes.join(', ')})` : (fly.hookSizes ? ` (${fly.hookSizes})` : '');
+            const opt = document.createElement('option');
+            opt.value = fly.name;
+            opt.textContent = `${fly.icon || '🪰'} ${fly.name}${sizesStr} [${fly.category || 'Fly'}]`;
+            dropperFlyEl.appendChild(opt);
+        });
+        if (currentDropperVal) dropperFlyEl.value = currentDropperVal;
+    }
+};
+
+let appInitialized = false;
 window.initMainApp = async function() {
+    if (appInitialized) return;
+    appInitialized = true;
     const initMainApp = window.initMainApp;
     // App State
     const savedCoordsStr = localStorage.getItem('user_last_coords');
@@ -2198,49 +2290,64 @@ window.initMainApp = async function() {
 
     // Populate dropdowns inside the Combo modal with Rods, Reels, Lines, Leaders, Tippets, and Flies from Fly Box
     function populateComboTackleDropdowns() {
-        if (!elements.rigComboRod) return;
-        
-        elements.rigComboRod.innerHTML = '<option value="">Select a Rod from Library...</option>';
-        elements.rigComboReel.innerHTML = '<option value="">Select a Reel from Library...</option>';
-        elements.rigComboLine.innerHTML = '<option value="">Select a Fly Line from Library...</option>';
-        elements.rigComboLeader.innerHTML = '<option value="">Select a Leader...</option>';
-        elements.rigComboTippet.innerHTML = '<option value="">Select a Tippet...</option>';
+        const rodEl = (elements && elements.rigComboRod) || document.getElementById('rig-combo-rod');
+        const reelEl = (elements && elements.rigComboReel) || document.getElementById('rig-combo-reel');
+        const lineEl = (elements && elements.rigComboLine) || document.getElementById('rig-combo-line');
+        const leaderEl = (elements && elements.rigComboLeader) || document.getElementById('rig-combo-leader');
+        const tippetEl = (elements && elements.rigComboTippet) || document.getElementById('rig-combo-tippet');
 
-        AppState.tackle.forEach(item => {
-            const labelText = getTackleDisambiguatedLabel(item, AppState.tackle);
-            const option = `<option value="${item.id}">${labelText}</option>`;
-            
-            if (item.type === 'rod') elements.rigComboRod.insertAdjacentHTML('beforeend', option);
-            else if (item.type === 'reel') elements.rigComboReel.insertAdjacentHTML('beforeend', option);
-            else if (item.type === 'flyline') elements.rigComboLine.insertAdjacentHTML('beforeend', option);
-            else if (item.type === 'leader') elements.rigComboLeader.insertAdjacentHTML('beforeend', option);
-            else if (item.type === 'tippet') elements.rigComboTippet.insertAdjacentHTML('beforeend', option);
-        });
+        if (rodEl) rodEl.innerHTML = '<option value="">Select a Rod from Library...</option>';
+        if (reelEl) reelEl.innerHTML = '<option value="">Select a Reel from Library...</option>';
+        if (lineEl) lineEl.innerHTML = '<option value="">Select a Fly Line from Library...</option>';
+        if (leaderEl) leaderEl.innerHTML = '<option value="">Select a Leader...</option>';
+        if (tippetEl) tippetEl.innerHTML = '<option value="">Select a Tippet...</option>';
+
+        if (AppState && Array.isArray(AppState.tackle)) {
+            AppState.tackle.forEach(item => {
+                if (!item) return;
+                const labelText = (typeof getTackleDisambiguatedLabel === 'function')
+                    ? getTackleDisambiguatedLabel(item, AppState.tackle)
+                    : (item.name || 'Tackle Item');
+                const option = `<option value="${item.id}">${labelText}</option>`;
+                
+                if (item.type === 'rod' && rodEl) rodEl.insertAdjacentHTML('beforeend', option);
+                else if (item.type === 'reel' && reelEl) reelEl.insertAdjacentHTML('beforeend', option);
+                else if (item.type === 'flyline' && lineEl) lineEl.insertAdjacentHTML('beforeend', option);
+                else if (item.type === 'leader' && leaderEl) leaderEl.insertAdjacentHTML('beforeend', option);
+                else if (item.type === 'tippet' && tippetEl) tippetEl.insertAdjacentHTML('beforeend', option);
+            });
+        }
 
         // Populate Point Fly and Dropper Fly directly from Virtual Fly Box
         const flyBoxFlies = (window.FlyBoxApp && Array.isArray(window.FlyBoxApp.flies)) ? window.FlyBoxApp.flies : [];
-        const pointFlyEl = elements.rigComboPointFly || document.getElementById('rig-combo-point-fly');
+        const pointFlyEl = (elements && elements.rigComboPointFly) || document.getElementById('rig-combo-point-fly');
         if (pointFlyEl) {
+            const currentPointVal = pointFlyEl.value;
             pointFlyEl.innerHTML = '<option value="">-- None / Select Point Fly from Fly Box --</option>';
             flyBoxFlies.forEach(fly => {
+                if (!fly) return;
                 const sizesStr = Array.isArray(fly.hookSizes) ? ` (${fly.hookSizes.join(', ')})` : (fly.hookSizes ? ` (${fly.hookSizes})` : '');
                 const opt = document.createElement('option');
                 opt.value = fly.name;
                 opt.textContent = `${fly.icon || '🪰'} ${fly.name}${sizesStr} [${fly.category || 'Fly'}]`;
                 pointFlyEl.appendChild(opt);
             });
+            if (currentPointVal) pointFlyEl.value = currentPointVal;
         }
 
-        const dropperFlyEl = elements.rigComboDropperFly || document.getElementById('rig-combo-dropper-fly');
+        const dropperFlyEl = (elements && elements.rigComboDropperFly) || document.getElementById('rig-combo-dropper-fly');
         if (dropperFlyEl) {
+            const currentDropperVal = dropperFlyEl.value;
             dropperFlyEl.innerHTML = '<option value="">-- None / Select Dropper Fly from Fly Box --</option>';
             flyBoxFlies.forEach(fly => {
+                if (!fly) return;
                 const sizesStr = Array.isArray(fly.hookSizes) ? ` (${fly.hookSizes.join(', ')})` : (fly.hookSizes ? ` (${fly.hookSizes})` : '');
                 const opt = document.createElement('option');
                 opt.value = fly.name;
                 opt.textContent = `${fly.icon || '🪰'} ${fly.name}${sizesStr} [${fly.category || 'Fly'}]`;
                 dropperFlyEl.appendChild(opt);
             });
+            if (currentDropperVal) dropperFlyEl.value = currentDropperVal;
         }
     }
     window.populateComboTackleDropdowns = populateComboTackleDropdowns;
@@ -2427,6 +2534,18 @@ window.initMainApp = async function() {
             };
             window.FlyBoxApp.flies.unshift(fly);
         }
+
+        // If user previously deleted this fly from fly box but now explicitly saves it in Tackle, un-mark it as deleted
+        if (item.id) {
+            try {
+                const deleted = JSON.parse(localStorage.getItem('deleted_tackle_fly_ids') || '[]');
+                const tid = String(item.id);
+                if (deleted.includes(tid)) {
+                    localStorage.setItem('deleted_tackle_fly_ids', JSON.stringify(deleted.filter(id => id !== tid)));
+                }
+            } catch(e){}
+        }
+
         window.FlyBoxApp.saveFliesToStorage();
         window.FlyBoxApp.renderFlyBoxUI();
         if (window.populateFlyDropdowns) window.populateFlyDropdowns();
@@ -4889,7 +5008,7 @@ window.initMainApp = async function() {
                     <tr>
                         <td>
                             <div style="width: 70px; height: 44px; background: #ffffff; border-radius: 6px; display: flex; align-items: center; justify-content: center; padding: 2px; border: 1px solid rgba(255,255,255,0.15);">
-                                <img src="${imgUrl}" alt="${fish.name}" onerror="this.onerror=null; this.src='images/dpi_illustrations/rainbow_trout.jpg';" style="max-width: 100%; max-height: 100%; object-fit: contain; cursor: pointer;" onclick="window.viewEnlargedPhoto('${imgUrl}', '${fish.name}')" title="Click to view scientific illustration">
+                                <img src="${imgUrl}" alt="${fish.name}" loading="lazy" decoding="async" onerror="this.onerror=null; this.src='images/dpi_illustrations/rainbow_trout.jpg';" style="max-width: 100%; max-height: 100%; object-fit: contain; cursor: pointer;" onclick="window.viewEnlargedPhoto('${imgUrl}', '${fish.name}')" title="Click to view scientific illustration">
                             </div>
                         </td>
                         <td style="color: var(--accent-blue); font-weight:700;">${item.state}</td>
@@ -4917,7 +5036,7 @@ window.initMainApp = async function() {
                 cardsGrid.insertAdjacentHTML('beforeend', `
                     <div class="card glass shadow-lg" style="padding: 0; overflow: hidden; border: 1px solid var(--border-color); display: flex; flex-direction: column;">
                         <div style="position: relative; height: 160px; overflow: hidden; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 12px;">
-                            <img src="${imgUrl}" alt="${fish.name}" onerror="this.onerror=null; this.src='images/dpi_illustrations/rainbow_trout.jpg';" style="max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.4s ease;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
+                            <img src="${imgUrl}" alt="${fish.name}" loading="lazy" decoding="async" onerror="this.onerror=null; this.src='images/dpi_illustrations/rainbow_trout.jpg';" style="max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.4s ease;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
                             <span class="badge" style="position: absolute; top: 10px; right: 10px; background: rgba(0, 210, 255, 0.85); color: #fff; font-weight: 700; font-size: 11px;">${item.state}</span>
                             <div style="position: absolute; top: 10px; left: 10px;">${statusInfo.badgeHtml}</div>
                             <span class="badge" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: var(--accent-teal); font-size: 10.5px; text-transform: uppercase;">${dbMatch ? dbMatch.category : (item.waterType || 'Fish Species')}</span>
@@ -9071,7 +9190,7 @@ Respond ONLY in valid JSON format:
                     await reg.update();
                 }
             }
-            if (window.showSyncToast) window.showSyncToast("✨ App is on the latest build (v100980)!");
+            if (window.showSyncToast) window.showSyncToast(`✨ App is on the latest build (${window.APP_VERSION || 'v101520'})!`);
         } catch(e) {
             console.warn("Update check error:", e);
         }
@@ -9080,6 +9199,7 @@ Respond ONLY in valid JSON format:
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => window.initMainApp());
+    window.addEventListener('load', () => window.initMainApp());
 } else {
     window.initMainApp();
 }

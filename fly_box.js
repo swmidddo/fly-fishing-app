@@ -244,10 +244,12 @@ function getFlyNameForTackleItem(item, allTackleFlies) {
     // 4. Check Notes for a color descriptor
     const notes = (item.notes || '').trim();
     if (notes) {
-        const colorMatch = notes.match(/\b(black|purple|olive|chartreuse|orange|red|yellow|white|pink|brown|tan|blue|green|gold|silver|grey|gray|copper|claret|dun|grizzly)\b/i);
+        const colorRegex = /\b(black|purple|olive|chartreuse|orange|red|yellow|white|pink|brown|tan|blue|green|gold|silver|grey|gray|copper|claret|dun|grizzly)(?:(?:[\s\/\-&]+|\s+and\s+)(black|purple|olive|chartreuse|orange|red|yellow|white|pink|brown|tan|blue|green|gold|silver|grey|gray|copper|claret|dun|grizzly))?\b/i;
+        const colorMatch = notes.match(colorRegex);
         if (colorMatch) {
-            const capColor = colorMatch[1].charAt(0).toUpperCase() + colorMatch[1].slice(1).toLowerCase();
-            return `${rawName} (${capColor})`;
+            const c1 = colorMatch[1].charAt(0).toUpperCase() + colorMatch[1].slice(1).toLowerCase();
+            const c2 = colorMatch[2] ? ('/' + colorMatch[2].charAt(0).toUpperCase() + colorMatch[2].slice(1).toLowerCase()) : '';
+            return `${rawName} (${c1}${c2})`;
         }
         if (notes.length <= 20 && !notes.includes('\n')) {
             return `${rawName} (${notes})`;
@@ -255,8 +257,8 @@ function getFlyNameForTackleItem(item, allTackleFlies) {
     }
 
     // 5. Fallback: Number them (Variant 1, Variant 2)
-    const allMatches = allTackleFlies.filter(t => (t.name || '').trim().toLowerCase() === rawName.toLowerCase());
-    const idx = allMatches.findIndex(t => t.id === item.id);
+    const allMatches = allTackleFlies.filter(t => t && (t.name || '').trim().toLowerCase() === rawName.toLowerCase());
+    const idx = allMatches.findIndex(t => t && t.id === item.id);
     return `${rawName} (Variant ${idx >= 0 ? idx + 1 : 1})`;
 }
 window.getFlyNameForTackleItem = getFlyNameForTackleItem;
@@ -299,7 +301,23 @@ const FlyBoxApp = {
     },
 
     saveFliesToStorage() {
-        localStorage.setItem('user_fly_box', JSON.stringify(this.flies));
+        try {
+            localStorage.setItem('user_fly_box', JSON.stringify(this.flies));
+        } catch (e) {
+            console.warn("[FlyBoxApp] localStorage quota notice, applying photo compression fallback:", e);
+            try {
+                // If storage quota is reached, compress oversized photo data strings in localStorage copy
+                const safeFlies = this.flies.map(f => {
+                    if (f.photo && f.photo.length > 40000) {
+                        return { ...f, photo: f.thumbnail || f.photo.slice(0, 1000) };
+                    }
+                    return f;
+                });
+                localStorage.setItem('user_fly_box', JSON.stringify(safeFlies));
+            } catch (err2) {
+                console.error("[FlyBoxApp] Failed to save flies to localStorage:", err2);
+            }
+        }
     },
 
     addFly(flyObj) {
@@ -507,19 +525,26 @@ const FlyBoxApp = {
         }
 
         const allCatches = (window.AppState && Array.isArray(window.AppState.catches)) ? window.AppState.catches : [];
+        const catchFlyList = allCatches.map(c => c && (c.fly || c.lure) ? (c.fly || c.lure).toLowerCase().trim() : '').filter(Boolean);
 
         container.innerHTML = displayFlies.map(fly => {
-            // Compute real-time catch count from Catch Logs
-            const matchingCatches = allCatches.filter(c => {
-                const cFly = (c.fly || c.lure || '').toLowerCase();
-                const fName = (fly.name || '').toLowerCase();
-                return cFly && (cFly.includes(fName) || fName.includes(cFly));
-            });
-            const catchCount = Math.max(matchingCatches.length, fly.catchCount || 0);
+            // Compute real-time catch count from Catch Logs with safe sub-string matching
+            const fName = (fly.name || '').toLowerCase().trim();
+            let catchCount = fly.catchCount || 0;
+            if (catchFlyList.length > 0 && fName) {
+                let liveMatches = 0;
+                for (let i = 0; i < catchFlyList.length; i++) {
+                    const cFly = catchFlyList[i];
+                    if (cFly === fName || cFly.includes(fName) || (cFly.length >= 4 && fName.includes(cFly))) {
+                        liveMatches++;
+                    }
+                }
+                catchCount = Math.max(liveMatches, catchCount);
+            }
 
             const photoEl = fly.photo ? `
                 <div style="position: relative; width: 56px; height: 56px; flex-shrink: 0; cursor: pointer;" onclick="window.previewFlyPhoto('${fly.id}')" title="Tap to inspect fly photo">
-                    <img src="${fly.photo}" alt="${fly.name}" class="fly-card-img" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1.5px solid var(--accent-teal); box-shadow: 0 2px 8px rgba(0, 210, 255, 0.25);">
+                    <img src="${fly.photo}" alt="${fly.name}" class="fly-card-img" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1.5px solid var(--accent-teal); box-shadow: 0 2px 8px rgba(0, 210, 255, 0.25);">
                 </div>
             ` : `
                 <div style="position: relative; width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; background: rgba(0, 210, 255, 0.05); border-radius: 8px; border: 1px dashed rgba(0, 210, 255, 0.25); flex-shrink: 0;">
@@ -1452,8 +1477,8 @@ window.loadSampleHatchSpecimen = function(specimenKey) {
     if (window.showSyncToast) window.showSyncToast(`🔬 Loaded sample specimen: ${specimen.commonName}`);
 };
 
-// Lightweight Image Compressor Helper for Fly Photos
-async function resizeFlyPhoto(file, maxDimension = 1200) {
+// Lightweight Image Compressor Helper for Fly Photos (600px provides crisp retina detail while saving 80% storage)
+async function resizeFlyPhoto(file, maxDimension = 600) {
     return new Promise((resolve, reject) => {
         const img = new Image();
         const reader = new FileReader();
@@ -1475,7 +1500,7 @@ async function resizeFlyPhoto(file, maxDimension = 1200) {
                 canvas.height = h;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, w, h);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
                 resolve(dataUrl);
             };
             img.onerror = reject;
