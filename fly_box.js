@@ -200,6 +200,67 @@ const DEFAULT_FLY_PATTERNS = [
     { id: "fly_crazy_charlie", name: "Crazy Charlie (Pink/Tan)", category: "Saltwater", region: "Global", seasons: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], hookSizes: ["#4", "#6"], icon: "🦐", description: "Legendary tropical flats fly for Bonefish, Permit, and Estuary Whiting.", rating: 5 }
 ];
 
+// Helper to determine the best display name for a tackle fly, preserving color/variant distinctions
+function getFlyNameForTackleItem(item, allTackleFlies) {
+    if (!item) return 'Custom Fly';
+    const rawName = (item.name || '').trim();
+    if (!rawName) return 'Custom Fly';
+
+    if (!Array.isArray(allTackleFlies) || allTackleFlies.length <= 1) {
+        return rawName;
+    }
+
+    // Find other tackle flies that share the same base name (case-insensitive)
+    const sameNameSiblings = allTackleFlies.filter(t => 
+        t && t.id !== item.id && (t.name || '').trim().toLowerCase() === rawName.toLowerCase()
+    );
+
+    // If no other tackle fly shares this base name, use rawName
+    if (sameNameSiblings.length === 0) {
+        return rawName;
+    }
+
+    // There ARE multiple tackle flies with this same name (e.g. 2 "Bass Vampire" flies with different colors)
+    // 1. Check Nickname
+    const nick = (item.nickname || '').trim();
+    if (nick && !rawName.toLowerCase().includes(nick.toLowerCase())) {
+        return `${rawName} (${nick})`;
+    }
+
+    // 2. Check Spec (e.g. "Purple", "Black/Red", "#2 Olive", "#2")
+    const spec = (item.spec || '').trim();
+    if (spec && !rawName.toLowerCase().includes(spec.toLowerCase())) {
+        return `${rawName} (${spec})`;
+    }
+
+    // 3. Check Brand (if used for color or distinct style)
+    const brand = (item.brand || '').trim();
+    if (brand && !['custom', 'generic', 'none', 'unknown', 'my flies'].includes(brand.toLowerCase())) {
+        if (!rawName.toLowerCase().includes(brand.toLowerCase())) {
+            return `${rawName} (${brand})`;
+        }
+    }
+
+    // 4. Check Notes for a color descriptor
+    const notes = (item.notes || '').trim();
+    if (notes) {
+        const colorMatch = notes.match(/\b(black|purple|olive|chartreuse|orange|red|yellow|white|pink|brown|tan|blue|green|gold|silver|grey|gray|copper|claret|dun|grizzly)\b/i);
+        if (colorMatch) {
+            const capColor = colorMatch[1].charAt(0).toUpperCase() + colorMatch[1].slice(1).toLowerCase();
+            return `${rawName} (${capColor})`;
+        }
+        if (notes.length <= 20 && !notes.includes('\n')) {
+            return `${rawName} (${notes})`;
+        }
+    }
+
+    // 5. Fallback: Number them (Variant 1, Variant 2)
+    const allMatches = allTackleFlies.filter(t => (t.name || '').trim().toLowerCase() === rawName.toLowerCase());
+    const idx = allMatches.findIndex(t => t.id === item.id);
+    return `${rawName} (Variant ${idx >= 0 ? idx + 1 : 1})`;
+}
+window.getFlyNameForTackleItem = getFlyNameForTackleItem;
+
 const FlyBoxApp = {
     flies: [],
     pendingPhotoFlyId: null,
@@ -343,6 +404,16 @@ const FlyBoxApp = {
 
     deleteFly(flyId) {
         if (confirm("Are you sure you want to remove this fly from your fly box?")) {
+            if (flyId && typeof flyId === 'string' && flyId.startsWith('fly_tackle_')) {
+                try {
+                    const deleted = JSON.parse(localStorage.getItem('deleted_tackle_fly_ids') || '[]');
+                    const tid = flyId.replace('fly_tackle_', '');
+                    if (!deleted.includes(tid)) {
+                        deleted.push(tid);
+                        localStorage.setItem('deleted_tackle_fly_ids', JSON.stringify(deleted));
+                    }
+                } catch(e){}
+            }
             this.flies = this.flies.filter(f => f.id !== flyId);
             this.saveFliesToStorage();
             this.renderFlyBoxUI();
@@ -667,17 +738,49 @@ const FlyBoxApp = {
 
         if (Array.isArray(allTackle)) {
             const tackleFlies = allTackle.filter(item => item && item.type === 'fly');
+            let deletedTackleFlyIds = [];
+            try {
+                deletedTackleFlyIds = JSON.parse(localStorage.getItem('deleted_tackle_fly_ids') || '[]').map(String);
+            } catch (e) {}
+
             for (const item of tackleFlies) {
                 const rawName = (item.name || '').trim();
                 if (!rawName) continue;
+                // If user deliberately deleted this fly from fly box, skip it
+                if (item.id && deletedTackleFlyIds.includes(String(item.id))) {
+                    continue;
+                }
 
-                let existing = findFly(rawName);
+                const targetName = getFlyNameForTackleItem(item, tackleFlies);
+
+                // 1. Direct tackle ID link check
+                let existing = this.flies.find(f => f.id === 'fly_tackle_' + item.id);
+
+                // 2. If not found by ID, check by disambiguated target name
+                if (!existing) {
+                    existing = this.flies.find(f => (f.name || '').trim().toLowerCase() === targetName.toLowerCase());
+                }
+
+                // 3. If still not found, check if a fly exists with rawName, BUT ONLY if unclaimed by another tackle item
+                if (!existing) {
+                    const candidate = this.flies.find(f => (f.name || '').trim().toLowerCase() === rawName.toLowerCase());
+                    const isClaimedByOther = candidate && candidate.id.startsWith('fly_tackle_') && candidate.id !== 'fly_tackle_' + item.id;
+                    if (candidate && !isClaimedByOther) {
+                        existing = candidate;
+                    }
+                }
+
                 const specSize = extractHookSize(item.spec) || (item.spec ? item.spec.trim() : null);
                 const { category, icon } = inferCategoryAndIcon(`${rawName} ${item.spec || ''} ${item.notes || ''}`);
 
                 if (existing) {
                     let changed = false;
-                    if (item.photo && !existing.photo) {
+                    // If existing fly has rawName and targetName provides color disambiguation (e.g. Bass Vampire -> Bass Vampire (Black)), upgrade its name
+                    if (targetName !== existing.name && targetName.toLowerCase().startsWith(rawName.toLowerCase())) {
+                        existing.name = targetName;
+                        changed = true;
+                    }
+                    if (item.photo && (!existing.photo || existing.photo.length < 50)) {
                         existing.photo = item.photo;
                         changed = true;
                     }
@@ -694,14 +797,14 @@ const FlyBoxApp = {
                 } else {
                     const newFly = {
                         id: 'fly_tackle_' + (item.id || (Date.now() + Math.floor(Math.random() * 10000))),
-                        name: rawName,
+                        name: targetName,
                         category: category,
                         region: item.brand ? `${item.brand}` : 'Stocked Fly',
                         seasons: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
                         hookSizes: [specSize || '#14'],
                         icon: icon,
                         photo: item.photo || null,
-                        description: item.notes || `${item.brand ? item.brand + ' ' : ''}${rawName} fly pattern imported from tackle library.`,
+                        description: item.notes || `${item.brand ? item.brand + ' ' : ''}${targetName} fly pattern imported from tackle library.`,
                         rating: 5,
                         catchCount: 0
                     };

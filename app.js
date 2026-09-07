@@ -2357,29 +2357,51 @@ window.initMainApp = async function() {
     // Synchronize Fly item between Tackle Library and Virtual Fly Box
     window.syncTackleFlyToFlyBox = (item) => {
         if (!window.FlyBoxApp || !Array.isArray(window.FlyBoxApp.flies)) return;
-        const name = (item.name || '').trim();
-        if (!name) return;
+        const rawName = (item.name || '').trim();
+        if (!rawName) return;
+
+        const allTackleFlies = (AppState.tackle || []).filter(t => t && t.type === 'fly');
+        const targetName = (typeof window.getFlyNameForTackleItem === 'function')
+            ? window.getFlyNameForTackleItem(item, allTackleFlies)
+            : rawName;
+
         const spec = (item.spec || '').trim();
         const notes = (item.notes || '').trim();
         const photo = item.photo || null;
         const brand = (item.brand || '').trim();
 
-        // Check if fly already exists in FlyBoxApp.flies (match by name)
-        let fly = window.FlyBoxApp.flies.find(f => f.name.toLowerCase() === name.toLowerCase());
+        // 1. Direct tackle ID link check
+        let fly = window.FlyBoxApp.flies.find(f => f.id === 'fly_tackle_' + item.id);
+        // 2. Disambiguated target name check
+        if (!fly) {
+            fly = window.FlyBoxApp.flies.find(f => (f.name || '').trim().toLowerCase() === targetName.toLowerCase());
+        }
+        // 3. Raw name check if unclaimed by another tackle fly
+        if (!fly) {
+            const candidate = window.FlyBoxApp.flies.find(f => (f.name || '').trim().toLowerCase() === rawName.toLowerCase());
+            const isClaimedByOther = candidate && candidate.id.startsWith('fly_tackle_') && candidate.id !== 'fly_tackle_' + item.id;
+            if (candidate && !isClaimedByOther) {
+                fly = candidate;
+            }
+        }
+
         if (fly) {
+            if (targetName !== fly.name && targetName.toLowerCase().startsWith(rawName.toLowerCase())) {
+                fly.name = targetName;
+            }
             if (photo) fly.photo = photo;
             if (brand) fly.region = brand;
             if (spec && (!fly.hookSizes || !fly.hookSizes.length)) fly.hookSizes = [spec];
             if (notes && !fly.description) fly.description = notes;
         } else {
             // Categorize fly based on spec, name, or notes
-            const lower = (name + ' ' + spec + ' ' + notes).toLowerCase();
+            const lower = (rawName + ' ' + spec + ' ' + notes).toLowerCase();
             let category = 'Dry Fly';
             let icon = '🪰';
             if (lower.includes('nymph') || lower.includes('beadhead') || lower.includes('scud') || lower.includes('copper john') || lower.includes('hare')) {
                 category = 'Nymph';
                 icon = '🪱';
-            } else if (lower.includes('streamer') || lower.includes('bugger') || lower.includes('zonker') || lower.includes('minnow') || lower.includes('clouser') || lower.includes('leech')) {
+            } else if (lower.includes('streamer') || lower.includes('bugger') || lower.includes('zonker') || lower.includes('minnow') || lower.includes('clouser') || lower.includes('leech') || lower.includes('vampire')) {
                 category = 'Streamer';
                 icon = '🪶';
             } else if (lower.includes('saltwater') || lower.includes('crab') || lower.includes('shrimp') || lower.includes('candy') || lower.includes('deceiver') || lower.includes('charlie')) {
@@ -2392,14 +2414,14 @@ window.initMainApp = async function() {
 
             fly = {
                 id: 'fly_tackle_' + item.id,
-                name: name,
+                name: targetName,
                 category: category,
                 region: brand ? `${brand}` : 'Stocked Fly',
                 seasons: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
                 hookSizes: [spec || '#14'],
                 icon: icon,
                 photo: photo,
-                description: notes || `${brand ? brand + ' ' : ''}${name} fly pattern in your personal fly box.`,
+                description: notes || `${brand ? brand + ' ' : ''}${targetName} fly pattern in your personal fly box.`,
                 rating: 5,
                 catchCount: 0
             };
@@ -2408,6 +2430,7 @@ window.initMainApp = async function() {
         window.FlyBoxApp.saveFliesToStorage();
         window.FlyBoxApp.renderFlyBoxUI();
         if (window.populateFlyDropdowns) window.populateFlyDropdowns();
+        if (window.populateComboTackleDropdowns) window.populateComboTackleDropdowns();
     };
 
     // Tackle Modals

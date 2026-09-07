@@ -12,12 +12,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style -->
-    <link rel="stylesheet" href="styles.css?v=101510">
+    <link rel="stylesheet" href="styles.css?v=101520">
     <script>
         // Backcountry Offline PWA Service Worker Registration & Live Auto-Update Engine
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=101510')
+                navigator.serviceWorker.register('sw.js?v=101520')
                     .then(function(reg) {
                         console.log('[Backcountry SW] Registered successfully with scope:', reg.scope);
                         window.__BACKCOUNTRY_SW_REG__ = reg;
@@ -2544,18 +2544,18 @@
     </div>
 
     <!-- Scripts -->
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
-    <script src="db.js?v=101510"></script>
-    <script src="regulations.js?v=101510"></script>
-    <script src="weather.js?v=101510"></script>
-    <script src="exif.js?v=101510"></script>
-    <script src="map.js?v=101510"></script>
-    <script src="tackle_db.js?v=101510"></script>
-    <script src="fish_db.js?v=101510"></script>
-    <script src="fly_box.js?v=101510"></script>
-    <script src="knots.js?v=101510"></script>
-    <script src="auth.js?v=101510"></script>
-    <script src="app.js?v=101510"></script>
+    <script defer src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script defer src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+    <script src="db.js?v=101520"></script>
+    <script src="regulations.js?v=101520"></script>
+    <script src="weather.js?v=101520"></script>
+    <script src="exif.js?v=101520"></script>
+    <script src="map.js?v=101520"></script>
+    <script src="tackle_db.js?v=101520"></script>
+    <script src="fish_db.js?v=101520"></script>
+    <script src="fly_box.js?v=101520"></script>
+    <script src="knots.js?v=101520"></script>
+    <script src="auth.js?v=101520"></script>
+    <script src="app.js?v=101520"></script>
 </body>
 </html>
