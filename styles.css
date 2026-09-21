@@ -2109,7 +2109,7 @@ body.high-contrast-mode .badge {
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
         border-bottom: 1px solid rgba(0, 210, 255, 0.25);
-        padding: 10px 16px;
+        padding: max(12px, env(safe-area-inset-top)) 16px 10px 16px;
         margin: -16px -16px 16px -16px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
     }
@@ -2231,7 +2231,7 @@ body.high-contrast-mode .badge {
         border-top-left-radius: 24px;
         border-top-right-radius: 24px;
         border-top: 1.5px solid var(--accent-teal);
-        padding: 16px 20px 36px 20px;
+        padding: 16px 20px max(36px, calc(16px + env(safe-area-inset-bottom))) 20px;
         z-index: 1101;
         transition: bottom 0.35s cubic-bezier(0.16, 1, 0.3, 1);
         box-shadow: 0 -10px 35px rgba(0, 0, 0, 0.75);
@@ -2318,10 +2318,14 @@ body.high-contrast-mode .badge {
         margin: -16px -16px 0 -16px;
     }
 
-    /* Minimum 48px Touch Target Size for Mobile Buttons */
-    .btn, button, input, select, textarea {
+    /* Minimum 48px Touch Target Size for Mobile Buttons & 16px font to prevent iOS auto-zoom */
+    .btn, button {
         min-height: 48px;
         font-size: 15px !important;
+    }
+    input, select, textarea {
+        min-height: 48px;
+        font-size: 16px !important;
     }
 
     /* Mobile Fish Size & Legal Limits Banner Alignment & Enlarged View */
@@ -2757,5 +2761,27 @@ body.high-contrast-mode .badge {
     padding: 6px 10px;
     margin: 2px 0;
 }
+
+/* ==========================================================================
+   PWA Native Mobile Experience & Safe Area Foundations
+   ========================================================================== */
+html, body {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+}
+
+button, .btn, .nav-item, .mobile-drawer-card, .fly-card, .badge, .modal-close {
+    touch-action: manipulation;
+}
+
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .modal-content {
+        padding-bottom: max(28px, calc(20px + env(safe-area-inset-bottom)));
+    }
+    body {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+}
+
 
 

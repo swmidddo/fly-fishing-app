@@ -1,0 +1,73 @@
+{
+  "id": "middos-fly-fishing-companion",
+  "name": "Middo's Fly Fishing Companion",
+  "short_name": "Middo's Flies",
+  "description": "Off-grid companion for fly anglers: Virtual Fly Box, GPS hatch recon, catch logs, weather & tides, and state fish guides.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "any",
+  "theme_color": "#0a1128",
+  "background_color": "#0a1128",
+  "categories": [
+    "sports",
+    "utilities",
+    "lifestyle"
+  ],
+  "icons": [
+    {
+      "src": "images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Log Fish Catch",
+      "short_name": "Log Catch",
+      "description": "Quickly record a fish catch or river recon session",
+      "url": "./index.html?action=log-catch",
+      "icons": [
+        {
+          "src": "images/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Virtual Fly Box",
+      "short_name": "Fly Box",
+      "description": "View and manage your fly patterns and macro photos",
+      "url": "./index.html?tab=flybox",
+      "icons": [
+        {
+          "src": "images/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Interactive Map",
+      "short_name": "River Map",
+      "description": "GPS river recon, fishing spots, and offline beacons",
+      "url": "./index.html?tab=map",
+      "icons": [
+        {
+          "src": "images/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

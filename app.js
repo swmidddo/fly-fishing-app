@@ -80,9 +80,92 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101520';
+window.APP_VERSION = 'v101530';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
+
+// PWA Mobile Navigation & Android Hardware / Gesture Back Button Engine
+(function initPWAMobileNavigation() {
+    let isHistoryNavigating = false;
+
+    window.closeAnyActiveModal = function() {
+        let closed = false;
+
+        // 1. Close mobile drawer if open
+        const drawer = document.getElementById('mobile-nav-drawer') || document.getElementById('mobile-more-drawer');
+        if (drawer && drawer.classList.contains('active')) {
+            if (typeof window.toggleMobileNavDrawer === 'function') window.toggleMobileNavDrawer(false);
+            else if (typeof window.toggleMobileMoreDrawer === 'function') window.toggleMobileMoreDrawer(false);
+            else { drawer.classList.remove('active'); }
+            closed = true;
+        }
+
+        // 2. Close fly lightbox if open
+        const lightbox = document.getElementById('modal-fly-photo-lightbox');
+        if (lightbox && (lightbox.classList.contains('active') || lightbox.style.display === 'flex' || lightbox.style.display === 'block')) {
+            if (typeof window.closeFlyPhotoLightbox === 'function') window.closeFlyPhotoLightbox();
+            else { lightbox.classList.remove('active'); lightbox.style.display = 'none'; }
+            closed = true;
+        }
+
+        // 3. Close standard modals
+        const activeModals = document.querySelectorAll('.modal.active, .modal[style*="display: flex"], .modal[style*="display: block"]');
+        activeModals.forEach(m => {
+            if (m.id === 'modal-log-catch' && typeof window.hideLogCatchModal === 'function') window.hideLogCatchModal();
+            else if (m.id === 'modal-add-tackle' && typeof window.hideAddTackleModal === 'function') window.hideAddTackleModal();
+            else if (m.id === 'modal-view-catch' && typeof window.hideViewCatchModal === 'function') window.hideViewCatchModal();
+            else if (m.id === 'modal-knot-detail' && typeof window.hideKnotDetailModal === 'function') window.hideKnotDetailModal();
+            else if (m.id === 'modal-add-license' && typeof window.hideAddLicenseModal === 'function') window.hideAddLicenseModal();
+            else if (m.id === 'modal-auth' && typeof window.closeAuthModal === 'function') window.closeAuthModal();
+            else {
+                m.classList.remove('active');
+                m.style.display = 'none';
+            }
+            closed = true;
+        });
+
+        return closed;
+    };
+
+    // Listen for Android hardware / gesture back button
+    window.addEventListener('popstate', function(e) {
+        isHistoryNavigating = true;
+        const wasModalClosed = window.closeAnyActiveModal();
+        setTimeout(() => { isHistoryNavigating = false; }, 100);
+    });
+
+    // Helper for opening modals to push history entry
+    window.registerModalOpen = function(modalName) {
+        if (!isHistoryNavigating && (!history.state || !history.state.pwaModalOpen)) {
+            try {
+                history.pushState({ pwaModalOpen: true, modalName: modalName || 'modal' }, '');
+            } catch (e) {}
+        }
+    };
+
+    // Auto-observe all modals for seamless registration
+    if (typeof MutationObserver !== 'undefined') {
+        const observer = new MutationObserver((mutations) => {
+            for (const mut of mutations) {
+                if (mut.target && mut.target.classList && (mut.target.classList.contains('modal') || mut.target.id === 'mobile-more-drawer')) {
+                    if (mut.target.classList.contains('active') || mut.target.style.display === 'flex' || mut.target.style.display === 'block') {
+                        window.registerModalOpen(mut.target.id);
+                    }
+                }
+            }
+        });
+        const setupObserver = () => {
+            document.querySelectorAll('.modal, #mobile-more-drawer').forEach(m => {
+                observer.observe(m, { attributes: true, attributeFilter: ['class', 'style'] });
+            });
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupObserver);
+        } else {
+            setupObserver();
+        }
+    }
+})();
 
 // Top-Level Application State Container
 window.AppState = {
@@ -9190,7 +9273,7 @@ Respond ONLY in valid JSON format:
                     await reg.update();
                 }
             }
-            if (window.showSyncToast) window.showSyncToast(`✨ App is on the latest build (${window.APP_VERSION || 'v101520'})!`);
+            if (window.showSyncToast) window.showSyncToast(`✨ App is on the latest build (${window.APP_VERSION || 'v101530'})!`);
         } catch(e) {
             console.warn("Update check error:", e);
         }

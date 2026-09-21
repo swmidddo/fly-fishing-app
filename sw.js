@@ -1,5 +1,5 @@
 // sw.js - Middo's Fly Fishing Backcountry Offline Service Worker
-const CACHE_NAME = 'fly-fishing-v101520';
+const CACHE_NAME = 'fly-fishing-v101530';
 
 // Message Event: Allow web app clients to force immediate skipWaiting & activation
 self.addEventListener('message', (event) => {
@@ -13,6 +13,7 @@ self.addEventListener('message', (event) => {
 const CORE_ASSETS = [
     './',
     'index.html',
+    'manifest.json',
     'styles.css',
     'app.js',
     'db.js',
@@ -27,6 +28,8 @@ const CORE_ASSETS = [
     'auth.js',
     'images/logo.jpg',
     'images/app_icon.png',
+    'images/icon-192.png',
+    'images/icon-512.png',
     // Knot guide images
     'images/knot_albright.jpg',
     'images/knot_blood.jpg',
