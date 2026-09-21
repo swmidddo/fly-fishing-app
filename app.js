@@ -167,6 +167,55 @@ window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCO
     }
 })();
 
+// PWA In-App Install Engine (Captures beforeinstallprompt & provides 1-tap install feedback)
+(function initPWAInstallEngine() {
+    let deferredInstallPrompt = null;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+        console.log('[PWA] beforeinstallprompt event captured');
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        window.__DEFERRED_PWA_PROMPT__ = e;
+
+        // Reveal in-app install buttons
+        document.querySelectorAll('.pwa-install-btn-container').forEach(el => {
+            el.style.display = 'flex';
+        });
+    });
+
+    window.triggerPWAInstall = async function() {
+        if (!deferredInstallPrompt) {
+            alert("App Installation:\n\n1. If on Android Chrome: Tap the 3 dots (⋮) in the top-right corner and choose 'Install app' or 'Add to Home screen'.\n2. If on iPhone Safari: Tap the Share button (square with arrow) and tap 'Add to Home Screen'.");
+            return;
+        }
+
+        try {
+            deferredInstallPrompt.prompt();
+            const choice = await deferredInstallPrompt.userChoice;
+            console.log('[PWA] User response to install prompt:', choice);
+            if (choice && choice.outcome === 'accepted') {
+                if (window.showSyncToast) {
+                    window.showSyncToast("⏳ Installing Middo's Flies! Android is preparing the app in the background (~15s)...", 6000);
+                }
+            }
+        } catch (err) {
+            console.warn('[PWA] Install prompt exception:', err);
+        } finally {
+            deferredInstallPrompt = null;
+        }
+    };
+
+    window.addEventListener('appinstalled', () => {
+        console.log('[PWA] Middo\'s Flies installed successfully!');
+        if (window.showSyncToast) {
+            window.showSyncToast("🎉 Middo's Flies installed successfully! Launch it from your home screen.", 5000);
+        }
+        document.querySelectorAll('.pwa-install-btn-container').forEach(el => {
+            el.style.display = 'none';
+        });
+    });
+})();
+
 // Top-Level Application State Container
 window.AppState = {
     activeTab: 'dashboard',

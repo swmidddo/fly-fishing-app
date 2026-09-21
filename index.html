@@ -1571,6 +1571,9 @@
                                 <span class="badge badge-active" style="margin-left: 6px;" id="settings-app-version">v101530 (Latest Build)</span>
                             </div>
                             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button class="btn btn-primary btn-sm pwa-install-btn-container" style="display: none; align-items: center; gap: 6px; font-weight: 700;" onclick="window.triggerPWAInstall()">
+                                    📲 Install App to Home Screen
+                                </button>
                                 <button class="btn btn-glass btn-sm" id="btn-precache-backcountry" onclick="window.downloadFullBackcountryPack()">
                                     ⚡ Download Offline Pack
                                 </button>
@@ -2441,6 +2444,11 @@
                 </div>
                 <button class="modal-close" onclick="window.toggleMobileNavDrawer(false)">&times;</button>
             </div>
+        </div>
+        <div class="pwa-install-btn-container" style="display: none; margin-bottom: 14px;">
+            <button type="button" class="btn btn-primary" onclick="window.triggerPWAInstall()" style="width: 100%; border-radius: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(0, 210, 255, 0.4); padding: 12px;">
+                📲 Install App to Home Screen
+            </button>
         </div>
         <div class="mobile-drawer-grid">
             <button class="mobile-drawer-card" data-tab="dashboard" onclick="window.switchTab('dashboard'); window.toggleMobileNavDrawer(false);">
