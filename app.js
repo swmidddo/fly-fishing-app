@@ -169,51 +169,64 @@ window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCO
 
 // PWA In-App Install Engine (Captures beforeinstallprompt & provides 1-tap install feedback)
 (function initPWAInstallEngine() {
-    let deferredInstallPrompt = null;
+    window.__DEFERRED_PWA_PROMPT__ = null;
+
+    window.updatePWAInstallButtons = function() {
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        document.querySelectorAll('.pwa-install-btn-container').forEach(el => {
+            el.style.display = isStandalone ? 'none' : 'flex';
+        });
+    };
 
     window.addEventListener('beforeinstallprompt', (e) => {
         console.log('[PWA] beforeinstallprompt event captured');
-        e.preventDefault();
-        deferredInstallPrompt = e;
+        // Do NOT preventDefault() so Chrome's native install prompt still works automatically
         window.__DEFERRED_PWA_PROMPT__ = e;
-
-        // Reveal in-app install buttons
-        document.querySelectorAll('.pwa-install-btn-container').forEach(el => {
-            el.style.display = 'flex';
-        });
+        window.updatePWAInstallButtons();
     });
 
     window.triggerPWAInstall = async function() {
-        if (!deferredInstallPrompt) {
-            alert("App Installation:\n\n1. If on Android Chrome: Tap the 3 dots (⋮) in the top-right corner and choose 'Install app' or 'Add to Home screen'.\n2. If on iPhone Safari: Tap the Share button (square with arrow) and tap 'Add to Home Screen'.");
-            return;
-        }
-
-        try {
-            deferredInstallPrompt.prompt();
-            const choice = await deferredInstallPrompt.userChoice;
-            console.log('[PWA] User response to install prompt:', choice);
-            if (choice && choice.outcome === 'accepted') {
-                if (window.showSyncToast) {
-                    window.showSyncToast("⏳ Installing Middo's Flies! Android is preparing the app in the background (~15s)...", 6000);
+        const promptEvent = window.__DEFERRED_PWA_PROMPT__;
+        if (promptEvent) {
+            try {
+                promptEvent.prompt();
+                const choice = await promptEvent.userChoice;
+                console.log('[PWA] User response to install prompt:', choice);
+                if (choice && choice.outcome === 'accepted') {
+                    if (window.showSyncToast) {
+                        window.showSyncToast("⏳ Installing Middo's Flies! Check your notifications / App Drawer in ~15s.", 6000);
+                    }
                 }
+            } catch (err) {
+                console.warn('[PWA] Install prompt exception:', err);
             }
-        } catch (err) {
-            console.warn('[PWA] Install prompt exception:', err);
-        } finally {
-            deferredInstallPrompt = null;
+        } else {
+            // Informative fallback with instructions
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            if (isIOS) {
+                alert("📲 To install on iPhone/iPad:\n\n1. Tap the Share button (square with arrow) at the bottom of Safari.\n2. Scroll down and tap 'Add to Home Screen'.\n3. Tap 'Add'.");
+            } else {
+                alert("📲 To install on Android:\n\n1. Tap the 3 dots (⋮) in Chrome's top-right corner.\n2. Tap 'Install app' (or 'Add to Home screen').\n3. Tap 'Install'.\n\nIf it was already installed, check your phone's Settings > Apps or App Drawer!");
+            }
         }
     };
 
     window.addEventListener('appinstalled', () => {
         console.log('[PWA] Middo\'s Flies installed successfully!');
         if (window.showSyncToast) {
-            window.showSyncToast("🎉 Middo's Flies installed successfully! Launch it from your home screen.", 5000);
+            window.showSyncToast("🎉 Middo's Flies installed successfully! Launch it directly from your home screen.", 5000);
         }
+        window.__DEFERRED_PWA_PROMPT__ = null;
         document.querySelectorAll('.pwa-install-btn-container').forEach(el => {
             el.style.display = 'none';
         });
     });
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', window.updatePWAInstallButtons);
+    } else {
+        window.updatePWAInstallButtons();
+    }
 })();
 
 // Top-Level Application State Container
