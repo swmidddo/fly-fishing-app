@@ -202,9 +202,7 @@ const WEATHER = {
         }
 
         try {
-            const dRes = await fetch(targetUrl, {
-                headers: { 'User-Agent': 'MiddosFlyFishing/1.0 (Australia PWS Hub)' }
-            });
+            const dRes = await fetch(targetUrl);
             if (dRes.ok) return dRes;
         } catch (e) {
             console.warn("[WillyWeather Direct] Failed (CORS), attempting public CORS proxy fallback:", e);

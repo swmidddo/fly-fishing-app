@@ -174,13 +174,16 @@ window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCO
     window.updatePWAInstallButtons = function() {
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
         document.querySelectorAll('.pwa-install-btn-container').forEach(el => {
-            el.style.display = isStandalone ? 'none' : 'flex';
+            el.style.display = isStandalone ? 'none' : (el.tagName === 'BUTTON' ? 'inline-flex' : 'block');
         });
+        const headerBtn = document.getElementById('btn-pwa-install');
+        if (headerBtn) {
+            headerBtn.style.display = isStandalone ? 'none' : 'inline-flex';
+        }
     };
 
     window.addEventListener('beforeinstallprompt', (e) => {
         console.log('[PWA] beforeinstallprompt event captured');
-        // Do NOT preventDefault() so Chrome's native install prompt still works automatically
         window.__DEFERRED_PWA_PROMPT__ = e;
         window.updatePWAInstallButtons();
     });
@@ -210,6 +213,7 @@ window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCO
             }
         }
     };
+    window.installPwaApp = window.triggerPWAInstall;
 
     window.addEventListener('appinstalled', () => {
         console.log('[PWA] Middo\'s Flies installed successfully!');
@@ -220,6 +224,8 @@ window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCO
         document.querySelectorAll('.pwa-install-btn-container').forEach(el => {
             el.style.display = 'none';
         });
+        const headerBtn = document.getElementById('btn-pwa-install');
+        if (headerBtn) headerBtn.style.display = 'none';
     });
 
     if (document.readyState === 'loading') {
@@ -7088,17 +7094,23 @@ window.initMainApp = async function() {
             backup.settings.geminiActiveModel = geminiActiveModel;
             backup.settings.mapType = mapType;
 
-            await fetch('/api/save-backup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(backup)
-            });
-            console.log("Updated session_backup.json with active keys.");
+            if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+                await fetch('/api/save-backup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(backup)
+                }).catch(() => {});
+                console.log("Updated session_backup.json with active keys.");
+            }
         } catch(e){}
     };
 
     function saveBackupData() {
         try {
+            if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+                return;
+            }
+
             const catches = AppState.catches || [];
             const tackle = AppState.tackle || [];
             const rigs = AppState.rigs || [];
@@ -7136,7 +7148,7 @@ window.initMainApp = async function() {
                 },
                 body: JSON.stringify(payload),
                 keepalive: true
-            });
+            }).catch(() => {});
         } catch (e) {
             console.error("Failed to compile or send session backup:", e);
         }
@@ -8625,14 +8637,8 @@ window.initMainApp = async function() {
         recognition.start();
     };
 
-    // --- 4. PWA Installation Handler ---
-    let deferredPrompt = null;
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        const btn = document.getElementById('btn-pwa-install');
-        if (btn) btn.style.display = 'inline-flex';
-    });
+    // --- 4. PWA Installation Handler (Unified in initPWAInstallEngine) ---
+    // Managed globally via window.triggerPWAInstall & window.installPwaApp
 
     // --- 5. Phone Camera Barcode / UPC Scanner & Tackle Auto-Lookup Engine ---
     let html5QrCodeScanner = null;

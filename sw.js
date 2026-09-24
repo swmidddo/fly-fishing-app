@@ -107,7 +107,7 @@ self.addEventListener('fetch', (event) => {
                 })
                 .catch(() => {
                     console.log('[Backcountry SW] Offline navigation requested - serving cached app shell');
-                    return caches.match('./').then(res => res || caches.match('index.html'));
+                    return caches.match('./', { ignoreSearch: true }).then(res => res || caches.match('index.html', { ignoreSearch: true }));
                 })
         );
         return;
@@ -115,7 +115,7 @@ self.addEventListener('fetch', (event) => {
 
     // 2. Static Assets (JS, CSS, Images, Fonts, CDNs) - Cache-first with background network refresh
     event.respondWith(
-        caches.match(req).then((cachedRes) => {
+        caches.match(req, { ignoreSearch: true }).then((cachedRes) => {
             if (cachedRes) {
                 // Fetch in background to update cache for next time
                 fetch(req).then((freshRes) => {
