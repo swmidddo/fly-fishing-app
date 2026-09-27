@@ -33,7 +33,7 @@
         // Backcountry Offline PWA Service Worker Registration & Live Auto-Update Engine
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js?v=101560')
+                navigator.serviceWorker.register('sw.js')
                     .then(function(reg) {
                         console.log('[Backcountry SW] Registered successfully with scope:', reg.scope);
                         window.__BACKCOUNTRY_SW_REG__ = reg;
@@ -57,14 +57,9 @@
                         console.warn('[Backcountry SW] Registration notice:', err);
                     });
 
-                // Seamlessly take over clients and refresh once to activate latest code
-                var refreshing = false;
+                // Seamlessly take over clients without forcing hard reload loops
                 navigator.serviceWorker.addEventListener('controllerchange', function() {
-                    console.log('[Backcountry SW] New controller active - activating latest build...');
-                    if (!refreshing) {
-                        refreshing = true;
-                        window.location.reload();
-                    }
+                    console.log('[Backcountry SW] New controller active - fresh build active.');
                 });
             });
         }
