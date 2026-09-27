@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101550';
+window.APP_VERSION = 'v101560';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -1414,7 +1414,7 @@ window.initMainApp = async function() {
             detectIpLocation().then(ipLoc => {
                 if (ipLoc && !gpsResolved && !AppState.isCustomLocation) {
                     console.log("[Location Engine] Fast initial IP location acquired:", ipLoc);
-                    AppState.userCoords = { lat: ipLoc.lat, lng: ipLoc.lng };
+                    AppState.userCoords = { lat: ipLoc.lat, lng: ipLoc.lng, city: ipLoc.city };
                     localStorage.setItem('user_last_coords', JSON.stringify({ lat: ipLoc.lat, lng: ipLoc.lng }));
                     const st = getStateFromCoords(ipLoc.lat, ipLoc.lng);
                     const label = `📍 ${ipLoc.city || 'Detected'}${st ? ` (${st})` : ''}`;
@@ -5439,18 +5439,23 @@ window.initMainApp = async function() {
             distanceKm = 6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
         }
 
-        // Throttle ONLY the external network BOM/WillyWeather fetch (5 mins or > 0.2 km)
-        if (!forceRefresh && lastWeatherFetchTime > 0 && timeDiff < 300000 && distanceKm < 0.2) {
+        // Throttle ONLY if weatherData is already populated and location has not changed
+        if (!forceRefresh && AppState.weatherData && lastWeatherFetchTime > 0 && timeDiff < 300000 && distanceKm < 0.2) {
             return;
         }
 
-        lastWeatherFetchTime = now;
-        lastWeatherFetchLat = lat;
-        lastWeatherFetchLon = lon;
+        const locName = (AppState.userCoords && AppState.userCoords.city) ? AppState.userCoords.city : "local area";
+        const dashBadgeEl = document.getElementById('dash-weather-station-badge');
+        if (dashBadgeEl && !AppState.weatherData) {
+            dashBadgeEl.innerHTML = `📡 Fetching live weather & observation for ${locName}...`;
+        }
 
         try {
             const weather = window.WEATHER ? await window.WEATHER.fetchForecast(lat, lon, forceRefresh) : null;
             if (weather) {
+                lastWeatherFetchTime = Date.now();
+                lastWeatherFetchLat = lat;
+                lastWeatherFetchLon = lon;
                 AppState.weatherData = weather;
                 displayWeatherData(weather);
                 drawTideChart();
@@ -5462,6 +5467,8 @@ window.initMainApp = async function() {
                 if (AppState.moonData && AppState.tideData) {
                     displayAstroData(AppState.moonData, AppState.tideData, lat, lon);
                 }
+            } else {
+                console.warn("[Weather Engine] Weather forecast returned null");
             }
         } catch (e) {
             console.error("Weather forecast display error:", e);
@@ -8290,7 +8297,7 @@ window.initMainApp = async function() {
     } catch (e) {}
 
     function updateAppVersionDisplay() {
-        const ver = window.APP_VERSION || 'v101550';
+        const ver = window.APP_VERSION || 'v101560';
         const settingsVerEl = document.getElementById('settings-app-version');
         if (settingsVerEl) settingsVerEl.textContent = `${ver} (Latest Build)`;
         const sidebarVerEl = document.getElementById('global-app-version-tag');
@@ -8312,13 +8319,15 @@ window.initMainApp = async function() {
         // Trigger immediate zero-permission IP Geolocation so user gets real local weather in ~200ms
         if (typeof window.detectIpLocation === 'function') {
             window.detectIpLocation().then(ipLoc => {
-                if (ipLoc && !AppState.userCoords && Number.isFinite(ipLoc.lat) && Number.isFinite(ipLoc.lng)) {
+                if (ipLoc && Number.isFinite(ipLoc.lat) && Number.isFinite(ipLoc.lng)) {
                     console.log("[Boot] Fast initial IP location loaded:", ipLoc);
-                    AppState.userCoords = { lat: ipLoc.lat, lng: ipLoc.lng };
-                    localStorage.setItem('user_last_coords', JSON.stringify({ lat: ipLoc.lat, lng: ipLoc.lng }));
-                    const st = getStateFromCoords(ipLoc.lat, ipLoc.lng);
-                    const label = `📍 ${ipLoc.city || 'Detected'}${st ? ` (${st})` : ''}`;
-                    updateGpsStatus(true, label, 'cached');
+                    if (!AppState.userCoords) {
+                        AppState.userCoords = { lat: ipLoc.lat, lng: ipLoc.lng, city: ipLoc.city };
+                        localStorage.setItem('user_last_coords', JSON.stringify({ lat: ipLoc.lat, lng: ipLoc.lng }));
+                        const st = getStateFromCoords(ipLoc.lat, ipLoc.lng);
+                        const label = `📍 ${ipLoc.city || 'Detected'}${st ? ` (${st})` : ''}`;
+                        updateGpsStatus(true, label, 'cached');
+                    }
                     if (typeof window.loadWeatherAndTides === 'function') {
                         window.loadWeatherAndTides(ipLoc.lat, ipLoc.lng, false);
                     }
@@ -9585,7 +9594,7 @@ Respond ONLY in valid JSON format:
                     await reg.update();
                 }
             }
-            if (window.showSyncToast) window.showSyncToast(`✨ App is on the latest build (${window.APP_VERSION || 'v101550'})!`);
+            if (window.showSyncToast) window.showSyncToast(`✨ App is on the latest build (${window.APP_VERSION || 'v101560'})!`);
         } catch(e) {
             console.warn("Update check error:", e);
         }

@@ -1,5 +1,5 @@
 // sw.js - Middo's Fly Fishing Backcountry Offline Service Worker
-const CACHE_NAME = 'fly-fishing-v101550';
+const CACHE_NAME = 'fly-fishing-v101560';
 
 // Message Event: Allow web app clients to force immediate skipWaiting & activation
 self.addEventListener('message', (event) => {
@@ -90,9 +90,21 @@ self.addEventListener('fetch', (event) => {
     const req = event.request;
     const url = new URL(req.url);
 
-    // Skip non-GET requests and Gemini / weather POST APIs
+    // Skip non-GET requests
     if (req.method !== 'GET') return;
-    if (url.hostname.includes('googleapis.com') && url.pathname.includes('generateContent')) return;
+
+    // DIRECT NETWORK ONLY: Never intercept or cache serverless APIs, IP geolocation, or weather APIs
+    if (url.pathname.startsWith('/api/') || 
+        url.pathname === '/willyproxy' ||
+        url.hostname.includes('googleapis.com') ||
+        url.hostname.includes('ipwho.is') ||
+        url.hostname.includes('geojs.io') ||
+        url.hostname.includes('freeipapi.com') ||
+        url.hostname.includes('open-meteo.com') ||
+        url.hostname.includes('willyweather.com.au') ||
+        url.hostname.includes('openstreetmap.org')) {
+        return;
+    }
 
     // 1. Navigation requests (HTML page loads) - Network-first with instant offline cache fallback
     if (req.mode === 'navigate') {
@@ -130,28 +142,33 @@ self.addEventListener('fetch', (event) => {
     }
 
     // 3. Static Media Assets (Images, Icons, Fonts, CDNs) - Cache-first with background network refresh
-    event.respondWith(
-        caches.match(req, { ignoreSearch: true }).then((cachedRes) => {
-            if (cachedRes) {
-                // Fetch in background to update cache for next time
-                fetch(req).then((freshRes) => {
-                    if (freshRes && freshRes.status === 200) {
-                        caches.open(CACHE_NAME).then((cache) => cache.put(req, freshRes));
-                    }
-                }).catch(() => {});
-                return cachedRes;
-            }
-
-            // If not in cache, fetch from network and cache dynamically
-            return fetch(req).then((networkRes) => {
-                if (networkRes && networkRes.status === 200) {
-                    const copy = networkRes.clone();
-                    caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+    if (url.pathname.match(/\.(png|jpg|jpeg|svg|gif|webp|ico|woff2?|ttf|eot)$/i) || url.hostname.includes('unpkg.com') || url.hostname.includes('fonts.gstatic.com')) {
+        event.respondWith(
+            caches.match(req, { ignoreSearch: true }).then((cachedRes) => {
+                if (cachedRes) {
+                    // Fetch in background to update cache for next time
+                    fetch(req).then((freshRes) => {
+                        if (freshRes && freshRes.status === 200) {
+                            caches.open(CACHE_NAME).then((cache) => cache.put(req, freshRes));
+                        }
+                    }).catch(() => {});
+                    return cachedRes;
                 }
-                return networkRes;
-            }).catch((err) => {
-                console.warn('[Backcountry SW] Fetch failed offline:', req.url);
-            });
-        })
+
+                return fetch(req).then((networkRes) => {
+                    if (networkRes && networkRes.status === 200) {
+                        const copy = networkRes.clone();
+                        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+                    }
+                    return networkRes;
+                }).catch(() => caches.match(req, { ignoreSearch: true }));
+            })
+        );
+        return;
+    }
+
+    // 4. Default: Fetch with cache fallback
+    event.respondWith(
+        fetch(req).catch(() => caches.match(req))
     );
 });

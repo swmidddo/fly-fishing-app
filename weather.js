@@ -125,6 +125,12 @@ const WEATHER = {
     async getLocalitySearchTerms(lat, lon) {
         const terms = [];
 
+        // 0. Use already resolved IP / device city if available (0ms instant!)
+        if (window.AppState && window.AppState.userCoords && window.AppState.userCoords.city) {
+            terms.push(window.AppState.userCoords.city);
+            return terms;
+        }
+
         // 1. Direct High-Precision Nominatim Reverse Geocoding (Extracts exact Postcode, Suburb & Town)
         try {
             const nomUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`;
@@ -200,7 +206,10 @@ const WEATHER = {
             // Try Vercel & Netlify Serverless Proxy Route (/api/proxy?target=...)
             try {
                 const vercelProxyUrl = `/api/proxy?target=${encodeURIComponent(targetUrl)}`;
-                const vRes = await fetch(vercelProxyUrl);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 4500);
+                const vRes = await fetch(vercelProxyUrl, { signal: controller.signal });
+                clearTimeout(timeoutId);
                 if (vRes.ok) return vRes;
             } catch (e) {
                 console.warn("[Vercel Serverless Proxy] Fallback:", e);
@@ -208,30 +217,14 @@ const WEATHER = {
         }
 
         try {
-            const dRes = await fetch(targetUrl);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3500);
+            const dRes = await fetch(targetUrl, { signal: controller.signal });
+            clearTimeout(timeoutId);
             if (dRes.ok) return dRes;
-        } catch (e) {
-            console.warn("[WillyWeather Direct] Failed (CORS), attempting public CORS proxy fallback:", e);
-        }
+        } catch (e) {}
 
-        const corsProxies = [
-            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
-            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
-        ];
-
-        for (const cProxy of corsProxies) {
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3500);
-                const cRes = await fetch(cProxy, { signal: controller.signal });
-                clearTimeout(timeoutId);
-                if (cRes.ok) return cRes;
-            } catch (err) {
-                console.warn("[WillyWeather Public Proxy] Failed:", err);
-            }
-        }
-        return fetch(targetUrl);
+        return null;
     },
 
     getHaversineKm(lat1, lon1, lat2, lon2) {
@@ -428,45 +421,42 @@ const WEATHER = {
                     console.warn("[WillyWeather Coordinate Search] Notice:", coordErr);
                 }
 
-                // 2b. Search locality terms & postcodes only if coordinate search did not find an ultra-local station within 5km
-                if (!candidates.some(c => c.dist < 5)) {
+                // 2b. Search locality terms only if coordinate search returned zero candidates
+                if (candidates.length === 0) {
                     const searchTerms = await this.getLocalitySearchTerms(lat, lon);
                     for (const term of searchTerms) {
                         const cleanSearch = term.replace(/\s+(city centre|city|cbd|central)/gi, '').trim() || term;
                         if (!cleanSearch) continue;
 
                         const searchUrl = `https://api.willyweather.com.au/v2/${apiKey}/search.json?query=${encodeURIComponent(cleanSearch)}`;
-                    try {
-                        const searchRes = await this.willyFetch(searchUrl);
-                        if (searchRes && searchRes.ok) {
-                            const searchData = await searchRes.json();
-                            if (Array.isArray(searchData)) {
-                                for (const item of searchData) {
-                                    if (item.id && !seenIds.has(item.id)) {
-                                        seenIds.add(item.id);
-                                        candidates.push({
-                                            ...item,
-                                            dist: getDistKm(item.lat, item.lng)
-                                        });
+                        try {
+                            const searchRes = await this.willyFetch(searchUrl);
+                            if (searchRes && searchRes.ok) {
+                                const searchData = await searchRes.json();
+                                if (Array.isArray(searchData)) {
+                                    for (const item of searchData) {
+                                        if (item.id && !seenIds.has(item.id)) {
+                                            seenIds.add(item.id);
+                                            candidates.push({
+                                                ...item,
+                                                dist: getDistKm(item.lat, item.lng)
+                                            });
+                                        }
                                     }
+                                } else if (searchData && searchData.location && !seenIds.has(searchData.location.id)) {
+                                    seenIds.add(searchData.location.id);
+                                    candidates.push({
+                                        ...searchData.location,
+                                        dist: getDistKm(searchData.location.lat, searchData.location.lng)
+                                    });
                                 }
-                            } else if (searchData && searchData.location && !seenIds.has(searchData.location.id)) {
-                                seenIds.add(searchData.location.id);
-                                candidates.push({
-                                    ...searchData.location,
-                                    dist: getDistKm(searchData.location.lat, searchData.location.lng)
-                                });
                             }
+                        } catch (e) {
+                            console.warn(`[WillyWeather] Search failed for term '${term}':`, e);
                         }
-                    } catch (e) {
-                        console.warn(`[WillyWeather] Search failed for term '${term}':`, e);
-                    }
 
-                    // Ultra-local micro-station lock within 5km
-                    if (candidates.some(c => c.dist < 5)) {
-                        break;
+                        if (candidates.length > 0) break;
                     }
-                }
                 }
 
                 // Strictly filter candidates to genuine local/regional stations within 50 km of user GPS
@@ -866,12 +856,17 @@ const WEATHER = {
 
     async fetchOpenMeteoWeather(lat, lon) {
         try {
-            const searchTerms = await this.getLocalitySearchTerms(lat, lon);
-            const locationName = searchTerms.length > 0 ? searchTerms[0] : "Local Fishing Spot";
+            let locationName = "Local Region";
+            if (window.AppState && window.AppState.userCoords && window.AppState.userCoords.city) {
+                locationName = window.AppState.userCoords.city;
+            }
 
             // Fetch Mean Sea Level Pressure (pressure_msl) and Wind Gusts (wind_gusts_10m, windgusts_10m_max)
             const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,surface_pressure,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code&hourly=pressure_msl,temperature_2m,wind_speed_10m,wind_gusts_10m&daily=temperature_2m_max,temperature_2m_min,weathercode,windspeed_10m_max,windgusts_10m_max,sunrise,sunset&timezone=auto`;
-            const res = await fetch(url);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4500);
+            const res = await fetch(url, { signal: controller.signal });
+            clearTimeout(timeoutId);
             if (!res.ok) return null;
             const data = await res.json();
 
