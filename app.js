@@ -1276,11 +1276,74 @@ window.initMainApp = async function() {
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
+    // Ultra-Fast Zero-Permission IP Geolocation Engine (Resolves real Australian city/coordinates in ~200ms)
+    async function detectIpLocation() {
+        // 1. Try ipwho.is (Free, fast, CORS enabled, Australian city & suburb accuracy)
+        try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 4000);
+            const res = await fetch('https://ipwho.is/', { signal: controller.signal });
+            clearTimeout(timer);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.success !== false && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+                    return {
+                        lat: data.latitude,
+                        lng: data.longitude,
+                        city: data.city || data.region || 'Local Region',
+                        region: data.region || '',
+                        state: data.region_code || ''
+                    };
+                }
+            }
+        } catch (e) {
+            console.warn("[IP Location] ipwho.is notice:", e ? e.message : e);
+        }
+
+        // 2. Fallback to freeipapi.com
+        try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 4000);
+            const res = await fetch('https://freeipapi.com/api/json', { signal: controller.signal });
+            clearTimeout(timer);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+                    return {
+                        lat: data.latitude,
+                        lng: data.longitude,
+                        city: data.cityName || data.regionName || 'Local Region',
+                        region: data.regionName || '',
+                        state: ''
+                    };
+                }
+            }
+        } catch (e) {
+            console.warn("[IP Location] freeipapi.com notice:", e ? e.message : e);
+        }
+
+        return null;
+    }
+    window.detectIpLocation = detectIpLocation;
+
     // 3. Location Tracking (GPS & Real-Time Dynamic Movement Engine)
     window.requestGpsLocation = function() {
         const savedCoordsStr = localStorage.getItem('user_last_coords');
         const isCustom = localStorage.getItem('user_is_custom_location') === 'true';
         AppState.isCustomLocation = isCustom;
+
+        let isLegacyNarrabri = false;
+        if (!isCustom && savedCoordsStr) {
+            try {
+                const s = JSON.parse(savedCoordsStr);
+                if (s && Number.isFinite(s.lat) && Number.isFinite(s.lng)) {
+                    if ((Math.abs(s.lat - (-30.3183)) < 0.05 && Math.abs(s.lng - 149.8265) < 0.05) ||
+                        (Math.abs(s.lat - (-30.3281)) < 0.05 && Math.abs(s.lng - 149.7836) < 0.05)) {
+                        isLegacyNarrabri = true;
+                    }
+                }
+            } catch(e){}
+        }
 
         // 1. Pinned Custom Inspection Mode: Restore user's pinned destination
         if (isCustom && savedCoordsStr) {
@@ -1296,9 +1359,9 @@ window.initMainApp = async function() {
             } catch(e){}
         }
 
-        // 2. Warm Cache Start if previous user coordinates exist (temporary display while live GPS locks)
+        // 2. Warm Cache Start if previous genuine user coordinates exist
         let hasWarmCoords = false;
-        if (!isCustom && savedCoordsStr) {
+        if (!isCustom && savedCoordsStr && !isLegacyNarrabri) {
             try {
                 const saved = JSON.parse(savedCoordsStr);
                 if (saved && saved.lat && saved.lng) {
@@ -1313,18 +1376,32 @@ window.initMainApp = async function() {
             } catch(e){}
         }
 
+        // If no genuine warm coords, start fast IP Geolocation immediately in parallel with GPS
         if (!hasWarmCoords && !isCustom) {
             updateGpsStatus(true, `🎯 Acquiring Live GPS...`, 'cached');
             const badgeEl = document.getElementById('dash-weather-station-badge');
-            if (badgeEl) badgeEl.innerHTML = `📡 Acquiring Live GPS for local weather...`;
-        }
+            if (badgeEl) badgeEl.innerHTML = `📡 Detecting local weather & tides...`;
 
-        if (!navigator.geolocation) {
-            console.warn("Geolocation API unavailable on this device/browser.");
-            if (!hasWarmCoords && !isCustom) {
-                updateGpsStatus(false, `📍 GPS Unavailable - Tap to search location`, 'error');
-            }
-            return;
+            detectIpLocation().then(ipLoc => {
+                if (ipLoc && !gpsResolved && !AppState.isCustomLocation) {
+                    console.log("[Location Engine] Fast IP location acquired:", ipLoc);
+                    AppState.userCoords = { lat: ipLoc.lat, lng: ipLoc.lng };
+                    localStorage.setItem('user_last_coords', JSON.stringify({ lat: ipLoc.lat, lng: ipLoc.lng }));
+                    const st = getStateFromCoords(ipLoc.lat, ipLoc.lng);
+                    const label = `📍 ${ipLoc.city || 'Detected'}${st ? ` (${st})` : ''}`;
+                    updateGpsStatus(true, label, 'cached');
+                    if (window.AppMap && window.AppMap.map) {
+                        window.AppMap.updateUserLocation(ipLoc.lat, ipLoc.lng);
+                        if (!AppState.hasCenteredOnUser) {
+                            window.AppMap.reCenter();
+                            AppState.hasCenteredOnUser = true;
+                        }
+                    }
+                    if (typeof window.loadWeatherAndTides === 'function') {
+                        window.loadWeatherAndTides(ipLoc.lat, ipLoc.lng, false);
+                    }
+                }
+            }).catch(err => console.warn("[IP Location] Fast lookup notice:", err));
         }
 
         let gpsResolved = false;
@@ -1390,25 +1467,49 @@ window.initMainApp = async function() {
             }
         };
 
-        const handleError = (err) => {
+        const handleError = async (err) => {
             console.warn("[Location Engine] Geolocation notice:", err ? err.message : err);
             if (gpsResolved) return;
-            if (!hasWarmCoords && !AppState.isCustomLocation) {
-                updateGpsStatus(false, `📍 GPS Unavailable - Tap to search location`, 'error');
-            } else if (!AppState.isCustomLocation) {
+            
+            // If we don't have any coordinates yet, try fast IP detection
+            if (!AppState.userCoords) {
                 try {
-                    const saved = JSON.parse(savedCoordsStr || '{}');
-                    if (saved && saved.lat && saved.lng) {
-                        const st = getStateFromCoords(saved.lat, saved.lng);
-                        updateGpsStatus(true, `📍 Saved: ${saved.lat.toFixed(4)}, ${saved.lng.toFixed(4)} (${st})`, 'cached');
+                    const ipLoc = await detectIpLocation();
+                    if (ipLoc && !gpsResolved && !AppState.isCustomLocation) {
+                        AppState.userCoords = { lat: ipLoc.lat, lng: ipLoc.lng };
+                        localStorage.setItem('user_last_coords', JSON.stringify({ lat: ipLoc.lat, lng: ipLoc.lng }));
+                        const st = getStateFromCoords(ipLoc.lat, ipLoc.lng);
+                        updateGpsStatus(true, `📍 ${ipLoc.city || 'Detected'}: ${ipLoc.lat.toFixed(4)}, ${ipLoc.lng.toFixed(4)} (${st})`, 'cached');
+                        if (typeof window.loadWeatherAndTides === 'function') {
+                            window.loadWeatherAndTides(ipLoc.lat, ipLoc.lng, false);
+                        }
+                        return;
                     }
                 } catch(e){}
+
+                // If even IP detection failed (offline / blocked), load baseline coordinates
+                const baseLat = -33.8688;
+                const baseLon = 151.2093;
+                AppState.userCoords = { lat: baseLat, lng: baseLon };
+                updateGpsStatus(false, `📍 Tap to set your location`, 'error');
+                if (typeof window.loadWeatherAndTides === 'function') {
+                    window.loadWeatherAndTides(baseLat, baseLon, false);
+                }
+            } else if (!AppState.isCustomLocation) {
+                const st = getStateFromCoords(AppState.userCoords.lat, AppState.userCoords.lng);
+                updateGpsStatus(true, `📍 Saved: ${AppState.userCoords.lat.toFixed(4)}, ${AppState.userCoords.lng.toFixed(4)} (${st})`, 'cached');
             }
         };
 
-        // Try fast network positioning first, with robust fallback to high-accuracy GPS
-        const fastOptions = { enableHighAccuracy: false, timeout: 3500, maximumAge: 60000 };
-        const preciseOptions = { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 };
+        if (!navigator.geolocation) {
+            console.warn("Geolocation API unavailable on this device/browser.");
+            handleError({ message: "Geolocation not supported" });
+            return;
+        }
+
+        // Try fast network/cached positioning first, with robust fallback to high-accuracy GPS
+        const fastOptions = { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 };
+        const preciseOptions = { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 };
 
         try {
             navigator.geolocation.getCurrentPosition(
@@ -8124,16 +8225,15 @@ window.initMainApp = async function() {
 
     // INITIAL APP BOOTSTRAPPING (UI, GPS & Live Data First)
     let savedBoot = null;
+    let isLegacyNarrabri = false;
     try {
         const storedCoordsBoot = localStorage.getItem('user_last_coords');
         savedBoot = storedCoordsBoot ? JSON.parse(storedCoordsBoot) : null;
-        // Purge legacy hardcoded Narrabri fallback if user is in Live GPS mode
-        const isPinned = localStorage.getItem('app_location_pinned') === 'true';
-        if (!isPinned && savedBoot && Number.isFinite(savedBoot.lat) && Number.isFinite(savedBoot.lng)) {
-            if (Math.abs(savedBoot.lat - (-30.3183)) < 0.05 && Math.abs(savedBoot.lng - 149.8265) < 0.05) {
-                console.log("[Boot] Discarding stale legacy Narrabri fallback coordinates from user_last_coords");
-                savedBoot = null;
-                localStorage.removeItem('user_last_coords');
+        const isCustom = localStorage.getItem('user_is_custom_location') === 'true';
+        if (!isCustom && savedBoot && Number.isFinite(savedBoot.lat) && Number.isFinite(savedBoot.lng)) {
+            if ((Math.abs(savedBoot.lat - (-30.3183)) < 0.05 && Math.abs(savedBoot.lng - 149.8265) < 0.05) ||
+                (Math.abs(savedBoot.lat - (-30.3281)) < 0.05 && Math.abs(savedBoot.lng - 149.7836) < 0.05)) {
+                isLegacyNarrabri = true;
             }
         }
     } catch (e) {}
@@ -8152,12 +8252,12 @@ window.initMainApp = async function() {
     try { initSettings(); } catch (e) { console.error("Settings init failed", e); }
     try { initLocationTracking(); } catch (e) { console.error("GPS init failed", e); }
     try { initRegulations(); } catch (e) { console.error("Regulations init failed", e); }
-    // If valid coordinates exist, render Solunar & Weather immediately; otherwise wait for Live GPS lock
-    if (savedBoot && Number.isFinite(savedBoot.lat) && Number.isFinite(savedBoot.lng)) {
+    // If valid non-legacy coordinates exist, render Solunar & Weather immediately (0ms instant startup)
+    if (savedBoot && Number.isFinite(savedBoot.lat) && Number.isFinite(savedBoot.lng) && !isLegacyNarrabri) {
         try { loadWeatherAndTides(savedBoot.lat, savedBoot.lng, false); } catch (e) { console.error("Weather init failed", e); }
     } else {
         const dashBadgeEl = document.getElementById('dash-weather-station-badge');
-        if (dashBadgeEl) dashBadgeEl.innerHTML = `📡 Acquiring Live GPS for local weather...`;
+        if (dashBadgeEl) dashBadgeEl.innerHTML = `📡 Detecting local weather & tides...`;
     }
     try { initTacklePredictiveText(); } catch (e) { console.error("Tackle predictive text init failed", e); }
     try { initFishPredictiveText(); } catch (e) { console.error("Fish predictive text init failed", e); }
