@@ -1,5 +1,5 @@
 // sw.js - Middo's Fly Fishing Backcountry Offline Service Worker
-const CACHE_NAME = 'fly-fishing-v101540';
+const CACHE_NAME = 'fly-fishing-v101550';
 
 // Message Event: Allow web app clients to force immediate skipWaiting & activation
 self.addEventListener('message', (event) => {
@@ -113,7 +113,23 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 2. Static Assets (JS, CSS, Images, Fonts, CDNs) - Cache-first with background network refresh
+    // 2. Core Scripts & Styles (JS/CSS) - Network-first when online with instant offline cache fallback
+    if (url.origin === self.location.origin && (url.pathname.endsWith('.js') || url.pathname.endsWith('.css'))) {
+        event.respondWith(
+            fetch(req)
+                .then((networkRes) => {
+                    if (networkRes && networkRes.status === 200) {
+                        const copy = networkRes.clone();
+                        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+                    }
+                    return networkRes;
+                })
+                .catch(() => caches.match(req, { ignoreSearch: true }))
+        );
+        return;
+    }
+
+    // 3. Static Media Assets (Images, Icons, Fonts, CDNs) - Cache-first with background network refresh
     event.respondWith(
         caches.match(req, { ignoreSearch: true }).then((cachedRes) => {
             if (cachedRes) {

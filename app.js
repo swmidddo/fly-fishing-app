@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101540';
+window.APP_VERSION = 'v101550';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -1281,7 +1281,7 @@ window.initMainApp = async function() {
         // 1. Try ipwho.is (Free, fast, CORS enabled, Australian city & suburb accuracy)
         try {
             const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 4000);
+            const timer = setTimeout(() => controller.abort(), 3500);
             const res = await fetch('https://ipwho.is/', { signal: controller.signal });
             clearTimeout(timer);
             if (res.ok) {
@@ -1300,10 +1300,34 @@ window.initMainApp = async function() {
             console.warn("[IP Location] ipwho.is notice:", e ? e.message : e);
         }
 
-        // 2. Fallback to freeipapi.com
+        // 2. Try get.geojs.io (Free, fast, HTTPS, zero rate limits)
         try {
             const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 4000);
+            const timer = setTimeout(() => controller.abort(), 3500);
+            const res = await fetch('https://get.geojs.io/v1/ip/geo.json', { signal: controller.signal });
+            clearTimeout(timer);
+            if (res.ok) {
+                const data = await res.json();
+                const lat = parseFloat(data.latitude);
+                const lng = parseFloat(data.longitude);
+                if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                    return {
+                        lat: lat,
+                        lng: lng,
+                        city: data.city || data.region || 'Local Region',
+                        region: data.region || '',
+                        state: ''
+                    };
+                }
+            }
+        } catch (e) {
+            console.warn("[IP Location] get.geojs.io notice:", e ? e.message : e);
+        }
+
+        // 3. Fallback to freeipapi.com
+        try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 3500);
             const res = await fetch('https://freeipapi.com/api/json', { signal: controller.signal });
             clearTimeout(timer);
             if (res.ok) {
@@ -1329,52 +1353,57 @@ window.initMainApp = async function() {
     // 3. Location Tracking (GPS & Real-Time Dynamic Movement Engine)
     window.requestGpsLocation = function() {
         const savedCoordsStr = localStorage.getItem('user_last_coords');
-        const isCustom = localStorage.getItem('user_is_custom_location') === 'true';
-        AppState.isCustomLocation = isCustom;
-
         let isLegacyNarrabri = false;
-        if (!isCustom && savedCoordsStr) {
+        let saved = null;
+
+        // Auto-heal legacy Narrabri coordinates stuck in localStorage
+        if (savedCoordsStr) {
             try {
-                const s = JSON.parse(savedCoordsStr);
-                if (s && Number.isFinite(s.lat) && Number.isFinite(s.lng)) {
-                    if ((Math.abs(s.lat - (-30.3183)) < 0.05 && Math.abs(s.lng - 149.8265) < 0.05) ||
-                        (Math.abs(s.lat - (-30.3281)) < 0.05 && Math.abs(s.lng - 149.7836) < 0.05)) {
+                saved = JSON.parse(savedCoordsStr);
+                if (saved && Number.isFinite(saved.lat) && Number.isFinite(saved.lng)) {
+                    if ((Math.abs(saved.lat - (-30.3183)) < 0.05 && Math.abs(saved.lng - 149.8265) < 0.05) ||
+                        (Math.abs(saved.lat - (-30.3281)) < 0.05 && Math.abs(saved.lng - 149.7836) < 0.05)) {
+                        console.log("[Location Engine] Auto-clearing legacy Narrabri lock from previous session.");
                         isLegacyNarrabri = true;
+                        localStorage.removeItem('user_last_coords');
+                        localStorage.removeItem('user_is_custom_location');
+                        saved = null;
                     }
                 }
             } catch(e){}
         }
 
-        // 1. Pinned Custom Inspection Mode: Restore user's pinned destination
-        if (isCustom && savedCoordsStr) {
+        const isCustom = !isLegacyNarrabri && localStorage.getItem('user_is_custom_location') === 'true';
+        AppState.isCustomLocation = isCustom;
+
+        // 1. Pinned Custom Inspection Mode: Restore user's pinned destination if valid & not Narrabri
+        if (isCustom && saved && !isLegacyNarrabri) {
             try {
-                const saved = JSON.parse(savedCoordsStr);
                 AppState.userCoords = saved;
                 const savedState = getStateFromCoords(saved.lat, saved.lng);
                 updateGpsStatus(true, `📍 Pinned: ${saved.lat.toFixed(4)}, ${saved.lng.toFixed(4)} (${savedState})`, 'pinned');
                 if (typeof window.loadWeatherAndTides === 'function') {
                     window.loadWeatherAndTides(saved.lat, saved.lng, false);
                 }
-                console.log("[Location Engine] Custom inspection location restored:", saved);
+                console.log("[Location Engine] Custom inspection location active:", saved);
             } catch(e){}
         }
 
         // 2. Warm Cache Start if previous genuine user coordinates exist
         let hasWarmCoords = false;
-        if (!isCustom && savedCoordsStr && !isLegacyNarrabri) {
+        if (!isCustom && saved && !isLegacyNarrabri) {
             try {
-                const saved = JSON.parse(savedCoordsStr);
-                if (saved && saved.lat && saved.lng) {
-                    AppState.userCoords = saved;
-                    const savedState = getStateFromCoords(saved.lat, saved.lng);
-                    updateGpsStatus(true, `📍 Restoring: ${saved.lat.toFixed(4)}, ${saved.lng.toFixed(4)} (${savedState})`, 'cached');
-                    if (typeof window.loadWeatherAndTides === 'function') {
-                        window.loadWeatherAndTides(saved.lat, saved.lng, false);
-                    }
-                    hasWarmCoords = true;
+                AppState.userCoords = saved;
+                const savedState = getStateFromCoords(saved.lat, saved.lng);
+                updateGpsStatus(true, `📍 Restoring: ${saved.lat.toFixed(4)}, ${saved.lng.toFixed(4)} (${savedState})`, 'cached');
+                if (typeof window.loadWeatherAndTides === 'function') {
+                    window.loadWeatherAndTides(saved.lat, saved.lng, false);
                 }
+                hasWarmCoords = true;
             } catch(e){}
         }
+
+        let gpsResolved = false;
 
         // If no genuine warm coords, start fast IP Geolocation immediately in parallel with GPS
         if (!hasWarmCoords && !isCustom) {
@@ -1384,7 +1413,7 @@ window.initMainApp = async function() {
 
             detectIpLocation().then(ipLoc => {
                 if (ipLoc && !gpsResolved && !AppState.isCustomLocation) {
-                    console.log("[Location Engine] Fast IP location acquired:", ipLoc);
+                    console.log("[Location Engine] Fast initial IP location acquired:", ipLoc);
                     AppState.userCoords = { lat: ipLoc.lat, lng: ipLoc.lng };
                     localStorage.setItem('user_last_coords', JSON.stringify({ lat: ipLoc.lat, lng: ipLoc.lng }));
                     const st = getStateFromCoords(ipLoc.lat, ipLoc.lng);
@@ -1404,8 +1433,6 @@ window.initMainApp = async function() {
             }).catch(err => console.warn("[IP Location] Fast lookup notice:", err));
         }
 
-        let gpsResolved = false;
-
         const handlePosition = (position) => {
             if (!position || !position.coords) return;
             gpsResolved = true;
@@ -1413,32 +1440,18 @@ window.initMainApp = async function() {
             const lon = position.coords.longitude;
             AppState.lastGpsTimestamp = Date.now();
 
+            // When genuine live GPS resolves, always clear custom lock so app moves with the device
+            AppState.isCustomLocation = false;
+            localStorage.removeItem('user_is_custom_location');
+
             // Distance moved since last weather update
             let movedKm = 999;
             if (AppState.lastWeatherLat != null && AppState.lastWeatherLon != null) {
                 movedKm = calcDistanceKm(AppState.lastWeatherLat, AppState.lastWeatherLon, lat, lon);
             }
 
-            // Guard: If user pinned a location, auto-revert to live GPS if traveled > 25km
-            if (AppState.isCustomLocation) {
-                if (AppState.userCoords) {
-                    const distFromPinned = calcDistanceKm(AppState.userCoords.lat, AppState.userCoords.lng, lat, lon);
-                    if (distFromPinned > 25) {
-                        console.log(`[Location Engine] Traveled ${distFromPinned.toFixed(1)} km away from pinned spot. Auto-resuming Live GPS.`);
-                        AppState.isCustomLocation = false;
-                        localStorage.removeItem('user_is_custom_location');
-                    } else {
-                        return;
-                    }
-                } else {
-                    return;
-                }
-            }
-
             AppState.userCoords = { lat, lng: lon };
             localStorage.setItem('user_last_coords', JSON.stringify({ lat, lng: lon }));
-            localStorage.removeItem('user_is_custom_location');
-            AppState.isCustomLocation = false;
 
             const st = getStateFromCoords(lat, lon);
             updateGpsStatus(true, `📍 GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)} (${st})`, 'live');
@@ -1487,7 +1500,7 @@ window.initMainApp = async function() {
                     }
                 } catch(e){}
 
-                // If even IP detection failed (offline / blocked), load baseline coordinates
+                // If even IP detection failed (offline / blocked), load Sydney baseline coordinates
                 const baseLat = -33.8688;
                 const baseLon = 151.2093;
                 AppState.userCoords = { lat: baseLat, lng: baseLon };
@@ -1508,8 +1521,8 @@ window.initMainApp = async function() {
         }
 
         // Try fast network/cached positioning first, with robust fallback to high-accuracy GPS
-        const fastOptions = { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 };
-        const preciseOptions = { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 };
+        const fastOptions = { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 };
+        const preciseOptions = { enableHighAccuracy: true, timeout: 12000, maximumAge: 10000 };
 
         try {
             navigator.geolocation.getCurrentPosition(
@@ -6308,46 +6321,82 @@ window.initMainApp = async function() {
     // Live GPS button handler
     window.acquireLiveGpsLocation = function() {
         const btns = document.querySelectorAll('#btn-acquire-gps, #btn-weather-acquire-gps, #dash-btn-live-gps');
+        const resetButtonUI = () => {
+            btns.forEach(btn => {
+                btn.disabled = false;
+                btn.innerHTML = `<span>🎯</span> Live GPS`;
+            });
+        };
+
         btns.forEach(btn => {
             btn.disabled = true;
             btn.innerHTML = `<span>⏳</span> Locking...`;
         });
 
+        const fallbackToIp = async (reason) => {
+            console.log(`[GPS Engine] Hardware GPS unavailable (${reason}), falling back to IP geolocation...`);
+            try {
+                if (typeof window.detectIpLocation === 'function') {
+                    const ipLoc = await window.detectIpLocation();
+                    if (ipLoc && Number.isFinite(ipLoc.lat) && Number.isFinite(ipLoc.lng)) {
+                        resetButtonUI();
+                        AppState.isCustomLocation = false;
+                        localStorage.removeItem('user_is_custom_location');
+                        const label = ipLoc.city ? `${ipLoc.city}` : "Detected Region";
+                        await window.applyLocationCoordinates(ipLoc.lat, ipLoc.lng, label, false);
+                        if (window.showSyncToast) {
+                            window.showSyncToast(`📍 Located: ${label} • Live weather & solunar updated!`);
+                        }
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn("[GPS Engine] IP fallback notice:", e);
+            }
+
+            resetButtonUI();
+            if (window.showSyncToast) {
+                window.showSyncToast(`⚠️ Could not detect GPS position. You can search your town below.`);
+            }
+            if (typeof window.openLocationModal === 'function') {
+                window.openLocationModal();
+            }
+        };
+
         if (!navigator.geolocation) {
-            alert("Geolocation is not supported by your browser/device.");
-            btns.forEach(btn => {
-                btn.disabled = false;
-                btn.innerHTML = `<span>🎯</span> Live GPS`;
-            });
+            fallbackToIp("Geolocation unsupported");
             return;
         }
 
+        // Tier 1: Try fast network/WiFi positioning first
         navigator.geolocation.getCurrentPosition(
             async (pos) => {
                 const lat = pos.coords.latitude;
                 const lng = pos.coords.longitude;
-                btns.forEach(btn => {
-                    btn.disabled = false;
-                    btn.innerHTML = `<span>🎯</span> Live GPS`;
-                });
+                resetButtonUI();
                 AppState.isCustomLocation = false;
                 localStorage.removeItem('user_is_custom_location');
                 await window.applyLocationCoordinates(lat, lng, "Live Device GPS", true);
             },
-            (err) => {
-                console.warn("GPS acquire notice:", err);
-                btns.forEach(btn => {
-                    btn.disabled = false;
-                    btn.innerHTML = `<span>🎯</span> Live GPS`;
-                });
-                if (window.showSyncToast) {
-                    window.showSyncToast(`⚠️ GPS Notice: ${err.message}. You can search your location below.`);
-                }
-                if (typeof window.openLocationModal === 'function') {
-                    window.openLocationModal();
-                }
+            () => {
+                // Tier 2: Try high-accuracy satellite GPS hardware
+                navigator.geolocation.getCurrentPosition(
+                    async (pos2) => {
+                        const lat2 = pos2.coords.latitude;
+                        const lng2 = pos2.coords.longitude;
+                        resetButtonUI();
+                        AppState.isCustomLocation = false;
+                        localStorage.removeItem('user_is_custom_location');
+                        await window.applyLocationCoordinates(lat2, lng2, "Live Device GPS", true);
+                    },
+                    (err2) => {
+                        // Tier 3: Immediate IP Geolocation fallback
+                        fallbackToIp(err2 ? err2.message : "GPS timeout");
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
+                );
             },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
         );
     };
 
@@ -8229,17 +8278,19 @@ window.initMainApp = async function() {
     try {
         const storedCoordsBoot = localStorage.getItem('user_last_coords');
         savedBoot = storedCoordsBoot ? JSON.parse(storedCoordsBoot) : null;
-        const isCustom = localStorage.getItem('user_is_custom_location') === 'true';
-        if (!isCustom && savedBoot && Number.isFinite(savedBoot.lat) && Number.isFinite(savedBoot.lng)) {
+        if (savedBoot && Number.isFinite(savedBoot.lat) && Number.isFinite(savedBoot.lng)) {
             if ((Math.abs(savedBoot.lat - (-30.3183)) < 0.05 && Math.abs(savedBoot.lng - 149.8265) < 0.05) ||
                 (Math.abs(savedBoot.lat - (-30.3281)) < 0.05 && Math.abs(savedBoot.lng - 149.7836) < 0.05)) {
                 isLegacyNarrabri = true;
+                localStorage.removeItem('user_last_coords');
+                localStorage.removeItem('user_is_custom_location');
+                savedBoot = null;
             }
         }
     } catch (e) {}
 
     function updateAppVersionDisplay() {
-        const ver = window.APP_VERSION || 'v101540';
+        const ver = window.APP_VERSION || 'v101550';
         const settingsVerEl = document.getElementById('settings-app-version');
         if (settingsVerEl) settingsVerEl.textContent = `${ver} (Latest Build)`;
         const sidebarVerEl = document.getElementById('global-app-version-tag');
@@ -8258,6 +8309,22 @@ window.initMainApp = async function() {
     } else {
         const dashBadgeEl = document.getElementById('dash-weather-station-badge');
         if (dashBadgeEl) dashBadgeEl.innerHTML = `📡 Detecting local weather & tides...`;
+        // Trigger immediate zero-permission IP Geolocation so user gets real local weather in ~200ms
+        if (typeof window.detectIpLocation === 'function') {
+            window.detectIpLocation().then(ipLoc => {
+                if (ipLoc && !AppState.userCoords && Number.isFinite(ipLoc.lat) && Number.isFinite(ipLoc.lng)) {
+                    console.log("[Boot] Fast initial IP location loaded:", ipLoc);
+                    AppState.userCoords = { lat: ipLoc.lat, lng: ipLoc.lng };
+                    localStorage.setItem('user_last_coords', JSON.stringify({ lat: ipLoc.lat, lng: ipLoc.lng }));
+                    const st = getStateFromCoords(ipLoc.lat, ipLoc.lng);
+                    const label = `📍 ${ipLoc.city || 'Detected'}${st ? ` (${st})` : ''}`;
+                    updateGpsStatus(true, label, 'cached');
+                    if (typeof window.loadWeatherAndTides === 'function') {
+                        window.loadWeatherAndTides(ipLoc.lat, ipLoc.lng, false);
+                    }
+                }
+            }).catch(() => {});
+        }
     }
     try { initTacklePredictiveText(); } catch (e) { console.error("Tackle predictive text init failed", e); }
     try { initFishPredictiveText(); } catch (e) { console.error("Fish predictive text init failed", e); }
@@ -9518,7 +9585,7 @@ Respond ONLY in valid JSON format:
                     await reg.update();
                 }
             }
-            if (window.showSyncToast) window.showSyncToast(`✨ App is on the latest build (${window.APP_VERSION || 'v101540'})!`);
+            if (window.showSyncToast) window.showSyncToast(`✨ App is on the latest build (${window.APP_VERSION || 'v101550'})!`);
         } catch(e) {
             console.warn("Update check error:", e);
         }
