@@ -44,8 +44,14 @@ const WEATHER = {
 
     getNearestBomRadar(lat, lng) {
         if (!lat || !lng) {
-            lat = -30.3622;
-            lng = 149.8336;
+            if (window.AppState && window.AppState.userCoords) {
+                lat = window.AppState.userCoords.lat;
+                lng = window.AppState.userCoords.lng;
+            }
+        }
+        if (!lat || !lng) {
+            lat = -33.8688;
+            lng = 151.2093;
         }
 
         const toRad = (v) => v * Math.PI / 180;
@@ -270,6 +276,10 @@ const WEATHER = {
 
     saveCachedStation(station, userLat, userLon) {
         if (!station || !station.id) return;
+        const sLat = (typeof station.lat === 'number' && !isNaN(station.lat)) ? station.lat : null;
+        const sLng = (typeof station.lng === 'number' && !isNaN(station.lng)) ? station.lng : null;
+        if (sLat == null || sLng == null) return; // Never save without valid true station coordinates!
+
         try {
             const key = 'willy_station_cache_v1';
             const raw = sessionStorage.getItem(key) || localStorage.getItem(key);
@@ -285,8 +295,8 @@ const WEATHER = {
                 name: station.name,
                 region: station.region || '',
                 state: station.state || '',
-                lat: station.lat != null ? station.lat : userLat,
-                lng: station.lng != null ? station.lng : userLon,
+                lat: sLat,
+                lng: sLng,
                 cachedAt: Date.now()
             });
 
@@ -312,9 +322,13 @@ const WEATHER = {
                 if (!item || !item.payload || item.lat == null || item.lon == null) continue;
                 if (now - (item.timestamp || 0) > maxAgeMinutes * 60 * 1000) continue;
 
-                // Within 500m / 0.005 degrees
+                // Within 800m
                 const d = this.getHaversineKm(lat, lon, item.lat, item.lon);
                 if (d <= 0.8) {
+                    // Reject stale payloads with distant (>50 km) regional feeds
+                    if (item.payload && item.payload.pwsDistance && item.payload.pwsDistance > 50.0) {
+                        return null;
+                    }
                     return item.payload;
                 }
             }
@@ -455,11 +469,22 @@ const WEATHER = {
                 }
                 }
 
-                if (candidates.length === 0) return null;
+                // Strictly filter candidates to genuine local/regional stations within 50 km of user GPS
+                const localCandidates = candidates.filter(c => {
+                    if (!c || c.lat == null || c.lng == null) return false;
+                    const d = (c.dist != null) ? c.dist : getDistKm(c.lat, c.lng);
+                    c.dist = d;
+                    return d <= 50.0;
+                });
 
-                // Sort all discovered WillyWeather stations strictly by exact Haversine distance to user's GPS
-                candidates.sort((a, b) => a.dist - b.dist);
-                chosen = candidates[0];
+                if (localCandidates.length === 0) {
+                    console.log(`[WillyWeather Discovery] No local stations within 50 km of (${lat.toFixed(4)}, ${lon.toFixed(4)}). Seamlessly delegating to BOM Observation Grid.`);
+                    return null;
+                }
+
+                // Sort all discovered local WillyWeather stations strictly by exact Haversine distance to user's GPS
+                localCandidates.sort((a, b) => a.dist - b.dist);
+                chosen = localCandidates[0];
 
                 // Save chosen station into Geodesic Cache for rapid subsequent visits
                 this.saveCachedStation(chosen, lat, lon);
@@ -558,6 +583,12 @@ const WEATHER = {
             }
         }
 
+        // Strict Proximity Gate: Reject observation stations > 50 km away in favor of exact coordinates BOM grid
+        if (pwsDistance != null && pwsDistance > 50.0) {
+            console.warn(`[WillyWeather] Observational station ${pwsStationName} is ${pwsDistance.toFixed(1)} km away (> 50 km). Distant regional station rejected in favor of local grid.`);
+            return null;
+        }
+
         // Extract live station observation telemetry
         if (wData.observational && wData.observational.observations) {
             const obs = wData.observational.observations;
@@ -624,14 +655,21 @@ const WEATHER = {
             pwsClarification = `WillyWeather Regional Feed: ${pwsStationName} (${distFormatted} km away)`;
         }
 
-        // Sunrise/Sunset formatting
-        let sunriseStr = "06:45 AM";
-        let sunsetStr = "05:20 PM";
+        // Sunrise/Sunset formatting with WillyWeather riseDateTime / setDateTime support
+        let sunriseStr = "06:15 AM";
+        let sunsetStr = "05:45 PM";
         if (todaySun.entries && todaySun.entries.length > 0) {
-            const sr = todaySun.entries.find(e => e.type === 'rise');
-            const ss = todaySun.entries.find(e => e.type === 'set');
-            if (sr && sr.dateTime) sunriseStr = new Date(sr.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            if (ss && ss.dateTime) sunsetStr = new Date(ss.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const e0 = todaySun.entries[0];
+            const riseDt = e0.riseDateTime || (todaySun.entries.find(e => e.type === 'rise' || e.riseDateTime)?.riseDateTime) || (todaySun.entries.find(e => e.type === 'rise')?.dateTime);
+            const setDt = e0.setDateTime || (todaySun.entries.find(e => e.type === 'set' || e.setDateTime)?.setDateTime) || (todaySun.entries.find(e => e.type === 'set')?.dateTime);
+            if (riseDt) {
+                const d = new Date(riseDt.replace(' ', 'T'));
+                if (!isNaN(d.getTime())) sunriseStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+            if (setDt) {
+                const d = new Date(setDt.replace(' ', 'T'));
+                if (!isNaN(d.getTime())) sunsetStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
         }
 
         return {
@@ -716,20 +754,22 @@ const WEATHER = {
             }
         };
 
-        // 1. Try Direct WillyWeather Warning Endpoint via willyFetch (Localhost, Vercel Serverless, or Proxy)
+        // 1. Try Direct WillyWeather Warning Endpoint via willyFetch if locationId is available
         try {
             const apiKey = localStorage.getItem('willyWeatherApiKey') || 'MjlkNjAwNWVjMzA4MTFlOGEwZjMyY2';
-            const locationId = 6862; // Region lookup
-            const warnUrl = `https://api.willyweather.com.au/v2/${apiKey}/locations/${locationId}/warnings.json`;
-            const warnRes = await this.willyFetch(warnUrl);
-            if (warnRes && warnRes.ok) {
-                const wJson = await warnRes.json();
-                if (Array.isArray(wJson)) {
-                    wJson.forEach(w => {
-                        const t = w.name || w.title || (w.warningType ? w.warningType.name : '') || '';
-                        const desc = w.description || (w.content ? w.content.text : '') || '';
-                        if (t) addWarn(t, 'BOM OFFICIAL WARNING', desc, w.issueDateTime || 'Recent');
-                    });
+            const locationId = (curData && curData.locationId) ? curData.locationId : null;
+            if (locationId) {
+                const warnUrl = `https://api.willyweather.com.au/v2/${apiKey}/locations/${locationId}/warnings.json`;
+                const warnRes = await this.willyFetch(warnUrl);
+                if (warnRes && warnRes.ok) {
+                    const wJson = await warnRes.json();
+                    if (Array.isArray(wJson)) {
+                        wJson.forEach(w => {
+                            const t = w.name || w.title || (w.warningType ? w.warningType.name : '') || '';
+                            const desc = w.description || (w.content ? w.content.text : '') || '';
+                            if (t) addWarn(t, 'BOM OFFICIAL WARNING', desc, w.issueDateTime || 'Recent');
+                        });
+                    }
                 }
             }
         } catch(e) {}

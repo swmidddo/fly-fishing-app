@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101530';
+window.APP_VERSION = 'v101540';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -239,7 +239,7 @@ window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCO
 window.AppState = {
     activeTab: 'dashboard',
     gpsWatchId: null,
-    userCoords: { lat: -30.3183, lng: 149.8265 },
+    userCoords: null,
     tackle: [],
     catches: [],
     rigs: [],
@@ -691,8 +691,11 @@ window.initMainApp = async function() {
     appInitialized = true;
     const initMainApp = window.initMainApp;
     // App State
-    const savedCoordsStr = localStorage.getItem('user_last_coords');
-    const initialCoords = savedCoordsStr ? JSON.parse(savedCoordsStr) : { lat: -30.3183, lng: 149.8265 };
+    let initialCoords = null;
+    try {
+        const savedCoordsStr = localStorage.getItem('user_last_coords');
+        initialCoords = savedCoordsStr ? JSON.parse(savedCoordsStr) : null;
+    } catch(e){}
 
     const AppState = window.AppState;
     AppState.userCoords = initialCoords;
@@ -1273,11 +1276,8 @@ window.initMainApp = async function() {
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
-    // 3. Location Tracking (GPS & Movement Tracking Engine)
+    // 3. Location Tracking (GPS & Real-Time Dynamic Movement Engine)
     window.requestGpsLocation = function() {
-        const fallbackLat = -30.3281; // Narrabri, NSW Inland Native Waters
-        const fallbackLon = 149.7836;
-
         const savedCoordsStr = localStorage.getItem('user_last_coords');
         const isCustom = localStorage.getItem('user_is_custom_location') === 'true';
         AppState.isCustomLocation = isCustom;
@@ -1290,13 +1290,13 @@ window.initMainApp = async function() {
                 const savedState = getStateFromCoords(saved.lat, saved.lng);
                 updateGpsStatus(true, `📍 Pinned: ${saved.lat.toFixed(4)}, ${saved.lng.toFixed(4)} (${savedState})`, 'pinned');
                 if (typeof window.loadWeatherAndTides === 'function') {
-                    window.loadWeatherAndTides(saved.lat, saved.lng);
+                    window.loadWeatherAndTides(saved.lat, saved.lng, false);
                 }
                 console.log("[Location Engine] Custom inspection location restored:", saved);
             } catch(e){}
         }
 
-        // 2. Warm Cache Start if previous user coordinates exist
+        // 2. Warm Cache Start if previous user coordinates exist (temporary display while live GPS locks)
         let hasWarmCoords = false;
         if (!isCustom && savedCoordsStr) {
             try {
@@ -1304,9 +1304,9 @@ window.initMainApp = async function() {
                 if (saved && saved.lat && saved.lng) {
                     AppState.userCoords = saved;
                     const savedState = getStateFromCoords(saved.lat, saved.lng);
-                    updateGpsStatus(true, `📍 Saved: ${saved.lat.toFixed(4)}, ${saved.lng.toFixed(4)} (${savedState})`, 'cached');
+                    updateGpsStatus(true, `📍 Restoring: ${saved.lat.toFixed(4)}, ${saved.lng.toFixed(4)} (${savedState})`, 'cached');
                     if (typeof window.loadWeatherAndTides === 'function') {
-                        window.loadWeatherAndTides(saved.lat, saved.lng);
+                        window.loadWeatherAndTides(saved.lat, saved.lng, false);
                     }
                     hasWarmCoords = true;
                 }
@@ -1314,18 +1314,15 @@ window.initMainApp = async function() {
         }
 
         if (!hasWarmCoords && !isCustom) {
-            updateGpsStatus(true, `📍 Acquiring Live GPS...`, 'cached');
+            updateGpsStatus(true, `🎯 Acquiring Live GPS...`, 'cached');
             const badgeEl = document.getElementById('dash-weather-station-badge');
-            if (badgeEl) badgeEl.innerHTML = `📡 Locating Local BOM Weather Station...`;
+            if (badgeEl) badgeEl.innerHTML = `📡 Acquiring Live GPS for local weather...`;
         }
 
         if (!navigator.geolocation) {
-            console.warn("Geolocation API unavailable. Using Narrabri NSW fallback location.");
+            console.warn("Geolocation API unavailable on this device/browser.");
             if (!hasWarmCoords && !isCustom) {
-                AppState.userCoords = { lat: fallbackLat, lng: fallbackLon };
-                if (typeof window.loadWeatherAndTides === 'function') {
-                    window.loadWeatherAndTides(fallbackLat, fallbackLon);
-                }
+                updateGpsStatus(false, `📍 GPS Unavailable - Tap to search location`, 'error');
             }
             return;
         }
@@ -1333,6 +1330,7 @@ window.initMainApp = async function() {
         let gpsResolved = false;
 
         const handlePosition = (position) => {
+            if (!position || !position.coords) return;
             gpsResolved = true;
             const lat = position.coords.latitude;
             const lon = position.coords.longitude;
@@ -1377,8 +1375,8 @@ window.initMainApp = async function() {
                 }
             }
 
-            // Update live weather if moved > 1.0 km or first resolution
-            if (movedKm > 1.0 || AppState.lastWeatherLat == null) {
+            // Update live weather if moved > 0.5 km or first resolution
+            if (movedKm > 0.5 || AppState.lastWeatherLat == null) {
                 AppState.lastWeatherLat = lat;
                 AppState.lastWeatherLon = lon;
                 if (typeof window.loadWeatherAndTides === 'function') {
@@ -1386,23 +1384,17 @@ window.initMainApp = async function() {
                 } else if (typeof loadWeatherAndTides === 'function') {
                     loadWeatherAndTides(lat, lon, true);
                 }
-                if (movedKm > 1.0 && movedKm < 500 && window.showSyncToast) {
+                if (movedKm > 0.5 && movedKm < 500 && window.showSyncToast) {
                     window.showSyncToast(`📍 Moved to new location (${st}) • Weather updated!`);
                 }
             }
         };
 
         const handleError = (err) => {
+            console.warn("[Location Engine] Geolocation notice:", err ? err.message : err);
             if (gpsResolved) return;
-            gpsResolved = true;
-            console.warn("Geolocation notice:", err);
             if (!hasWarmCoords && !AppState.isCustomLocation) {
-                AppState.userCoords = { lat: fallbackLat, lng: fallbackLon };
-                const st = getStateFromCoords(fallbackLat, fallbackLon);
-                updateGpsStatus(true, `📍 Default: ${fallbackLat.toFixed(4)}, ${fallbackLon.toFixed(4)} (${st})`, 'cached');
-                if (typeof window.loadWeatherAndTides === 'function') {
-                    window.loadWeatherAndTides(fallbackLat, fallbackLon);
-                }
+                updateGpsStatus(false, `📍 GPS Unavailable - Tap to search location`, 'error');
             } else if (!AppState.isCustomLocation) {
                 try {
                     const saved = JSON.parse(savedCoordsStr || '{}');
@@ -1422,7 +1414,7 @@ window.initMainApp = async function() {
             navigator.geolocation.getCurrentPosition(
                 handlePosition,
                 (err1) => {
-                    console.warn("Fast positioning notice, requesting high accuracy GPS hardware...", err1);
+                    console.warn("[Location Engine] Fast positioning notice, requesting high accuracy GPS hardware...", err1);
                     navigator.geolocation.getCurrentPosition(
                         handlePosition,
                         handleError,
@@ -1432,11 +1424,11 @@ window.initMainApp = async function() {
                 fastOptions
             );
 
-            if (!AppState.gpsWatchId) {
+            if (!AppState.gpsWatchId && navigator.geolocation) {
                 AppState.gpsWatchId = navigator.geolocation.watchPosition(
                     handlePosition,
-                    (err) => console.warn("Watch position notice:", err),
-                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+                    (err) => console.warn("[Location Engine] Watch position notice:", err),
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
                 );
             }
         } catch (err) {
@@ -1444,11 +1436,11 @@ window.initMainApp = async function() {
         }
     };
 
-    // Centralized Mobile Resume & GPS Revive Engine (Debounced to max once every 30s)
+    // Centralized Mobile Resume & GPS Revive Engine (Debounced to 5s)
     let lastReviveTimestamp = 0;
     window.reviveLiveGps = function(forceWeather = false) {
         const now = Date.now();
-        if (!forceWeather && (now - lastReviveTimestamp) < 30000) {
+        if (!forceWeather && (now - lastReviveTimestamp) < 5000) {
             return;
         }
         lastReviveTimestamp = now;
@@ -1491,7 +1483,7 @@ window.initMainApp = async function() {
                             ? calcDistanceKm(AppState.lastWeatherLat, AppState.lastWeatherLon, lat, lon)
                             : 999;
 
-                        if (movedKm > 1.0 || forceWeather) {
+                        if (movedKm > 0.5 || forceWeather) {
                             AppState.lastWeatherLat = lat;
                             AppState.lastWeatherLon = lon;
                             if (typeof window.loadWeatherAndTides === 'function') {
@@ -1522,7 +1514,7 @@ window.initMainApp = async function() {
                                 ? calcDistanceKm(AppState.lastWeatherLat, AppState.lastWeatherLon, lat, lon)
                                 : 999;
 
-                            if (movedKm > 1.0) {
+                            if (movedKm > 0.5) {
                                 AppState.lastWeatherLat = lat;
                                 AppState.lastWeatherLon = lon;
                                 if (typeof window.loadWeatherAndTides === 'function') {
@@ -1532,7 +1524,7 @@ window.initMainApp = async function() {
                         }
                     },
                     (err) => console.warn("[Location Engine] Watch position notice:", err),
-                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
                 );
             } catch(e){}
         }
@@ -5286,10 +5278,24 @@ window.initMainApp = async function() {
         window.loadWeatherAndTides = loadWeatherAndTides;
         window.__internalLoadWeatherAndTides = loadWeatherAndTides;
         if (!lat || !lon) {
-            const storedCoordsStr = localStorage.getItem('user_last_coords');
-            const saved = storedCoordsStr ? JSON.parse(storedCoordsStr) : null;
-            lat = saved ? saved.lat : -30.3183;
-            lon = saved ? saved.lng : 149.8265;
+            if (AppState.userCoords && AppState.userCoords.lat && AppState.userCoords.lng) {
+                lat = AppState.userCoords.lat;
+                lon = AppState.userCoords.lng;
+            } else {
+                const storedCoordsStr = localStorage.getItem('user_last_coords');
+                const saved = storedCoordsStr ? JSON.parse(storedCoordsStr) : null;
+                if (saved && saved.lat && saved.lng) {
+                    lat = saved.lat;
+                    lon = saved.lng;
+                }
+            }
+        }
+
+        if (!lat || !lon) {
+            // Still no coordinates available - do NOT silently query Narrabri!
+            const dashBadgeEl = document.getElementById('dash-weather-station-badge');
+            if (dashBadgeEl) dashBadgeEl.innerHTML = `📡 Acquiring Live GPS for local weather...`;
+            return;
         }
 
         // 1. ALWAYS render Astronomical & Solunar data immediately (0ms local CPU math, zero network delay)
@@ -5979,8 +5985,16 @@ window.initMainApp = async function() {
         if (!lat || !lon) {
             const storedCoordsStr = localStorage.getItem('user_last_coords');
             const saved = storedCoordsStr ? JSON.parse(storedCoordsStr) : null;
-            lat = saved ? saved.lat : -30.3281; // Narrabri, NSW native waters fallback
-            lon = saved ? saved.lng : 149.7836;
+            if (saved && saved.lat && saved.lng) {
+                lat = saved.lat;
+                lon = saved.lng;
+            }
+        }
+
+        if (!lat || !lon) {
+            if (window.showSyncToast) window.showSyncToast("⚠️ Please enable GPS or select a location first.");
+            btns.forEach(b => { b.disabled = false; b.innerHTML = `🔄`; });
+            return;
         }
 
         try {
@@ -6050,18 +6064,34 @@ window.initMainApp = async function() {
         if (!modal) return;
 
         // Populate current active location
-        const coords = AppState.userCoords || { lat: -30.3622, lng: 149.8336 };
-        const stateStr = getStateFromCoords(coords.lat, coords.lng);
-        const nameEl = document.getElementById('loc-active-name-coords');
-        if (nameEl) {
-            nameEl.textContent = `📍 ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)} (${stateStr})`;
-        }
+        const savedCoords = (() => {
+            try {
+                const s = localStorage.getItem('user_last_coords');
+                return s ? JSON.parse(s) : null;
+            } catch(e) { return null; }
+        })();
+        const coords = (AppState.userCoords && Number.isFinite(AppState.userCoords.lat)) 
+            ? AppState.userCoords 
+            : (savedCoords && Number.isFinite(savedCoords.lat) ? savedCoords : null);
 
-        // Prefill custom coordinate inputs
+        const nameEl = document.getElementById('loc-active-name-coords');
         const customLat = document.getElementById('loc-custom-lat');
         const customLng = document.getElementById('loc-custom-lng');
-        if (customLat) customLat.value = coords.lat.toFixed(4);
-        if (customLng) customLng.value = coords.lng.toFixed(4);
+
+        if (coords) {
+            const stateStr = getStateFromCoords(coords.lat, coords.lng);
+            if (nameEl) {
+                nameEl.textContent = `📍 ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)} (${stateStr})`;
+            }
+            if (customLat) customLat.value = coords.lat.toFixed(4);
+            if (customLng) customLng.value = coords.lng.toFixed(4);
+        } else {
+            if (nameEl) {
+                nameEl.textContent = `📡 Live GPS Pending (Move or acquire signal)`;
+            }
+            if (customLat) customLat.value = '';
+            if (customLng) customLng.value = '';
+        }
 
         // Clear search
         const searchInput = document.getElementById('loc-search-input');
@@ -6095,6 +6125,38 @@ window.initMainApp = async function() {
         if (isLiveGps) {
             AppState.isCustomLocation = false;
             localStorage.removeItem('user_is_custom_location');
+            // Ensure continuous real-time movement tracking is running
+            if (!AppState.gpsWatchId && navigator.geolocation) {
+                try {
+                    AppState.gpsWatchId = navigator.geolocation.watchPosition(
+                        (position) => {
+                            if (!position || !position.coords) return;
+                            const pLat = position.coords.latitude;
+                            const pLon = position.coords.longitude;
+                            AppState.lastGpsTimestamp = Date.now();
+                            AppState.userCoords = { lat: pLat, lng: pLon };
+                            localStorage.setItem('user_last_coords', JSON.stringify({ lat: pLat, lng: pLon }));
+                            const pState = getStateFromCoords(pLat, pLon);
+                            updateGpsStatus(true, `📍 GPS: ${pLat.toFixed(4)}, ${pLon.toFixed(4)} (${pState})`, 'live');
+                            if (window.AppMap && window.AppMap.map) {
+                                window.AppMap.updateUserLocation(pLat, pLon);
+                            }
+                            const moved = (AppState.lastWeatherLat != null && AppState.lastWeatherLon != null)
+                                ? calcDistanceKm(AppState.lastWeatherLat, AppState.lastWeatherLon, pLat, pLon)
+                                : 999;
+                            if (moved > 0.5) {
+                                AppState.lastWeatherLat = pLat;
+                                AppState.lastWeatherLon = pLon;
+                                if (typeof window.loadWeatherAndTides === 'function') {
+                                    window.loadWeatherAndTides(pLat, pLon, true);
+                                }
+                            }
+                        },
+                        (err) => console.warn("[Live Watcher] Notice:", err),
+                        { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+                    );
+                } catch(e){}
+            }
         } else {
             AppState.isCustomLocation = true;
             localStorage.setItem('user_is_custom_location', 'true');
@@ -6178,7 +6240,7 @@ window.initMainApp = async function() {
                     btn.innerHTML = `<span>🎯</span> Live GPS`;
                 });
                 if (window.showSyncToast) {
-                    window.showSyncToast(`⚠️ GPS Notice: ${err.message}. You can select Narrabri below.`);
+                    window.showSyncToast(`⚠️ GPS Notice: ${err.message}. You can search your location below.`);
                 }
                 if (typeof window.openLocationModal === 'function') {
                     window.openLocationModal();
@@ -8061,13 +8123,23 @@ window.initMainApp = async function() {
     }
 
     // INITIAL APP BOOTSTRAPPING (UI, GPS & Live Data First)
-    const storedCoordsBoot = localStorage.getItem('user_last_coords');
-    const savedBoot = storedCoordsBoot ? JSON.parse(storedCoordsBoot) : null;
-    const defaultLat = savedBoot ? savedBoot.lat : -30.3183;
-    const defaultLon = savedBoot ? savedBoot.lng : 149.8265;
+    let savedBoot = null;
+    try {
+        const storedCoordsBoot = localStorage.getItem('user_last_coords');
+        savedBoot = storedCoordsBoot ? JSON.parse(storedCoordsBoot) : null;
+        // Purge legacy hardcoded Narrabri fallback if user is in Live GPS mode
+        const isPinned = localStorage.getItem('app_location_pinned') === 'true';
+        if (!isPinned && savedBoot && Number.isFinite(savedBoot.lat) && Number.isFinite(savedBoot.lng)) {
+            if (Math.abs(savedBoot.lat - (-30.3183)) < 0.05 && Math.abs(savedBoot.lng - 149.8265) < 0.05) {
+                console.log("[Boot] Discarding stale legacy Narrabri fallback coordinates from user_last_coords");
+                savedBoot = null;
+                localStorage.removeItem('user_last_coords');
+            }
+        }
+    } catch (e) {}
 
     function updateAppVersionDisplay() {
-        const ver = window.APP_VERSION || 'v100150';
+        const ver = window.APP_VERSION || 'v101540';
         const settingsVerEl = document.getElementById('settings-app-version');
         if (settingsVerEl) settingsVerEl.textContent = `${ver} (Latest Build)`;
         const sidebarVerEl = document.getElementById('global-app-version-tag');
@@ -8080,8 +8152,13 @@ window.initMainApp = async function() {
     try { initSettings(); } catch (e) { console.error("Settings init failed", e); }
     try { initLocationTracking(); } catch (e) { console.error("GPS init failed", e); }
     try { initRegulations(); } catch (e) { console.error("Regulations init failed", e); }
-    // Immediately render Solunar Feeding Windows, Moon & Tides on startup (0ms CPU math)
-    try { loadWeatherAndTides(defaultLat, defaultLon, false); } catch (e) { console.error("Weather init failed", e); }
+    // If valid coordinates exist, render Solunar & Weather immediately; otherwise wait for Live GPS lock
+    if (savedBoot && Number.isFinite(savedBoot.lat) && Number.isFinite(savedBoot.lng)) {
+        try { loadWeatherAndTides(savedBoot.lat, savedBoot.lng, false); } catch (e) { console.error("Weather init failed", e); }
+    } else {
+        const dashBadgeEl = document.getElementById('dash-weather-station-badge');
+        if (dashBadgeEl) dashBadgeEl.innerHTML = `📡 Acquiring Live GPS for local weather...`;
+    }
     try { initTacklePredictiveText(); } catch (e) { console.error("Tackle predictive text init failed", e); }
     try { initFishPredictiveText(); } catch (e) { console.error("Fish predictive text init failed", e); }
     try { initMapEngine(); } catch (e) { console.error("Map init failed", e); }
@@ -9341,7 +9418,7 @@ Respond ONLY in valid JSON format:
                     await reg.update();
                 }
             }
-            if (window.showSyncToast) window.showSyncToast(`✨ App is on the latest build (${window.APP_VERSION || 'v101530'})!`);
+            if (window.showSyncToast) window.showSyncToast(`✨ App is on the latest build (${window.APP_VERSION || 'v101540'})!`);
         } catch(e) {
             console.warn("Update check error:", e);
         }
