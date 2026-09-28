@@ -20,6 +20,24 @@ export default async function handler(req, res) {
         return;
     }
 
+    if (action === 'geoip') {
+        const lat = parseFloat(req.headers['x-vercel-ip-latitude']);
+        const lng = parseFloat(req.headers['x-vercel-ip-longitude']);
+        const city = req.headers['x-vercel-ip-city'] ? decodeURIComponent(req.headers['x-vercel-ip-city']) : '';
+        const region = req.headers['x-vercel-ip-country-region'] || '';
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            res.status(200).json({
+                lat: lat,
+                lng: lng,
+                city: city || region || 'Local Area',
+                region: region
+            });
+            return;
+        }
+        res.status(200).json({ error: 'No geoip headers available' });
+        return;
+    }
+
     if (!target) {
         res.status(400).json({ error: 'Missing target URL parameter' });
         return;
