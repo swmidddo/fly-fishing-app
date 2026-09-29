@@ -127,7 +127,7 @@ const AppMap = {
 
             const timer = setTimeout(() => {
                 reject(new Error("Google Maps script load timed out. Falling back to Leaflet."));
-            }, 3500);
+            }, 8000);
 
             const script = document.createElement('script');
             script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__initGoogleMapCallback&loading=async`;
