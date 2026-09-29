@@ -916,7 +916,11 @@ window.initMainApp = async function() {
 
         // Safe per-tab render hooks
         try {
-            if (tabId === 'flybox' && window.FlyBoxApp) {
+            if (tabId === 'dashboard') {
+                if (typeof window.updateDashboardHudCard === 'function') {
+                    try { window.updateDashboardHudCard(); } catch(e){}
+                }
+            } else if (tabId === 'flybox' && window.FlyBoxApp) {
                 if (typeof window.FlyBoxApp.renderFlyBoxUI === 'function') window.FlyBoxApp.renderFlyBoxUI();
                 if (typeof window.FlyBoxApp.renderHatchGuideUI === 'function') window.FlyBoxApp.renderHatchGuideUI();
                 if (typeof window.recommendFlyPattern === 'function') window.recommendFlyPattern();
@@ -4900,6 +4904,7 @@ window.initMainApp = async function() {
         isNightVision: false,
         deviceHeading: null,
         orientationHandler: null,
+        compassRafId: null,
         whistleCtx: null,
         whistleInterval: null,
         isWhistling: false,
@@ -4937,12 +4942,11 @@ window.initMainApp = async function() {
                     const T = H + RA - (0.06571 * t) - 6.622;
                     const UT = ((T - lon / 15.0) % 24 + 24) % 24;
 
-                    const hours = Math.floor(UT);
-                    const minutes = Math.floor((UT - hours) * 60);
-                    const seconds = Math.floor(((UT - hours) * 60 - minutes) * 60);
-                    
-                    const eventUtc = new Date(Date.UTC(year, month, day, hours, minutes, seconds));
-                    return eventUtc;
+                    const tzOffsetHours = -date.getTimezoneOffset() / 60;
+                    const localHours = ((UT + tzOffsetHours) % 24 + 24) % 24;
+                    const eventLocal = new Date(year, month, day, 0, 0, 0);
+                    eventLocal.setSeconds(Math.round(localHours * 3600));
+                    return eventLocal;
                 };
 
                 const sunsetDate = calcEvent(90.833, true);
@@ -5050,10 +5054,19 @@ window.initMainApp = async function() {
                 window.removeEventListener('deviceorientation', this.orientationHandler);
                 this.orientationHandler = null;
             }
+            if (this.compassRafId) {
+                cancelAnimationFrame(this.compassRafId);
+                this.compassRafId = null;
+            }
             this.deviceHeading = null;
         },
 
         initCompassSensor() {
+            if (this.orientationHandler) {
+                window.removeEventListener('deviceorientation', this.orientationHandler);
+                this.orientationHandler = null;
+            }
+
             const handleOrientation = (e) => {
                 let heading = null;
                 if (typeof e.webkitCompassHeading !== 'undefined') {
@@ -5065,7 +5078,12 @@ window.initMainApp = async function() {
                 }
                 if (heading !== null && Number.isFinite(heading)) {
                     this.deviceHeading = heading;
-                    this.updateCompassVisuals();
+                    if (!this.compassRafId) {
+                        this.compassRafId = requestAnimationFrame(() => {
+                            this.compassRafId = null;
+                            this.updateCompassVisuals();
+                        });
+                    }
                 }
             };
 
@@ -5173,8 +5191,14 @@ window.initMainApp = async function() {
                     countdownStr = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
                     const minsUntilSunset = targetSunsetTime ? Math.floor((targetSunsetTime - now.getTime()) / 60000) : 999;
+                    const sunriseDate = solar?.sunrise;
+                    const isPreDawn = sunriseDate && now < sunriseDate;
 
-                    if (minsUntilSunset <= 0) {
+                    if (isPreDawn) {
+                        statusText = '🌌 Pre-Dawn / First Light';
+                        statusStyle = 'background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid #6366f1;';
+                        labelText = 'Pre-Dawn: Evening Rise Tonight';
+                    } else if (minsUntilSunset <= 0) {
                         statusText = '🌅 Civil Twilight (Legal Light Ending Soon!)';
                         statusStyle = 'background: rgba(245, 158, 11, 0.25); color: #fbbf24; border: 1px solid #f59e0b; font-weight: 700;';
                         labelText = 'Civil Twilight (Pack up & Rig Down)';
@@ -5289,8 +5313,12 @@ window.initMainApp = async function() {
             const user = this.getUserCoordinates();
             localStorage.setItem('carCoords', JSON.stringify({ lat: user.lat, lng: user.lng, timestamp: Date.now() }));
             if (window.AppMap) {
-                window.AppMap.carCoords = { lat: user.lat, lng: user.lng };
-                if (typeof window.AppMap.renderCarMarker === 'function') window.AppMap.renderCarMarker();
+                if (typeof window.AppMap.setCarLocation === 'function') {
+                    window.AppMap.setCarLocation(user.lat, user.lng);
+                } else {
+                    window.AppMap.carCoords = { lat: user.lat, lng: user.lng };
+                    if (typeof window.AppMap.renderCarMarker === 'function') window.AppMap.renderCarMarker();
+                }
             }
             this.updateHud();
             if (typeof window.showSyncToast === 'function') {
@@ -5302,13 +5330,17 @@ window.initMainApp = async function() {
             if (confirm("Clear vehicle waypoint?")) {
                 localStorage.removeItem('carCoords');
                 if (window.AppMap) {
-                    window.AppMap.carCoords = null;
-                    if (window.AppMap.carMarker) {
-                        try {
-                            if (window.AppMap.isGoogleMaps) window.AppMap.carMarker.setMap(null);
-                            else window.AppMap.map.removeLayer(window.AppMap.carMarker);
-                            window.AppMap.carMarker = null;
-                        } catch(e){}
+                    if (typeof window.AppMap.clearCarLocation === 'function') {
+                        window.AppMap.clearCarLocation();
+                    } else {
+                        window.AppMap.carCoords = null;
+                        if (window.AppMap.markers && window.AppMap.markers.car) {
+                            try {
+                                if (window.AppMap.isGoogleMaps) window.AppMap.markers.car.setMap(null);
+                                else window.AppMap.map.removeLayer(window.AppMap.markers.car);
+                                window.AppMap.markers.car = null;
+                            } catch(e){}
+                        }
                     }
                 }
                 this.updateHud();
@@ -5383,6 +5415,9 @@ window.initMainApp = async function() {
                     return;
                 }
                 this.whistleCtx = new AudioCtx();
+                if (this.whistleCtx.state === 'suspended') {
+                    this.whistleCtx.resume().catch(() => {});
+                }
                 this.isWhistling = true;
                 const icon = document.getElementById('hud-whistle-icon');
                 const label = document.getElementById('hud-whistle-label');
@@ -5392,6 +5427,9 @@ window.initMainApp = async function() {
                 // Play 3 distinct backcountry distress blasts repeating every 4.5s
                 const playBlast = () => {
                     if (!this.isWhistling || !this.whistleCtx) return;
+                    if (this.whistleCtx.state === 'suspended') {
+                        this.whistleCtx.resume().catch(() => {});
+                    }
                     const now = this.whistleCtx.currentTime;
                     for (let i = 0; i < 3; i++) {
                         const start = now + (i * 0.85);
@@ -5443,13 +5481,17 @@ window.initMainApp = async function() {
     window.openReturnCarHud = function() {
         const modal = document.getElementById('modal-return-hud');
         if (!modal) return;
+        modal.style.display = 'flex';
         modal.classList.add('active');
         ReturnCarHud.startTracking();
     };
 
     window.closeReturnCarHud = function() {
         const modal = document.getElementById('modal-return-hud');
-        if (modal) modal.classList.remove('active');
+        if (modal) {
+            modal.classList.remove('active');
+            modal.style.display = 'none';
+        }
         ReturnCarHud.stopTracking();
         if (ReturnCarHud.isWhistling) ReturnCarHud.stopWhistle();
     };
@@ -5461,6 +5503,34 @@ window.initMainApp = async function() {
     window.toggleEmergencyWhistle = function() { ReturnCarHud.toggleWhistle(); };
     window.toggleEmergencyLantern = function(state) { ReturnCarHud.toggleLantern(state); };
     window.updateDashboardHudCard = function() { ReturnCarHud.updateHud(); };
+
+    // Backdrop click dismiss for Return HUD modal
+    const hudModalEl = document.getElementById('modal-return-hud');
+    if (hudModalEl) {
+        hudModalEl.addEventListener('click', (e) => {
+            if (e.target === hudModalEl) {
+                window.closeReturnCarHud();
+            }
+        });
+    }
+
+    // Global Escape Key to close any active modal
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' || e.key === 'Esc') {
+            if (typeof window.closeAnyActiveModal === 'function') {
+                window.closeAnyActiveModal();
+            }
+        }
+    });
+
+    // 30-second background updater for Dashboard Dusk/Return HUD Card
+    setInterval(() => {
+        if (AppState.activeTab === 'dashboard') {
+            if (typeof window.updateDashboardHudCard === 'function') {
+                try { window.updateDashboardHudCard(); } catch(e){}
+            }
+        }
+    }, 30000);
 
     // ==========================================
     // 6.5 Branded Trophy Catch Card Generator Engine

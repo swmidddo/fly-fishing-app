@@ -70,7 +70,7 @@ self.addEventListener('install', (event) => {
     self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then(async (cache) => {
-            console.log('[Backcountry SW] Pre-caching core app shell & offline assets (v101580)...');
+            console.log('[Backcountry SW] Pre-caching core app shell & offline assets (v101600)...');
             return Promise.allSettled(
                 CORE_ASSETS.map((url) =>
                     fetch(url, { mode: url.startsWith('http') ? 'cors' : 'same-origin' })
