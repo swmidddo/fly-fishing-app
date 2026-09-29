@@ -28,7 +28,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style -->
-    <link rel="stylesheet" href="styles.css?v=101580">
+    <link rel="stylesheet" href="styles.css?v=101590">
     <script>
         // Backcountry Offline PWA Service Worker Registration & Live Auto-Update Engine
         if ('serviceWorker' in navigator) {
@@ -610,11 +610,17 @@
                         <span>Recent Catches</span>
                         <span style="font-size: 12px; color: var(--accent-teal); font-weight: normal; margin-left: 4px;">(View All Catches →)</span>
                     </h2>
-                    <button class="btn btn-primary" onclick="event.stopPropagation(); window.showLogCatchModal()">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        Log Catch
-                    </button>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <button class="btn btn-primary" onclick="event.stopPropagation(); window.quickDropCatchPin()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #000; font-weight: 700; border: none; box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);">
+                            ⚡ Quick-Drop Pin
+                        </button>
+                        <button class="btn btn-glass" onclick="event.stopPropagation(); window.showLogCatchModal()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            Log Catch
+                        </button>
+                    </div>
                 </div>
+                <div id="dash-draft-catches-container"></div>
                 <div class="recent-catches-list grid-three-col" id="dashboard-recent-catches">
                     <div style="grid-column: 1 / -1; text-align: center; padding: 35px 20px; color: var(--text-secondary); font-size: 13.5px; background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px dashed rgba(255,255,255,0.1);">
                         <span>🎣 No catches logged yet. Click <b>"+ Log Catch"</b> to add your first catch!</span>
@@ -628,6 +634,7 @@
                 </div>
                 <div class="map-controls">
                     <div class="map-actions">
+                        <button class="btn btn-primary" onclick="window.quickDropCatchPin()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #000; font-weight: 700; border: none; box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);">⚡ Quick-Drop Pin</button>
                         <button class="btn btn-glass" id="btn-map-type">Type: Default</button>
                         <button class="btn btn-glass" id="btn-map-radar">🌧️ Radar: Off</button>
                         <button class="btn btn-glass" id="btn-map-weather">🌤️ Weather info</button>
@@ -737,11 +744,13 @@
                         <p class="subtitle">Complete catalog of your angling success.</p>
                     </div>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="window.quickDropCatchPin()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #000; font-weight: 700; border: none; box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);">⚡ Quick-Drop Catch Pin</button>
                         <button class="btn btn-glass" onclick="window.openTripJournalModal()">📄 Export Trip Journal PDF</button>
                         <button class="btn btn-glass" onclick="window.showLogTripModal()" style="border-color: rgba(245, 158, 11, 0.4); color: var(--accent-gold);">+ 🏕️ Log Recon / Trip</button>
-                        <button class="btn btn-primary" onclick="window.showLogCatchModal()">+ Log New Catch</button>
+                        <button class="btn btn-glass" onclick="window.showLogCatchModal()">+ Log New Catch</button>
                     </div>
                 </header>
+                <div id="catches-draft-banner-container"></div>
 
                 <!-- Catch Analytics Summary Cards -->
                 <div class="analytics-grid mb-20">
@@ -2492,6 +2501,10 @@
                 <span class="mobile-drawer-icon">📍</span>
                 <span class="mobile-drawer-label">Set Location</span>
             </button>
+            <button class="mobile-drawer-card" onclick="window.quickDropCatchPin(); window.toggleMobileNavDrawer(false);" style="border-color: rgba(245, 158, 11, 0.5); background: rgba(245, 158, 11, 0.1);">
+                <span class="mobile-drawer-icon">⚡</span>
+                <span class="mobile-drawer-label" style="color: #fbbf24; font-weight: 700;">Quick-Drop Pin</span>
+            </button>
             <button class="mobile-drawer-card" onclick="window.toggleRiverMode(); window.toggleMobileNavDrawer(false);">
                 <span class="mobile-drawer-icon">☀️</span>
                 <span class="mobile-drawer-label">River Mode</span>
@@ -2568,16 +2581,16 @@
 
     <!-- Scripts -->
     <script async src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="db.js?v=101580"></script>
-    <script src="regulations.js?v=101580"></script>
-    <script src="weather.js?v=101580"></script>
-    <script src="exif.js?v=101580"></script>
-    <script src="map.js?v=101580"></script>
-    <script src="tackle_db.js?v=101580"></script>
-    <script src="fish_db.js?v=101580"></script>
-    <script src="fly_box.js?v=101580"></script>
-    <script src="knots.js?v=101580"></script>
-    <script src="auth.js?v=101580"></script>
-    <script src="app.js?v=101580"></script>
+    <script src="db.js?v=101590"></script>
+    <script src="regulations.js?v=101590"></script>
+    <script src="weather.js?v=101590"></script>
+    <script src="exif.js?v=101590"></script>
+    <script src="map.js?v=101590"></script>
+    <script src="tackle_db.js?v=101590"></script>
+    <script src="fish_db.js?v=101590"></script>
+    <script src="fly_box.js?v=101590"></script>
+    <script src="knots.js?v=101590"></script>
+    <script src="auth.js?v=101590"></script>
+    <script src="app.js?v=101590"></script>
 </body>
 </html>

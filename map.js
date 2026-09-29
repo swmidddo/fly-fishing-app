@@ -804,52 +804,86 @@ const AppMap = {
 
             const pos = this.isGoogleMaps ? new google.maps.LatLng(lat, lng) : [lat, lng];
 
+            const isDraft = !!catchItem.isDraft;
             const isRecon = !!catchItem.isNoCatchTrip;
-            const markerTitle = isRecon 
-                ? `Recon: ${catchItem.sessionOutcome || 'River Exploration'}` 
-                : `Catch: ${catchItem.species}`;
+            const markerTitle = isDraft
+                ? `⚡ Quick-Drop Catch Pin (${catchItem.time || 'Pending'})`
+                : (isRecon 
+                    ? `Recon: ${catchItem.sessionOutcome || 'River Exploration'}` 
+                    : `Catch: ${catchItem.species}`);
 
             const imgHtml = catchItem.photo ? `<img src="${catchItem.photo}" style="width:100%; max-height:100px; object-fit:cover; border-radius:5px; margin-top:5px;"/>` : '';
             const tackleSummary = [catchItem.fly, catchItem.rod, catchItem.reel, catchItem.flyline, catchItem.rigCombo].filter(Boolean).join(' | ') || 'N/A';
             const safeId = String(catchItem.id).replace(/'/g, "\\'");
 
-            const popupContent = isRecon ? `
-                <div style="color: #000; font-family: sans-serif; min-width: 170px; padding: 4px;">
-                    <h4 style="margin:0 0 4px 0; color: #b45309; font-size: 15px;">🏕️ ${catchItem.sessionOutcome || 'River Recon Session'}</h4>
-                    <p style="margin:2px 0 4px 0; font-size:12px; color: #475569;"><b>Targeted:</b> ${catchItem.targetSpecies || catchItem.species || 'All Species'}</p>
-                    <p style="margin:2px 0; font-size:11.5px; color: #334155;"><b>Tested Gear:</b> ${tackleSummary}</p>
-                    ${catchItem.waterClarity ? `<p style="margin:2px 0; font-size:11px; color: #0284c7;"><b>Water Clarity:</b> ${catchItem.waterClarity}</p>` : ''}
-                    ${imgHtml}
-                    <div style="display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #cbd5e1; padding-top: 6px;">
-                        <button onclick="window.editCatchUI('${safeId}')" style="flex:1; background: #0284c7; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">✏️ Edit</button>
-                        <button onclick="window.deleteCatchUI('${safeId}')" style="flex:1; background: #ef4444; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">🗑️ Delete</button>
+            let popupContent = '';
+            if (isDraft) {
+                popupContent = `
+                    <div style="color: #000; font-family: sans-serif; min-width: 185px; padding: 4px;">
+                        <h4 style="margin:0 0 4px 0; color: #d97706; font-size: 15px; display: flex; align-items: center; gap: 4px;">⚡ Quick-Drop Catch Pin</h4>
+                        <p style="margin:2px 0; font-size:12px; color: #475569;"><b>Time:</b> ${catchItem.time || ''} (${catchItem.date || ''})</p>
+                        <p style="margin:2px 0; font-size:11.5px; color: #334155;"><b>Barometer:</b> ${catchItem.pressure ? catchItem.pressure + ' hPa' : '1016 hPa'}</p>
+                        <p style="margin:2px 0; font-size:11px; color: #0284c7;"><b>Coordinates:</b> ${lat.toFixed(4)}, ${lng.toFixed(4)}</p>
+                        <p style="margin:4px 0; font-size:11px; color: #b45309; background: rgba(245,158,11,0.12); padding: 5px; border-radius: 4px;">🐟 Fish released safely! Tap below to add photo, species &amp; fly.</p>
+                        <div style="display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #cbd5e1; padding-top: 6px;">
+                            <button onclick="window.editCatchUI('${safeId}')" style="flex:2; background: linear-gradient(135deg, #f59e0b 0%, #10b981 100%); color: white; border: none; padding: 6px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 700;">🎣 Complete Log</button>
+                            <button onclick="window.deleteCatchUI('${safeId}')" style="flex:1; background: #ef4444; color: white; border: none; padding: 6px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">🗑️</button>
+                        </div>
                     </div>
-                </div>
-            ` : `
-                <div style="color: #000; font-family: sans-serif; min-width: 170px; padding: 4px;">
-                    <h4 style="margin:0 0 6px 0; color: #0f172a; font-size: 15px;">🐟 ${catchItem.species}</h4>
-                    <p style="margin:3px 0; font-size:12.5px; color: #334155;"><b>Length:</b> ${catchItem.length || '--'} cm</p>
-                    <p style="margin:3px 0; font-size:12.5px; color: #334155;"><b>Tackle:</b> ${tackleSummary}</p>
-                    ${imgHtml}
-                    <div style="display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #cbd5e1; padding-top: 6px;">
-                        <button onclick="window.editCatchUI('${safeId}')" style="flex:1; background: #0284c7; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">✏️ Edit</button>
-                        <button onclick="window.deleteCatchUI('${safeId}')" style="flex:1; background: #ef4444; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">🗑️ Delete</button>
+                `;
+            } else if (isRecon) {
+                popupContent = `
+                    <div style="color: #000; font-family: sans-serif; min-width: 170px; padding: 4px;">
+                        <h4 style="margin:0 0 4px 0; color: #b45309; font-size: 15px;">🏕️ ${catchItem.sessionOutcome || 'River Recon Session'}</h4>
+                        <p style="margin:2px 0 4px 0; font-size:12px; color: #475569;"><b>Targeted:</b> ${catchItem.targetSpecies || catchItem.species || 'All Species'}</p>
+                        <p style="margin:2px 0; font-size:11.5px; color: #334155;"><b>Tested Gear:</b> ${tackleSummary}</p>
+                        ${catchItem.waterClarity ? `<p style="margin:2px 0; font-size:11px; color: #0284c7;"><b>Water Clarity:</b> ${catchItem.waterClarity}</p>` : ''}
+                        ${imgHtml}
+                        <div style="display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #cbd5e1; padding-top: 6px;">
+                            <button onclick="window.editCatchUI('${safeId}')" style="flex:1; background: #0284c7; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">✏️ Edit</button>
+                            <button onclick="window.deleteCatchUI('${safeId}')" style="flex:1; background: #ef4444; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">🗑️ Delete</button>
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            } else {
+                popupContent = `
+                    <div style="color: #000; font-family: sans-serif; min-width: 170px; padding: 4px;">
+                        <h4 style="margin:0 0 6px 0; color: #0f172a; font-size: 15px;">🐟 ${catchItem.species}</h4>
+                        <p style="margin:3px 0; font-size:12.5px; color: #334155;"><b>Length:</b> ${catchItem.length || '--'} cm</p>
+                        <p style="margin:3px 0; font-size:12.5px; color: #334155;"><b>Tackle:</b> ${tackleSummary}</p>
+                        ${imgHtml}
+                        <div style="display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #cbd5e1; padding-top: 6px;">
+                            <button onclick="window.editCatchUI('${safeId}')" style="flex:1; background: #0284c7; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">✏️ Edit</button>
+                            <button onclick="window.deleteCatchUI('${safeId}')" style="flex:1; background: #ef4444; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">🗑️ Delete</button>
+                        </div>
+                    </div>
+                `;
+            }
 
             if (this.isGoogleMaps) {
-                const iconSvg = isRecon ? `
-                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
-                        <circle cx="20" cy="20" r="18" fill="#1c1917" stroke="#f59e0b" stroke-width="2.5"/>
-                        <text x="20" y="27" font-size="20" text-anchor="middle">🏕️</text>
-                    </svg>
-                ` : `
-                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
-                        <circle cx="20" cy="20" r="18" fill="#0d2838" stroke="#64ffda" stroke-width="2.5"/>
-                        <text x="20" y="27" font-size="20" text-anchor="middle">🐟</text>
-                    </svg>
-                `;
+                let iconSvg = '';
+                if (isDraft) {
+                    iconSvg = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 42 42">
+                            <circle cx="21" cy="21" r="19" fill="#78350f" stroke="#fbbf24" stroke-width="3"/>
+                            <text x="21" y="28" font-size="22" text-anchor="middle">⚡</text>
+                        </svg>
+                    `;
+                } else if (isRecon) {
+                    iconSvg = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+                            <circle cx="20" cy="20" r="18" fill="#1c1917" stroke="#f59e0b" stroke-width="2.5"/>
+                            <text x="20" y="27" font-size="20" text-anchor="middle">🏕️</text>
+                        </svg>
+                    `;
+                } else {
+                    iconSvg = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+                            <circle cx="20" cy="20" r="18" fill="#0d2838" stroke="#64ffda" stroke-width="2.5"/>
+                            <text x="20" y="27" font-size="20" text-anchor="middle">🐟</text>
+                        </svg>
+                    `;
+                }
 
                 const marker = new google.maps.Marker({
                     position: pos,
@@ -872,31 +906,45 @@ const AppMap = {
 
                 this.markers.catches.push(marker);
             } else {
-                const borderColor = isRecon ? '#f59e0b' : '#64ffda';
-                const shadowColor = isRecon ? 'rgba(245, 158, 11, 0.6)' : 'rgba(100, 255, 218, 0.6)';
-                const iconEmoji = isRecon ? '🏕️' : '🐟';
-                const catchPinIcon = L.divIcon({
-                    className: 'catch-fish-icon-wrapper',
-                    html: `
-                        <div class="fish-icon-marker" style="
-                            position: relative; 
-                            width: 42px; 
-                            height: 42px; 
-                            border-radius: 50%; 
-                            background: linear-gradient(135deg, #051923 0%, #0d2838 100%); 
-                            border: 2.5px solid ${borderColor}; 
-                            box-shadow: 0 0 15px ${shadowColor}, 0 4px 10px rgba(0, 0, 0, 0.5); 
-                            display: flex; 
-                            align-items: center; 
-                            justify-content: center;
-                            cursor: pointer;
-                        ">
-                            <span style="font-size: 22px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">${iconEmoji}</span>
-                        </div>
-                    `,
-                    iconSize: [42, 42],
-                    iconAnchor: [21, 21]
-                });
+                let catchPinIcon;
+                if (isDraft) {
+                    catchPinIcon = L.divIcon({
+                        className: 'draft-catch-marker-icon',
+                        html: `
+                            <div class="quick-catch-pin-pulse">
+                                <span style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">⚡</span>
+                            </div>
+                        `,
+                        iconSize: [38, 38],
+                        iconAnchor: [19, 19]
+                    });
+                } else {
+                    const borderColor = isRecon ? '#f59e0b' : '#64ffda';
+                    const shadowColor = isRecon ? 'rgba(245, 158, 11, 0.6)' : 'rgba(100, 255, 218, 0.6)';
+                    const iconEmoji = isRecon ? '🏕️' : '🐟';
+                    catchPinIcon = L.divIcon({
+                        className: 'catch-fish-icon-wrapper',
+                        html: `
+                            <div class="fish-icon-marker" style="
+                                position: relative; 
+                                width: 42px; 
+                                height: 42px; 
+                                border-radius: 50%; 
+                                background: linear-gradient(135deg, #051923 0%, #0d2838 100%); 
+                                border: 2.5px solid ${borderColor}; 
+                                box-shadow: 0 0 15px ${shadowColor}, 0 4px 10px rgba(0, 0, 0, 0.5); 
+                                display: flex; 
+                                align-items: center; 
+                                justify-content: center;
+                                cursor: pointer;
+                            ">
+                                <span style="font-size: 22px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">${iconEmoji}</span>
+                            </div>
+                        `,
+                        iconSize: [42, 42],
+                        iconAnchor: [21, 21]
+                    });
+                }
 
                 const marker = L.marker(pos, { icon: catchPinIcon })
                     .addTo(this.map)

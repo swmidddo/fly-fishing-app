@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101580';
+window.APP_VERSION = 'v101590';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -3288,6 +3288,7 @@ window.initMainApp = async function() {
             AppState.catches = dbCatches || [];
             renderCatches();
             renderDashboardRecent();
+            if (typeof window.updateDraftBannersUI === 'function') window.updateDraftBannersUI();
             updateStats();
             if (window.AppMap && window.AppMap.renderCatchSpots) {
                 window.AppMap.renderCatchSpots(AppState.catches);
@@ -3300,10 +3301,29 @@ window.initMainApp = async function() {
             AppState.catches = [];
             renderCatches();
             renderDashboardRecent();
+            if (typeof window.updateDraftBannersUI === 'function') window.updateDraftBannersUI();
         }
     }
 
     function getFishPhoto(item) {
+        if (item && item.isDraft) {
+            return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                <svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250">
+                    <defs>
+                        <radialGradient id="draftGlow" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.35"/>
+                            <stop offset="100%" stop-color="#0a192f" stop-opacity="0.95"/>
+                        </radialGradient>
+                    </defs>
+                    <rect width="400" height="250" fill="#0a192f"/>
+                    <rect width="400" height="250" fill="url(#draftGlow)"/>
+                    <circle cx="200" cy="95" r="46" fill="#78350f" stroke="#fbbf24" stroke-width="3"/>
+                    <text x="200" y="108" font-size="40" text-anchor="middle">⚡</text>
+                    <text x="200" y="172" font-family="Inter, sans-serif" font-size="14" font-weight="800" fill="#fbbf24" text-anchor="middle">QUICK-DROP STREAM PIN</text>
+                    <text x="200" y="196" font-family="Inter, sans-serif" font-size="11" fill="#94a3b8" text-anchor="middle">Fish Welfare First • GPS &amp; Barometer Saved</text>
+                </svg>
+            `);
+        }
         if (item && item.photo && item.photo.length > 20) {
             return item.photo;
         }
@@ -3356,12 +3376,21 @@ window.initMainApp = async function() {
             return;
         }
 
-        const recentCatches = [...AppState.catches].reverse().slice(0, 3);
+        const sortedCatches = [...AppState.catches].sort((a, b) => {
+            if (a.isDraft && !b.isDraft) return -1;
+            if (!a.isDraft && b.isDraft) return 1;
+            return (b.id || 0) - (a.id || 0);
+        });
+
+        const recentCatches = sortedCatches.slice(0, 3);
 
         recentCatches.forEach(item => {
-            const isRecon = !!item.isNoCatchTrip;
+            const isDraft = !!item.isDraft;
+            const isRecon = !isDraft && !!item.isNoCatchTrip;
             const card = document.createElement('div');
-            card.className = isRecon ? 'card glass catch-card recon-session expanded' : 'card glass catch-card expanded';
+            card.className = isDraft 
+                ? 'card glass catch-card draft-catch-card expanded' 
+                : (isRecon ? 'card glass catch-card recon-session expanded' : 'card glass catch-card expanded');
             card.style.cursor = 'pointer';
             
             const photoSrc = getFishPhoto(item);
@@ -3384,7 +3413,26 @@ window.initMainApp = async function() {
             if (displayLine) tackleParts.push(`🧵 ${displayLine}`);
             const tackleText = tackleParts.join(' | ') || 'N/A';
 
-            if (isRecon) {
+            if (isDraft) {
+                card.innerHTML = `
+                    <div class="card-img-wrapper">
+                        <img src="${photoSrc}" alt="Quick-Drop Pin" loading="lazy">
+                        <span class="card-badge-draft">⚡ Draft Pin</span>
+                        <span class="card-badge-type">${item.waterType || 'freshwater'}</span>
+                    </div>
+                    <div class="card-content-body">
+                        <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h4 style="margin: 0; color: #fbbf24;">⚡ Quick-Drop Pin</h4>
+                            <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); window.switchTab('catches'); window.editCatchUI('${item.id}');" style="font-size: 10.5px; padding: 3px 8px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #000; font-weight: 700; border: none;">🎣 Complete</button>
+                        </div>
+                        <p style="font-size: 11px; color: #f59e0b; margin-top: 2px; margin-bottom: 0;">📅 ${dateStr} ${item.time || ''}</p>
+                        <div class="card-specs mt-10">
+                            <span>Barometer: <strong>${item.pressure ? item.pressure + ' hPa' : '--'}</strong></span>
+                            <span>Status: <strong style="color: #fbbf24;">Pending Review</strong></span>
+                        </div>
+                    </div>
+                `;
+            } else if (isRecon) {
                 card.innerHTML = `
                     <div class="card-img-wrapper">
                         <img src="${photoSrc}" alt="River Recon" loading="lazy">
@@ -3496,7 +3544,8 @@ window.initMainApp = async function() {
                                   (item.targetSpecies || '').toLowerCase().includes(search) ||
                                   (item.sessionOutcome || '').toLowerCase().includes(search) ||
                                   (item.notes && item.notes.toLowerCase().includes(search)) ||
-                                  (item.fly && item.fly.toLowerCase().includes(search));
+                                  (item.fly && item.fly.toLowerCase().includes(search)) ||
+                                  (item.isDraft && 'draft pending quick drop pin'.includes(search));
             const matchesWater = waterFilter === 'all' || !waterFilter || (item.waterType || 'freshwater') === waterFilter;
             const matchesType = typeFilter === 'all' || !typeFilter ||
                                 (typeFilter === 'catches' && !item.isNoCatchTrip) ||
@@ -3504,15 +3553,26 @@ window.initMainApp = async function() {
             return matchesSearch && matchesWater && matchesType;
         });
 
+        // Always sort drafts first, then newest first
+        filtered.sort((a, b) => {
+            if (a.isDraft && !b.isDraft) return -1;
+            if (!a.isDraft && b.isDraft) return 1;
+            return (b.id || 0) - (a.id || 0);
+        });
+
         if (filtered.length === 0) {
             container.innerHTML = `<p class="placeholder-text">No catches or sessions match your query.</p>`;
+            if (typeof window.updateDraftBannersUI === 'function') window.updateDraftBannersUI();
             return;
         }
 
         filtered.forEach(item => {
-            const isRecon = !!item.isNoCatchTrip;
+            const isDraft = !!item.isDraft;
+            const isRecon = !isDraft && !!item.isNoCatchTrip;
             const card = document.createElement('div');
-            card.className = isRecon ? 'card glass catch-card recon-session expanded' : 'card glass catch-card expanded';
+            card.className = isDraft 
+                ? 'card glass catch-card draft-catch-card expanded' 
+                : (isRecon ? 'card glass catch-card recon-session expanded' : 'card glass catch-card expanded');
             
             const photoSrc = getFishPhoto(item);
             const locationText = item.lat && item.lng ? `Lat: ${item.lat.toFixed(4)}, Lng: ${item.lng.toFixed(4)}` : 'No location tagged';
@@ -3523,7 +3583,7 @@ window.initMainApp = async function() {
             if (item.weatherCondition || item.pressure || item.moonPhase || item.tideHeight) {
                 environmentalStrip = `
                     <div class="card-specs card-environmental-strip">
-                        <span>🌤️ Weather: <strong>${item.weatherCondition || 'N/A'}${item.weatherTemp !== undefined ? ' (' + item.weatherTemp + '°C)' : ''}</strong></span>
+                        <span>🌤️ Weather: <strong>${item.weatherCondition || 'N/A'}${item.weatherTemp !== undefined && item.weatherTemp !== null ? ' (' + item.weatherTemp + '°C)' : ''}</strong></span>
                         <span>🎈 Barometer: <strong>${item.pressure ? item.pressure + ' hPa' : 'N/A'}</strong></span>
                         <span>🌑 Moon Phase: <strong>${item.moonPhase || 'N/A'}</strong></span>
                         <span>🌊 Tide: <strong>${item.tideHeight ? item.tideHeight + ' (' + (item.tideDirection || '') + ')' : 'N/A'}</strong></span>
@@ -3543,7 +3603,40 @@ window.initMainApp = async function() {
 
             const safeId = String(item.id).replace(/'/g, "\\'");
 
-            if (isRecon) {
+            if (isDraft) {
+                card.innerHTML = `
+                    <div class="card-img-wrapper">
+                        <img src="${photoSrc}" alt="Quick-Drop Draft Catch" loading="lazy">
+                        <span class="card-badge-draft">⚡ Quick Pin</span>
+                        <span class="card-badge-type">${item.waterType || 'freshwater'}</span>
+                    </div>
+                    <div class="card-content-body" style="position: relative;">
+                        <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; padding-right: 20px;">
+                            <h4 style="margin: 0; color: #fbbf24;">⚡ Quick-Drop Pin (Pending)</h4>
+                            <span class="expand-chevron">▼</span>
+                        </div>
+                        <div style="margin-top: 3px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <p style="font-size: 11px; color: #f59e0b; margin: 0; font-weight: 600;">📅 ${dateDisplay} ${item.time || ''}</p>
+                            <span class="trip-outcome-pill" style="border-color: rgba(245, 158, 11, 0.5); color: #fbbf24; background: rgba(245, 158, 11, 0.1);">🐟 Fish Welfare Release</span>
+                        </div>
+                        
+                        <div class="catch-card-details">
+                            <div class="card-specs mt-10">
+                                <span>Location: <strong style="font-size:10px;">${locationText}</strong></span>
+                                <span>Time Saved: <strong>${item.time || 'N/A'}</strong></span>
+                                <span>Barometer: <strong>${item.pressure ? item.pressure + ' hPa' : 'N/A'}</strong></span>
+                                <span>Status: <strong style="color: #fbbf24;">Awaiting Full Log</strong></span>
+                            </div>
+                            <p class="card-notes" style="display: block; -webkit-line-clamp: unset; overflow: visible; white-space: pre-wrap; font-style: italic;">${item.notes || 'Quick-drop pin saved stream-side. Review & complete when off the water.'}</p>
+                            ${environmentalStrip}
+                            <div class="card-actions-row">
+                                <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); window.editCatchUI('${safeId}')" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #000; font-weight: 800; border: none; padding: 6px 14px;">🎣 Complete Log</button>
+                                <button class="btn btn-glass btn-danger btn-sm" onclick="event.stopPropagation(); window.deleteCatchUI('${safeId}')">🗑️ Discard</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (isRecon) {
                 card.innerHTML = `
                     <div class="card-img-wrapper">
                         <img src="${photoSrc}" alt="River Recon" loading="lazy">
@@ -3624,6 +3717,7 @@ window.initMainApp = async function() {
 
         renderCatchesGallery(filtered);
         if (window.updateCatchAnalytics) window.updateCatchAnalytics(filtered);
+        if (typeof window.updateDraftBannersUI === 'function') window.updateDraftBannersUI();
     }
 
     // View Toggle listeners for Catches
@@ -3691,31 +3785,33 @@ window.initMainApp = async function() {
         }
 
         allCatches.forEach(c => {
-            const isRecon = !!c.isNoCatchTrip;
+            const isDraft = !!c.isDraft;
+            const isRecon = !isDraft && !!c.isNoCatchTrip;
             const photoSrc = getFishPhoto(c);
             const dateFormatted = formatDateSafe(c.date);
-            const sizeStr = isRecon ? 'River Recon (0 Fish)' : (c.length ? `${c.length} cm` : (c.weight ? `${c.weight} kg` : 'Logged Catch'));
-            const titleStr = isRecon ? (c.sessionOutcome || 'River Recon Session') : c.species;
+            const sizeStr = isDraft ? '⚡ Quick Stream Pin' : (isRecon ? 'River Recon (0 Fish)' : (c.length ? `${c.length} cm` : (c.weight ? `${c.weight} kg` : 'Logged Catch')));
+            const titleStr = isDraft ? 'Quick-Drop Catch Pin' : (isRecon ? (c.sessionOutcome || 'River Recon Session') : c.species);
             const clarityBadge = c.waterClarity ? `<span style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); font-size: 9.5px; padding: 2px 6px; border-radius: 8px;">💧 ${c.waterClarity}</span>` : '';
             const hatchBadge = c.activeHatch ? `<span style="background: rgba(0,210,255,0.15); border: 1px solid var(--accent-teal); color: var(--accent-teal); font-size: 9.5px; padding: 2px 6px; border-radius: 8px;">🪰 ${c.activeHatch}</span>` : '';
             const targetBadge = isRecon && c.targetSpecies ? `<span style="background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); color: #f59e0b; font-size: 9.5px; padding: 2px 6px; border-radius: 8px;">🎯 ${c.targetSpecies}</span>` : '';
+            const draftBadge = isDraft ? `<span style="background: rgba(245,158,11,0.2); border: 1px solid #fbbf24; color: #fbbf24; font-size: 9.5px; padding: 2px 6px; border-radius: 8px;">⚡ Pending Review</span>` : '';
             const safeId = String(c.id).replace(/'/g, "\\'");
-            const trophyBtn = isRecon ? '' : `<button class="btn btn-glass btn-sm" onclick="event.stopPropagation(); window.openTrophyCardModal('${safeId}')" style="position: absolute; top: 10px; right: 10px; font-size: 10.5px; padding: 3px 8px; color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.5); background: rgba(5, 10, 24, 0.75); backdrop-filter: blur(4px);">🏆 Trophy Card</button>`;
+            const trophyBtn = (isRecon || isDraft) ? '' : `<button class="btn btn-glass btn-sm" onclick="event.stopPropagation(); window.openTrophyCardModal('${safeId}')" style="position: absolute; top: 10px; right: 10px; font-size: 10.5px; padding: 3px 8px; color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.5); background: rgba(5, 10, 24, 0.75); backdrop-filter: blur(4px);">🏆 Trophy Card</button>`;
 
             catchesGalleryEl.insertAdjacentHTML('beforeend', `
-                <div class="card glass shadow-lg photo-gallery-item" style="padding: 0; overflow: hidden; border-radius: 12px; position: relative; cursor: pointer; ${isRecon ? 'border: 1px solid rgba(245,158,11,0.4);' : ''}" onclick="window.editCatchUI('${safeId}')">
+                <div class="card glass shadow-lg photo-gallery-item" style="padding: 0; overflow: hidden; border-radius: 12px; position: relative; cursor: pointer; ${isDraft ? 'border: 2px dashed #f59e0b;' : (isRecon ? 'border: 1px solid rgba(245,158,11,0.4);' : '')}" onclick="window.editCatchUI('${safeId}')">
                     <img src="${photoSrc}" alt="${titleStr}" style="width: 100%; height: 210px; object-fit: cover; display: block;">
                     ${trophyBtn}
                     <div style="padding: 12px; background: rgba(15, 23, 42, 0.95);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <strong style="font-size: 15px; color: ${isRecon ? 'var(--accent-gold)' : 'var(--accent-teal)'};">${isRecon ? '🏕️ ' : '🐟 '}${titleStr}</strong>
+                            <strong style="font-size: 15px; color: ${isDraft ? '#fbbf24' : (isRecon ? 'var(--accent-gold)' : 'var(--accent-teal)')};">${isDraft ? '⚡ ' : (isRecon ? '🏕️ ' : '🐟 ')}${titleStr}</strong>
                             <span class="water-badge ${c.waterType || 'fresh'}">${(c.waterType || 'fresh').toUpperCase()}</span>
                         </div>
                         <div style="font-size: 11.5px; margin-top: 4px; color: var(--text-secondary);">
                             <b>${sizeStr}</b> &bull; 📅 ${dateFormatted}
                         </div>
                         <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px;">
-                            ${clarityBadge} ${hatchBadge} ${targetBadge}
+                            ${draftBadge} ${clarityBadge} ${hatchBadge} ${targetBadge}
                         </div>
                     </div>
                 </div>
@@ -3726,17 +3822,21 @@ window.initMainApp = async function() {
     // Stats calculations & Dashboard Intelligence
     function updateStats() {
         const allEntries = AppState.catches || [];
-        const fishCatches = allEntries.filter(c => !c.isNoCatchTrip);
-        const reconTrips = allEntries.filter(c => c.isNoCatchTrip);
+        const drafts = allEntries.filter(c => c.isDraft);
+        const fishCatches = allEntries.filter(c => !c.isNoCatchTrip && !c.isDraft);
+        const reconTrips = allEntries.filter(c => c.isNoCatchTrip && !c.isDraft);
         const totalFish = fishCatches.length;
         const totalRecon = reconTrips.length;
+        const totalDrafts = drafts.length;
 
         const elTotal = document.getElementById('stat-total-catches');
         if (elTotal) elTotal.textContent = totalFish;
 
         const badgeTotal = document.getElementById('dash-analytics-total-badge');
         if (badgeTotal) {
-            if (totalRecon > 0) {
+            if (totalDrafts > 0) {
+                badgeTotal.textContent = `${totalFish} Catch${totalFish === 1 ? '' : 'es'} • ${totalDrafts} Pending Pin${totalDrafts === 1 ? '' : 's'}`;
+            } else if (totalRecon > 0) {
                 badgeTotal.textContent = `${totalFish} Catch${totalFish === 1 ? '' : 'es'} • ${totalRecon} Recon Session${totalRecon === 1 ? '' : 's'}`;
             } else {
                 badgeTotal.textContent = `${totalFish} Catch${totalFish === 1 ? '' : 'es'} Recorded`;
@@ -4104,23 +4204,210 @@ window.initMainApp = async function() {
         }
     };
 
+    // ==========================================================================
+    // 1-Tap Quick-Drop Catch Pin (Fish Welfare First) & Draft Catches Management
+    // ==========================================================================
+    window.quickDropCatchPin = async function() {
+        // 1. Instant haptic vibration (tactile feedback while holding rod/net)
+        try {
+            if (navigator.vibrate) {
+                navigator.vibrate([100, 50, 150]);
+            }
+        } catch (e) {}
+
+        // 2. Immediate timestamp
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const date = `${year}-${month}-${day}`;
+        const time = `${hours}:${minutes}`;
+
+        // 3. Multi-tier coordinate acquisition
+        let lat = null;
+        let lng = null;
+
+        if (AppState.userCoords && AppState.userCoords.lat && AppState.userCoords.lng) {
+            lat = parseFloat(AppState.userCoords.lat);
+            lng = parseFloat(AppState.userCoords.lng);
+        } else {
+            const saved = localStorage.getItem('user_last_coords');
+            if (saved) {
+                try {
+                    const c = JSON.parse(saved);
+                    if (c.lat && c.lng) {
+                        lat = parseFloat(c.lat);
+                        lng = parseFloat(c.lng);
+                    }
+                } catch(e){}
+            }
+            if (!lat) {
+                const pinned = localStorage.getItem('app_pinned_location');
+                if (pinned) {
+                    try {
+                        const p = JSON.parse(pinned);
+                        if (p.lat && p.lng) {
+                            lat = parseFloat(p.lat);
+                            lng = parseFloat(p.lng);
+                        }
+                    } catch(e){}
+                }
+            }
+        }
+
+        // 4. Capture current environmental/weather snapshot if available
+        let weatherCondition = AppState.weatherData?.current?.condition || null;
+        let weatherTemp = AppState.weatherData?.current?.temp !== undefined ? AppState.weatherData.current.temp : null;
+        let pressure = AppState.weatherData?.current?.pressure || null;
+        let moonPhase = null;
+        let tideHeight = null;
+        let tideDirection = null;
+
+        if (window.WEATHER) {
+            if (typeof window.WEATHER.getMoonPhase === 'function') {
+                const mp = window.WEATHER.getMoonPhase(now);
+                if (mp) moonPhase = mp.label || null;
+            }
+            if (lat && lng && typeof window.WEATHER.getTideData === 'function') {
+                const tideObj = window.WEATHER.getTideData(lat, lng, now);
+                if (tideObj) {
+                    tideHeight = tideObj.currentHeight || null;
+                    tideDirection = tideObj.tideDirection || null;
+                }
+            }
+        }
+
+        const draftCatch = {
+            id: Date.now(),
+            isDraft: true,
+            species: 'Draft Catch',
+            notes: `⚡ Quick-Drop Pin logged at ${time}. Fish welfare priority release.`,
+            lat: lat ? parseFloat(lat.toFixed(6)) : null,
+            lng: lng ? parseFloat(lng.toFixed(6)) : null,
+            date,
+            time,
+            weatherCondition,
+            weatherTemp,
+            pressure,
+            moonPhase,
+            tideHeight,
+            tideDirection,
+            waterType: 'freshwater'
+        };
+
+        if (!AppState.catches) AppState.catches = [];
+        AppState.catches.unshift(draftCatch);
+
+        try {
+            if (window.DB && typeof window.DB.addCatch === 'function') {
+                await window.DB.addCatch(draftCatch);
+            }
+            saveBackupData();
+        } catch (e) {
+            console.warn("Could not save draft catch:", e);
+        }
+
+        renderCatches();
+        renderDashboardRecent();
+        updateStats();
+        window.updateDraftBannersUI();
+        if (window.AppMap && typeof window.AppMap.renderCatchSpots === 'function') {
+            window.AppMap.renderCatchSpots(AppState.catches);
+        }
+
+        if (typeof window.showSyncToast === 'function') {
+            window.showSyncToast('⚡ Catch Pin Dropped! GPS, time & barometer saved. Release your fish! 🐟', 4500);
+        }
+
+        // Silent background GPS refinement if coords were initially missing
+        if ((!lat || !lng) && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                async (pos) => {
+                    const freshLat = parseFloat(pos.coords.latitude.toFixed(6));
+                    const freshLng = parseFloat(pos.coords.longitude.toFixed(6));
+                    draftCatch.lat = freshLat;
+                    draftCatch.lng = freshLng;
+                    AppState.userCoords = { lat: freshLat, lng: freshLng };
+                    try {
+                        localStorage.setItem('user_last_coords', JSON.stringify({ lat: freshLat, lng: freshLng, timestamp: Date.now() }));
+                        if (window.DB && typeof window.DB.updateCatch === 'function') {
+                            await window.DB.updateCatch(draftCatch);
+                        }
+                        saveBackupData();
+                        if (window.AppMap && typeof window.AppMap.renderCatchSpots === 'function') {
+                            window.AppMap.renderCatchSpots(AppState.catches);
+                        }
+                    } catch(e){}
+                },
+                (err) => console.log("Background quick pin GPS fallback note:", err),
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+            );
+        }
+    };
+
+    window.updateDraftBannersUI = function() {
+        const dashContainer = document.getElementById('dash-draft-catches-container');
+        const catchesContainer = document.getElementById('catches-draft-banner-container');
+        const drafts = (AppState.catches || []).filter(c => c.isDraft);
+
+        const bannerHtml = drafts.length === 0 ? '' : `
+            <div class="draft-catches-banner">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: rgba(245, 158, 11, 0.2); border: 2px solid #f59e0b; font-size: 20px; flex-shrink: 0;">⚡</div>
+                    <div>
+                        <strong style="color: #fbbf24; font-size: 14px;">${drafts.length} Pending Stream Pin${drafts.length > 1 ? 's' : ''} to Review</strong>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
+                            Quick-drop stream pins saved with locked GPS, time &amp; barometer. Complete your catch details when off the water!
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button class="btn btn-primary btn-sm" onclick="window.reviewNextDraftCatch()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #000; font-weight: 700; border: none; padding: 6px 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+                        🎣 Complete Next Catch (${drafts.length})
+                    </button>
+                </div>
+            </div>
+        `;
+
+        if (dashContainer) dashContainer.innerHTML = bannerHtml;
+        if (catchesContainer) catchesContainer.innerHTML = bannerHtml;
+    };
+
+    window.reviewNextDraftCatch = function() {
+        const drafts = (AppState.catches || []).filter(c => c.isDraft);
+        if (drafts.length > 0) {
+            window.switchTab('catches');
+            window.editCatchUI(drafts[0].id);
+        }
+    };
+
     window.editCatchUI = (id) => {
         const catchItem = AppState.catches.find(c => String(c.id) === String(id));
         if (!catchItem) return;
 
         AppState.editingCatchId = id;
-        if (catchItem.isNoCatchTrip) {
+        if (catchItem.isDraft) {
+            window.setCatchModalMode('catch');
+            if (elements.modalLogCatchTitle) elements.modalLogCatchTitle.innerHTML = '⚡ Complete Quick-Drop Catch';
+        } else if (catchItem.isNoCatchTrip) {
             window.setCatchModalMode('trip');
+            if (elements.modalLogCatchTitle) elements.modalLogCatchTitle.textContent = '🏕️ Edit River Recon Session';
             const outcomeEl = document.getElementById('trip-outcome');
             if (outcomeEl && catchItem.sessionOutcome) {
                 outcomeEl.value = catchItem.sessionOutcome;
             }
         } else {
             window.setCatchModalMode('catch');
+            if (elements.modalLogCatchTitle) elements.modalLogCatchTitle.textContent = '✏️ Edit Catch Log';
         }
 
         // Populate fields
-        document.getElementById('catch-species').value = (catchItem.isNoCatchTrip ? (catchItem.targetSpecies || catchItem.species) : catchItem.species) || '';
+        const speciesEl = document.getElementById('catch-species');
+        if (speciesEl) {
+            speciesEl.value = catchItem.isDraft ? '' : ((catchItem.isNoCatchTrip ? (catchItem.targetSpecies || catchItem.species) : catchItem.species) || '');
+        }
         document.getElementById('catch-water').value = catchItem.waterType || 'freshwater';
         updateEnvironmentalSelectsByWaterType(catchItem.waterType || 'freshwater', catchItem.waterClarity, catchItem.activeHatch);
         document.getElementById('catch-length').value = catchItem.length !== null && catchItem.length !== undefined ? catchItem.length : '';
@@ -4446,6 +4733,7 @@ window.initMainApp = async function() {
 
         const newCatch = {
             species,
+            isDraft: false,
             isNoCatchTrip: isTripMode,
             sessionOutcome,
             targetSpecies,
@@ -4476,6 +4764,7 @@ window.initMainApp = async function() {
 
         if (AppState.editingCatchId) {
             newCatch.id = AppState.editingCatchId;
+            newCatch.isDraft = false;
             
             // Immediate real-time memory update
             const idx = AppState.catches.findIndex(c => String(c.id) === String(newCatch.id));
@@ -4490,6 +4779,7 @@ window.initMainApp = async function() {
             window.hideLogCatchModal();
             renderCatches();
             renderDashboardRecent();
+            if (typeof window.updateDraftBannersUI === 'function') window.updateDraftBannersUI();
             updateStats();
             if (window.AppMap && window.AppMap.renderCatchSpots) {
                 window.AppMap.renderCatchSpots(AppState.catches);
@@ -4506,6 +4796,7 @@ window.initMainApp = async function() {
             }
         } else {
             newCatch.id = Date.now();
+            newCatch.isDraft = false;
             
             // Immediate real-time memory update
             AppState.catches.unshift(newCatch);
@@ -4518,6 +4809,7 @@ window.initMainApp = async function() {
             window.hideLogCatchModal();
             renderCatches();
             renderDashboardRecent();
+            if (typeof window.updateDraftBannersUI === 'function') window.updateDraftBannersUI();
             updateStats();
             if (window.AppMap && window.AppMap.renderCatchSpots) {
                 window.AppMap.renderCatchSpots(AppState.catches);
@@ -4562,6 +4854,7 @@ window.initMainApp = async function() {
                 // 3. Update all UI views safely
                 try { renderCatches(); } catch(e){ console.warn("renderCatches error:", e); }
                 try { renderDashboardRecent(); } catch(e){ console.warn("renderDashboardRecent error:", e); }
+                try { if (typeof window.updateDraftBannersUI === 'function') window.updateDraftBannersUI(); } catch(e){}
                 try { updateStats(); } catch(e){}
                 try { if (window.updateCatchAnalytics) window.updateCatchAnalytics(); } catch(e){}
                 saveBackupData();
@@ -4582,6 +4875,7 @@ window.initMainApp = async function() {
                 AppState.catches = [];
                 renderCatches();
                 renderDashboardRecent();
+                if (typeof window.updateDraftBannersUI === 'function') window.updateDraftBannersUI();
                 updateStats();
                 if (window.AppMap) window.AppMap.renderAllMarkers();
                 if (window.updateCatchAnalytics) window.updateCatchAnalytics();
@@ -8296,7 +8590,7 @@ window.initMainApp = async function() {
     }
 
     function updateAppVersionDisplay() {
-        const ver = window.APP_VERSION || 'v101580';
+        const ver = window.APP_VERSION || 'v101590';
         const settingsVerEl = document.getElementById('settings-app-version');
         if (settingsVerEl) settingsVerEl.textContent = `${ver} (Latest Build)`;
         const sidebarVerEl = document.getElementById('global-app-version-tag');
@@ -9599,7 +9893,7 @@ Respond ONLY in valid JSON format:
                     await reg.update();
                 }
             }
-            if (window.showSyncToast) window.showSyncToast(`✨ App is on the latest build (${window.APP_VERSION || 'v101560'})!`);
+            if (window.showSyncToast) window.showSyncToast(`✨ App is on the latest build (${window.APP_VERSION || 'v101590'})!`);
         } catch(e) {
             console.warn("Update check error:", e);
         }
