@@ -90,7 +90,7 @@ const AppMap = {
         const container = document.getElementById(containerId);
         if (container) container.innerHTML = '';
 
-        if (googleApiKey && googleApiKey.trim() !== '') {
+        if (navigator.onLine && googleApiKey && googleApiKey.trim() !== '') {
             try {
                 await this.loadGoogleMapsScript(googleApiKey.trim());
                 this.isGoogleMaps = true;
@@ -107,7 +107,7 @@ const AppMap = {
         this.initLeafletMap(containerId);
     },
 
-    // Dynamic Script Loader for Google Maps with 8s Timeout Guard & Domain Auth Handler
+    // Dynamic Script Loader for Google Maps with 3.5s Timeout Guard & Domain Auth Handler
     loadGoogleMapsScript(key) {
         return new Promise((resolve, reject) => {
             if (window.google && window.google.maps) {
@@ -127,7 +127,7 @@ const AppMap = {
 
             const timer = setTimeout(() => {
                 reject(new Error("Google Maps script load timed out. Falling back to Leaflet."));
-            }, 8000);
+            }, 3500);
 
             const script = document.createElement('script');
             script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__initGoogleMapCallback&loading=async`;

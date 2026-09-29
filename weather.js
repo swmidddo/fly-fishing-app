@@ -305,19 +305,31 @@ const WEATHER = {
     getForecastPayloadCache(lat, lon, maxAgeMinutes = 10) {
         try {
             const key = 'weather_forecast_payload_cache_v1';
-            const raw = sessionStorage.getItem(key);
+            const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
             if (!raw) return null;
             const entries = JSON.parse(raw);
-            if (!Array.isArray(entries)) return null;
+            if (!Array.isArray(entries) || entries.length === 0) return null;
 
             const now = Date.now();
+            const isOffline = !navigator.onLine;
+            // In offline backcountry mode, allow forecasts up to 7 days old
+            const effectiveMaxAge = isOffline ? (7 * 86400 * 1000) : (maxAgeMinutes * 60 * 1000);
+
             for (const item of entries) {
                 if (!item || !item.payload || item.lat == null || item.lon == null) continue;
-                if (now - (item.timestamp || 0) > maxAgeMinutes * 60 * 1000) continue;
+                if (now - (item.timestamp || 0) > effectiveMaxAge) continue;
 
-                // Within 800m
+                // When online require within 800m; when offline accept nearest cached station within 60km
                 const d = this.getHaversineKm(lat, lon, item.lat, item.lon);
-                if (d <= 0.8) {
+                const allowedDist = isOffline ? 60.0 : 0.8;
+                if (d <= allowedDist) {
+                    if (isOffline) {
+                        return {
+                            ...item.payload,
+                            isOfflineCached: true,
+                            stationName: `📡 Offline Cache • ${item.payload.locationName || 'River Station'} (${new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`
+                        };
+                    }
                     // Reject stale payloads with distant (>50 km) regional feeds
                     if (item.payload && item.payload.pwsDistance && item.payload.pwsDistance > 50.0) {
                         return null;
@@ -325,6 +337,17 @@ const WEATHER = {
                     return item.payload;
                 }
             }
+
+            // If completely offline and no match within 60km, use the most recent cached entry
+            if (isOffline && entries[0] && entries[0].payload) {
+                const item = entries[0];
+                return {
+                    ...item.payload,
+                    isOfflineCached: true,
+                    stationName: `📡 Offline Cache • ${item.payload.locationName || 'River Station'}`
+                };
+            }
+
             return null;
         } catch (e) {
             return null;
@@ -335,7 +358,7 @@ const WEATHER = {
         if (!payload) return;
         try {
             const key = 'weather_forecast_payload_cache_v1';
-            const raw = sessionStorage.getItem(key);
+            const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
             let entries = raw ? JSON.parse(raw) : [];
             if (!Array.isArray(entries)) entries = [];
 
@@ -350,7 +373,9 @@ const WEATHER = {
             });
 
             if (entries.length > 20) entries = entries.slice(0, 20);
-            sessionStorage.setItem(key, JSON.stringify(entries));
+            const serialized = JSON.stringify(entries);
+            sessionStorage.setItem(key, serialized);
+            localStorage.setItem(key, serialized);
         } catch (e) {}
     },
 
@@ -690,13 +715,19 @@ const WEATHER = {
 
     // Fetch weather forecast with WillyWeather + Keyless High-Res Observation Grid
     async fetchForecast(lat, lon, forceRefresh = false) {
-        // Fast Cache Check (Sub-millisecond instant return for coordinates within 800m)
-        if (!forceRefresh) {
+        // Fast Cache Check (Sub-millisecond instant return for coordinates within 800m or offline)
+        if (!forceRefresh || !navigator.onLine) {
             const cachedPayload = this.getForecastPayloadCache(lat, lon, 10);
             if (cachedPayload && cachedPayload.current) {
                 console.log(`[Weather Fast Payload Cache] Instant 0ms return for coordinates (${lat.toFixed(3)}, ${lon.toFixed(3)})`);
                 return cachedPayload;
             }
+        }
+
+        // If completely offline in remote backcountry, do NOT attempt network requests
+        if (!navigator.onLine) {
+            console.log("[Weather Engine] Offline detected - returning backcountry offline forecast in 0ms");
+            return this.getWillyWeatherOfflineFallback(lat, lon);
         }
 
         // 1. Primary: WillyWeather API (Tides, BOM Warnings, Observations & Moon Phase)
@@ -938,28 +969,43 @@ const WEATHER = {
     },
 
     getWillyWeatherOfflineFallback(lat, lon) {
+        let locationName = "Local River Station";
+        if (window.AppState && window.AppState.userCoords && window.AppState.userCoords.city) {
+            locationName = window.AppState.userCoords.city;
+        } else {
+            const stored = localStorage.getItem('user_last_coords');
+            if (stored) {
+                try {
+                    const parsed = JSON.parse(stored);
+                    if (parsed.city) locationName = parsed.city;
+                } catch(e){}
+            }
+        }
+
         return {
             latitude: lat,
             longitude: lon,
-            provider: "WillyWeather & BOM",
-            stationName: "📡 WillyWeather BOM Station (Offline Cache)",
-            locationName: "Local River Station",
-            pwsName: "Offline Station",
+            provider: "WillyWeather & BOM (Backcountry Offline)",
+            stationName: `📡 Backcountry Offline • ${locationName}`,
+            locationName: locationName,
+            pwsName: "Offline Mode",
             pwsDistance: 0,
             isWithin30kmPWS: false,
-            pwsClarification: null,
+            pwsClarification: "Backcountry Offline Mode: Astronomical Solunar Feeding Windows & Tides active",
             bomWarnings: [],
+            isOfflineCached: true,
             current: {
                 temp: 20,
                 windSpeed: 10,
                 windDirection: 180,
                 pressure: 1015,
-                condition: "WillyWeather Offline",
+                condition: "Backcountry Offline",
                 icon: "🌤️",
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             },
             forecast: [
-                { date: "Today", tempMax: 22, tempMin: 14, condition: "WillyWeather Offline", icon: "🌤️", windSpeed: 10, windDirection: 180 }
+                { date: "Today", tempMax: 22, tempMin: 14, condition: "Backcountry Offline", icon: "🌤️", windSpeed: 10, windDirection: 180 },
+                { date: "Tomorrow", tempMax: 23, tempMin: 13, condition: "Backcountry Offline", icon: "🌤️", windSpeed: 12, windDirection: 180 }
             ],
             sunrise: "06:15 AM",
             sunset: "05:45 PM"

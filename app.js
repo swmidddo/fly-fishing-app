@@ -80,7 +80,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101570';
+window.APP_VERSION = 'v101580';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -5451,7 +5451,7 @@ window.initMainApp = async function() {
         const locName = (AppState.userCoords && AppState.userCoords.city) ? AppState.userCoords.city : "local area";
         const dashBadgeEl = document.getElementById('dash-weather-station-badge');
         if (dashBadgeEl && !AppState.weatherData) {
-            dashBadgeEl.innerHTML = `📡 Fetching live weather & observation for ${locName}...`;
+            dashBadgeEl.innerHTML = navigator.onLine ? `📡 Fetching live weather & observation for ${locName}...` : `📡 Backcountry Offline • Astronomical Solunar Active`;
         }
 
         try {
@@ -8296,7 +8296,7 @@ window.initMainApp = async function() {
     }
 
     function updateAppVersionDisplay() {
-        const ver = window.APP_VERSION || 'v101570';
+        const ver = window.APP_VERSION || 'v101580';
         const settingsVerEl = document.getElementById('settings-app-version');
         if (settingsVerEl) settingsVerEl.textContent = `${ver} (Latest Build)`;
         const sidebarVerEl = document.getElementById('global-app-version-tag');

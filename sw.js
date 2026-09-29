@@ -1,5 +1,5 @@
 // sw.js - Middo's Fly Fishing Backcountry Offline Service Worker
-const CACHE_NAME = 'fly-fishing-v101570';
+const CACHE_NAME = 'fly-fishing-v101580';
 
 // Message Event: Allow web app clients to force immediate skipWaiting & activation
 self.addEventListener('message', (event) => {
@@ -9,9 +9,10 @@ self.addEventListener('message', (event) => {
     }
 });
 
-// Core Local Assets to Pre-Cache on Install
+// Core Local Assets to Pre-Cache on Install for 100% Offline Backcountry Reliability
 const CORE_ASSETS = [
     './',
+    '/',
     'index.html',
     'manifest.json',
     'styles.css',
@@ -48,17 +49,40 @@ const CORE_ASSETS = [
     'https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap'
 ];
 
+// Helper: Match App Shell across root, relative, or index paths
+async function getCachedAppShell(req) {
+    const cache = await caches.open(CACHE_NAME);
+    let match = null;
+    if (req) {
+        match = await cache.match(req, { ignoreSearch: true });
+        if (match) return match;
+    }
+    match = await cache.match('./', { ignoreSearch: true });
+    if (match) return match;
+    match = await cache.match('index.html', { ignoreSearch: true });
+    if (match) return match;
+    match = await cache.match('/', { ignoreSearch: true });
+    return match;
+}
+
 // Install Event: Resilient individual pre-caching of core app shell & offline assets
 self.addEventListener('install', (event) => {
     self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then(async (cache) => {
-            console.log('[Backcountry SW] Pre-caching core app shell & offline assets...');
+            console.log('[Backcountry SW] Pre-caching core app shell & offline assets (v101580)...');
             return Promise.allSettled(
                 CORE_ASSETS.map((url) =>
                     fetch(url, { mode: url.startsWith('http') ? 'cors' : 'same-origin' })
-                        .then((res) => {
-                            if (res && res.ok) return cache.put(url, res);
+                        .then(async (res) => {
+                            if (res && res.ok) {
+                                await cache.put(url, res.clone());
+                                // Also ensure root '/' and 'index.html' are populated when './' succeeds
+                                if (url === './') {
+                                    try { await cache.put('/', res.clone()); } catch(e){}
+                                    try { await cache.put('index.html', res.clone()); } catch(e){}
+                                }
+                            }
                         })
                         .catch((err) => {
                             console.warn('[Backcountry SW] Asset skipped during pre-cache:', url);
@@ -69,7 +93,7 @@ self.addEventListener('install', (event) => {
     );
 });
 
-// Activate Event: Clean up outdated caches
+// Activate Event: Clean up outdated caches and immediately claim clients
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((keys) => {
@@ -85,7 +109,7 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Fetch Event: Offline-First / Network with Cache Fallback
+// Fetch Event: Offline-First Architecture for Remote Backcountry Areas
 self.addEventListener('fetch', (event) => {
     const req = event.request;
     const url = new URL(req.url);
@@ -93,82 +117,127 @@ self.addEventListener('fetch', (event) => {
     // Skip non-GET requests
     if (req.method !== 'GET') return;
 
-    // DIRECT NETWORK ONLY: Never intercept or cache serverless APIs, IP geolocation, or weather APIs
+    // DIRECT NETWORK ONLY: Serverless proxy endpoints, dynamic IP geo, live weather API, dynamic map tiles
     if (url.pathname.startsWith('/api/') || 
         url.pathname === '/willyproxy' ||
-        url.hostname.includes('googleapis.com') ||
+        url.hostname === 'maps.googleapis.com' ||
         url.hostname.includes('ipwho.is') ||
         url.hostname.includes('geojs.io') ||
         url.hostname.includes('freeipapi.com') ||
         url.hostname.includes('open-meteo.com') ||
         url.hostname.includes('willyweather.com.au') ||
-        url.hostname.includes('openstreetmap.org')) {
+        url.hostname.includes('tile.openstreetmap.org')) {
         return;
     }
 
-    // 1. Navigation requests (HTML page loads) - Network-first with instant offline cache fallback
+    // 1. Navigation requests (HTML page loads) - Instant offline app shell / Fast 1.2s network race
     if (req.mode === 'navigate') {
-        event.respondWith(
-            fetch(req)
-                .then((networkRes) => {
+        event.respondWith((async () => {
+            // In remote areas with zero connectivity, return cached app shell in 0ms!
+            if (!navigator.onLine) {
+                console.log('[Backcountry SW] Device offline - serving cached app shell immediately (0ms)');
+                const cached = await getCachedAppShell(req);
+                if (cached) return cached;
+            }
+
+            // If online or unknown, race network against a 1.2s timeout guard to avoid "Lie-Fi" freezes
+            try {
+                const fetchPromise = fetch(req).then(async (networkRes) => {
                     if (networkRes && networkRes.status === 200) {
                         const copy = networkRes.clone();
-                        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+                        const cache = await caches.open(CACHE_NAME);
+                        await cache.put(req, copy);
                     }
                     return networkRes;
-                })
-                .catch(() => {
-                    console.log('[Backcountry SW] Offline navigation requested - serving cached app shell');
-                    return caches.match('./', { ignoreSearch: true }).then(res => res || caches.match('index.html', { ignoreSearch: true }));
-                })
-        );
+                });
+
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Backcountry network timeout')), 1200)
+                );
+
+                return await Promise.race([fetchPromise, timeoutPromise]);
+            } catch (err) {
+                console.log('[Backcountry SW] Network race timed out or offline - serving cached app shell');
+                const cached = await getCachedAppShell(req);
+                if (cached) return cached;
+                throw err;
+            }
+        })());
         return;
     }
 
-    // 2. Core Scripts & Styles (JS/CSS) - Network-first when online with instant offline cache fallback
-    if (url.origin === self.location.origin && (url.pathname.endsWith('.js') || url.pathname.endsWith('.css'))) {
-        event.respondWith(
-            fetch(req)
-                .then((networkRes) => {
-                    if (networkRes && networkRes.status === 200) {
-                        const copy = networkRes.clone();
-                        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
-                    }
-                    return networkRes;
-                })
-                .catch(() => caches.match(req, { ignoreSearch: true }))
-        );
-        return;
-    }
-
-    // 3. Static Media Assets (Images, Icons, Fonts, CDNs) - Cache-first with background network refresh
-    if (url.pathname.match(/\.(png|jpg|jpeg|svg|gif|webp|ico|woff2?|ttf|eot)$/i) || url.hostname.includes('unpkg.com') || url.hostname.includes('fonts.gstatic.com')) {
-        event.respondWith(
-            caches.match(req, { ignoreSearch: true }).then((cachedRes) => {
-                if (cachedRes) {
-                    // Fetch in background to update cache for next time
-                    fetch(req).then((freshRes) => {
+    // 2. Core Scripts & Styles (JS/CSS/JSON) - Cache-First with Background Stale-While-Revalidate
+    if (url.origin === self.location.origin && (url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname.endsWith('.json'))) {
+        event.respondWith((async () => {
+            const cachedRes = await caches.match(req, { ignoreSearch: true });
+            if (cachedRes) {
+                // Return cached version in 0ms so the app starts instantly offline
+                if (navigator.onLine) {
+                    // Revalidate in background without blocking execution
+                    fetch(req).then(async (freshRes) => {
                         if (freshRes && freshRes.status === 200) {
-                            caches.open(CACHE_NAME).then((cache) => cache.put(req, freshRes));
+                            const cache = await caches.open(CACHE_NAME);
+                            await cache.put(req, freshRes);
                         }
                     }).catch(() => {});
-                    return cachedRes;
                 }
+                return cachedRes;
+            }
 
-                return fetch(req).then((networkRes) => {
-                    if (networkRes && networkRes.status === 200) {
-                        const copy = networkRes.clone();
-                        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
-                    }
-                    return networkRes;
-                }).catch(() => caches.match(req, { ignoreSearch: true }));
-            })
-        );
+            // If not in cache, fetch from network and store for subsequent offline launches
+            try {
+                const networkRes = await fetch(req);
+                if (networkRes && networkRes.status === 200) {
+                    const copy = networkRes.clone();
+                    const cache = await caches.open(CACHE_NAME);
+                    await cache.put(req, copy);
+                }
+                return networkRes;
+            } catch (err) {
+                return (await caches.match(req, { ignoreSearch: true })) || (await getCachedAppShell());
+            }
+        })());
         return;
     }
 
-    // 4. Default: Fetch with cache fallback
+    // 3. Static Media Assets, CDNs & Fonts - Cache-First with Background Refresh
+    if (url.pathname.match(/\.(png|jpg|jpeg|svg|gif|webp|ico|woff2?|ttf|eot)$/i) || 
+        url.hostname.includes('unpkg.com') || 
+        url.hostname.includes('fonts.googleapis.com') || 
+        url.hostname.includes('fonts.gstatic.com')) {
+        event.respondWith((async () => {
+            const cachedRes = await caches.match(req, { ignoreSearch: true });
+            if (cachedRes) {
+                if (navigator.onLine) {
+                    fetch(req).then(async (freshRes) => {
+                        if (freshRes && freshRes.status === 200) {
+                            const cache = await caches.open(CACHE_NAME);
+                            await cache.put(req, freshRes);
+                        }
+                    }).catch(() => {});
+                }
+                return cachedRes;
+            }
+
+            try {
+                const networkRes = await fetch(req);
+                if (networkRes && networkRes.status === 200) {
+                    const copy = networkRes.clone();
+                    const cache = await caches.open(CACHE_NAME);
+                    await cache.put(req, copy);
+                }
+                return networkRes;
+            } catch (err) {
+                return caches.match(req, { ignoreSearch: true });
+            }
+        })());
+        return;
+    }
+
+    // 4. Default: Cache match with network fallback
     event.respondWith(
-        fetch(req).catch(() => caches.match(req))
+        caches.match(req, { ignoreSearch: true }).then((cached) => {
+            return cached || fetch(req).catch(() => caches.match('./', { ignoreSearch: true }));
+        })
     );
 });
