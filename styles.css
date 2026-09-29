@@ -2843,6 +2843,99 @@ button, .btn, .nav-item, .mobile-drawer-card, .fly-card, .badge, .modal-close {
     box-shadow: 0 4px 18px rgba(245, 158, 11, 0.18);
 }
 
+/* ==========================================================================
+   Evening Rise Dusk Countdown & Return-to-Car HUD Styles
+   ========================================================================== */
+.card-return-hud-summary {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-return-hud-summary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(245, 158, 11, 0.2);
+}
+
+.hud-modal-content {
+    background: radial-gradient(circle at top, #0f2744 0%, #071324 100%) !important;
+    border: 1.5px solid rgba(0, 210, 255, 0.3) !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7), 0 0 30px rgba(0, 210, 255, 0.15) !important;
+    transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+/* Night Vision Red Mode (Monochrome dark red to preserve rhodopsin) */
+.hud-modal-content.hud-night-vision {
+    background: #000000 !important;
+    border-color: #ff1744 !important;
+    box-shadow: 0 0 30px rgba(255, 23, 68, 0.35) !important;
+}
+
+.hud-modal-content.hud-night-vision h3,
+.hud-modal-content.hud-night-vision strong,
+.hud-modal-content.hud-night-vision span,
+.hud-modal-content.hud-night-vision div,
+.hud-modal-content.hud-night-vision p {
+    color: #ff5252 !important;
+}
+
+.hud-modal-content.hud-night-vision #hud-title {
+    color: #ff1744 !important;
+    text-shadow: 0 0 10px rgba(255, 23, 68, 0.6) !important;
+}
+
+.hud-modal-content.hud-night-vision #hud-countdown-timer {
+    color: #ff1744 !important;
+    text-shadow: 0 0 25px rgba(255, 23, 68, 0.8) !important;
+}
+
+.hud-modal-content.hud-night-vision .hud-panel {
+    background: rgba(20, 0, 4, 0.85) !important;
+    border-color: rgba(255, 23, 68, 0.4) !important;
+}
+
+.hud-modal-content.hud-night-vision .hud-compass-dial-wrap {
+    background: #0d0003 !important;
+    border-color: #ff1744 !important;
+    box-shadow: 0 0 25px rgba(255, 23, 68, 0.4), inset 0 0 20px rgba(0,0,0,0.9) !important;
+}
+
+.hud-modal-content.hud-night-vision #hud-readout-distance {
+    color: #ff1744 !important;
+    text-shadow: 0 0 15px rgba(255, 23, 68, 0.7) !important;
+}
+
+.hud-modal-content.hud-night-vision .btn-primary {
+    background: #ff1744 !important;
+    color: #000000 !important;
+}
+
+.hud-modal-content.hud-night-vision .btn-glass {
+    border-color: rgba(255, 23, 68, 0.5) !important;
+    color: #ff5252 !important;
+}
+
+.hud-modal-content.hud-night-vision .badge {
+    background: rgba(255, 23, 68, 0.2) !important;
+    color: #ff1744 !important;
+    border-color: #ff1744 !important;
+}
+
+.hud-modal-content.hud-night-vision #needleGrad stop:first-child {
+    stop-color: #ff1744 !important;
+}
+
+.hud-modal-content.hud-night-vision #needleGrad stop:last-child {
+    stop-color: #b71c1c !important;
+}
+
+.hud-pulse-urgent {
+    animation: hudUrgentPulse 1.2s infinite alternate;
+}
+
+@keyframes hudUrgentPulse {
+    0% { border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 5px rgba(239, 68, 68, 0.2); }
+    100% { border-color: rgba(239, 68, 68, 1); box-shadow: 0 0 20px rgba(239, 68, 68, 0.6); }
+}
+
 
 
 

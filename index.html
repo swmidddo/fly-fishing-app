@@ -28,7 +28,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style -->
-    <link rel="stylesheet" href="styles.css?v=101590">
+    <link rel="stylesheet" href="styles.css?v=101600">
     <script>
         // Backcountry Offline PWA Service Worker Registration & Live Auto-Update Engine
         if ('serviceWorker' in navigator) {
@@ -394,6 +394,9 @@
                         </div>
                     </div>
                     <div style="display: flex; gap: 10px; align-items: center;">
+                        <button class="btn btn-glass btn-sm" onclick="window.openReturnCarHud()" style="border-color: rgba(245, 158, 11, 0.5); color: #fbbf24; font-weight: 600;" title="Evening Rise Dusk Countdown &amp; Return-to-Car Compass HUD">
+                            🧭 Return HUD
+                        </button>
                         <button class="btn btn-glass btn-sm" onclick="window.toggleRiverMode()" title="High-contrast sunlight riverbank viewing mode">
                             ☀️ River Mode
                         </button>
@@ -523,6 +526,39 @@
                                 </div>
                             </div>
                         </div>
+                    <!-- Evening Rise Dusk Countdown & Return-to-Car HUD Dashboard Card -->
+                    <div class="card glass shadow-lg card-return-hud-summary" id="dash-return-hud-card" style="grid-column: 1 / -1; border-left: 4px solid #f59e0b; padding: 16px 20px; cursor: pointer; background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(10, 25, 47, 0.7) 100%);" onclick="window.openReturnCarHud()">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 20px;">🧭</span>
+                                <h3 style="margin: 0; font-size: 15px; color: var(--text-primary);">
+                                    Evening Rise Dusk Countdown &amp; Return-to-Car HUD
+                                </h3>
+                            </div>
+                            <span id="dash-hud-dusk-pill" class="badge" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid #f59e0b; font-size: 11px;">
+                                ⏳ Calculating Light...
+                            </span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+                            <div>
+                                <div style="display: flex; align-items: baseline; gap: 8px;">
+                                    <span style="font-size: 24px; font-weight: 800; font-family: monospace; color: #fbbf24; letter-spacing: -0.5px;" id="dash-hud-dusk-countdown">--:--:--</span>
+                                    <span style="font-size: 11px; color: #94a3b8;" id="dash-hud-dusk-sub">until Legal Civil Dusk</span>
+                                </div>
+                                <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 3px;" id="dash-hud-solar-times">
+                                    Sunset: <strong id="dash-hud-sunset-text" style="color: var(--accent-gold);">--:--</strong> &bull; Civil Dusk: <strong id="dash-hud-dusk-text" style="color: #fbbf24;">--:--</strong>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="text-align: right;">
+                                    <div style="font-size: 15px; font-weight: 700; color: var(--accent-teal);" id="dash-hud-car-distance">🚗 Car: Not Set</div>
+                                    <div style="font-size: 11px; color: #94a3b8;" id="dash-hud-car-bearing">Tap for live compass HUD &rarr;</div>
+                                </div>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="event.stopPropagation(); window.openReturnCarHud()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #000; font-weight: 700; border: none; padding: 6px 12px; font-size: 12px; white-space: nowrap;">
+                                    Open HUD 🧭
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Catch Analytics & Feeding Insights Card -->
@@ -635,6 +671,7 @@
                 <div class="map-controls">
                     <div class="map-actions">
                         <button class="btn btn-primary" onclick="window.quickDropCatchPin()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #000; font-weight: 700; border: none; box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);">⚡ Quick-Drop Pin</button>
+                        <button class="btn btn-glass" onclick="window.openReturnCarHud()" style="border-color: rgba(245, 158, 11, 0.4); color: #fbbf24; font-weight: 600;">🧭 Return HUD</button>
                         <button class="btn btn-glass" id="btn-map-type">Type: Default</button>
                         <button class="btn btn-glass" id="btn-map-radar">🌧️ Radar: Off</button>
                         <button class="btn btn-glass" id="btn-map-weather">🌤️ Weather info</button>
@@ -2505,6 +2542,10 @@
                 <span class="mobile-drawer-icon">⚡</span>
                 <span class="mobile-drawer-label" style="color: #fbbf24; font-weight: 700;">Quick-Drop Pin</span>
             </button>
+            <button class="mobile-drawer-card" onclick="window.openReturnCarHud(); window.toggleMobileNavDrawer(false);" style="border-color: rgba(0, 210, 255, 0.4); background: rgba(0, 210, 255, 0.08);">
+                <span class="mobile-drawer-icon">🧭</span>
+                <span class="mobile-drawer-label" style="color: var(--accent-teal); font-weight: 700;">Return &amp; Dusk HUD</span>
+            </button>
             <button class="mobile-drawer-card" onclick="window.toggleRiverMode(); window.toggleMobileNavDrawer(false);">
                 <span class="mobile-drawer-icon">☀️</span>
                 <span class="mobile-drawer-label">River Mode</span>
@@ -2579,18 +2620,169 @@
         </div>
     </div>
 
+    <!-- Evening Rise Dusk Countdown & Return-to-Car HUD Modal -->
+    <div class="modal" id="modal-return-hud" style="display: none; align-items: center; justify-content: center; z-index: 10600;">
+        <div class="modal-content glass hud-modal-content" style="max-width: 520px; width: 95%; max-height: 92vh; overflow-y: auto; padding: 22px; position: relative;">
+            <!-- HUD Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 24px;">🧭</span>
+                    <div>
+                        <h3 style="margin: 0; font-size: 18px; color: var(--text-primary);" id="hud-title">Return-to-Car &amp; Dusk HUD</h3>
+                        <span style="font-size: 11px; color: var(--accent-teal);" id="hud-subtitle">Evening Rise &amp; Backcountry Navigation</span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button type="button" class="btn btn-sm btn-glass" id="btn-hud-night-vision" onclick="window.toggleHudNightVision()" style="font-size: 11px; padding: 4px 8px; border-color: rgba(255,23,68,0.5); color: #ff5252;" title="Toggle deep red monochrome to preserve dark-adapted night vision">
+                        🔴 Red Mode
+                    </button>
+                    <button type="button" class="modal-close" onclick="window.closeReturnCarHud()" style="position: static; font-size: 24px; line-height: 1;">&times;</button>
+                </div>
+            </div>
+
+            <!-- 1. Evening Rise & Legal Fishing Light Countdown Section -->
+            <div class="hud-panel hud-dusk-panel" style="background: rgba(0,0,0,0.35); border: 1.5px solid rgba(245, 158, 11, 0.4); border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: center;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 12px; font-weight: 600; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.5px;">🌅 Evening Rise &amp; Legal Light</span>
+                    <span id="hud-status-badge" class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; font-size: 10.5px;">
+                        Golden Hour
+                    </span>
+                </div>
+
+                <!-- Big Digital Countdown -->
+                <div id="hud-countdown-timer" style="font-size: 38px; font-weight: 800; font-family: monospace; color: #fbbf24; text-shadow: 0 0 20px rgba(245, 158, 11, 0.6); margin: 6px 0;">
+                    00:00:00
+                </div>
+                <div id="hud-countdown-label" style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+                    Minutes of Legal Fishing Light Remaining
+                </div>
+
+                <!-- Solar Times Strip -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px; font-size: 11px;">
+                    <div>
+                        <div style="color: var(--text-secondary); font-size: 10px;">🌇 SUNSET</div>
+                        <strong id="hud-solar-sunset" style="color: var(--accent-gold); font-size: 13px;">--:--</strong>
+                    </div>
+                    <div>
+                        <div style="color: var(--text-secondary); font-size: 10px;">🌙 CIVIL DUSK</div>
+                        <strong id="hud-solar-dusk" style="color: #fbbf24; font-size: 13px;">--:--</strong>
+                    </div>
+                    <div>
+                        <div style="color: var(--text-secondary); font-size: 10px;">⏱️ HIKE BACK ETA</div>
+                        <strong id="hud-walk-eta" style="color: var(--accent-teal); font-size: 13px;">-- mins</strong>
+                    </div>
+                </div>
+
+                <!-- Safety Bushwhack Advisor Alert -->
+                <div id="hud-safety-alert" style="margin-top: 12px; padding: 8px 12px; border-radius: 8px; font-size: 11.5px; text-align: left; display: flex; align-items: center; gap: 8px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); color: #34d399;">
+                    <span id="hud-safety-icon">🟢</span>
+                    <span id="hud-safety-text">Safe window: plenty of daylight for river exploration and return.</span>
+                </div>
+            </div>
+
+            <!-- 2. Compass Rose & Direction to Vehicle Section -->
+            <div class="hud-panel hud-compass-panel" style="background: rgba(0,0,0,0.35); border: 1.5px solid rgba(0, 210, 255, 0.35); border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: center;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <span style="font-size: 12px; font-weight: 600; color: var(--accent-teal); text-transform: uppercase; letter-spacing: 0.5px;">🧭 Vehicle Bearing &amp; Heading</span>
+                    <span id="hud-compass-status" style="font-size: 10.5px; color: #94a3b8;">Bearing to Car</span>
+                </div>
+
+                <!-- Compass Instrument Container -->
+                <div style="display: flex; justify-content: center; align-items: center; margin: 10px 0;">
+                    <div class="hud-compass-dial-wrap" style="position: relative; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, #051424 0%, #030a14 100%); border: 3px solid rgba(0, 210, 255, 0.4); box-shadow: 0 0 25px rgba(0, 210, 255, 0.2), inset 0 0 20px rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center;">
+                        
+                        <!-- Compass Dial with Tick Marks & Cardinals -->
+                        <div id="hud-compass-rose" style="position: absolute; width: 100%; height: 100%; border-radius: 50%; transition: transform 0.2s cubic-bezier(0.1, 0.9, 0.2, 1);">
+                            <span style="position: absolute; top: 8px; left: 50%; transform: translateX(-50%); font-weight: 800; font-size: 14px; color: #ef4444;">N</span>
+                            <span style="position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); font-weight: 700; font-size: 13px; color: #94a3b8;">S</span>
+                            <span style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-weight: 700; font-size: 13px; color: #94a3b8;">E</span>
+                            <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-weight: 700; font-size: 13px; color: #94a3b8;">W</span>
+                            <svg width="220" height="220" viewBox="0 0 220 220" style="position: absolute; top: 0; left: 0; pointer-events: none;">
+                                <circle cx="110" cy="110" r="95" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+                                <circle cx="110" cy="110" r="70" fill="none" stroke="rgba(0,210,255,0.12)" stroke-width="1" stroke-dasharray="4 4"/>
+                                <line x1="110" y1="20" x2="110" y2="200" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+                                <line x1="20" y1="110" x2="200" y2="110" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+                            </svg>
+                        </div>
+
+                        <!-- Rotating Needle pointing towards Car -->
+                        <div id="hud-car-needle-wrap" style="position: absolute; width: 100%; height: 100%; pointer-events: none; transition: transform 0.2s cubic-bezier(0.1, 0.9, 0.2, 1);">
+                            <svg width="220" height="220" viewBox="0 0 220 220" style="position: absolute; top: 0; left: 0;">
+                                <defs>
+                                    <linearGradient id="needleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                        <stop offset="0%" stop-color="#00f0ff"/>
+                                        <stop offset="100%" stop-color="#0066cc"/>
+                                    </linearGradient>
+                                    <filter id="needleGlow" x="-20%" y="-20%" width="140%" height="140%">
+                                        <feGaussianBlur stdDeviation="3" result="blur"/>
+                                        <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+                                    </filter>
+                                </defs>
+                                <polygon points="110,16 124,52 110,43 96,52" fill="url(#needleGrad)" filter="url(#needleGlow)" stroke="#ffffff" stroke-width="1.5"/>
+                                <circle cx="110" cy="28" r="2.5" fill="#ffffff"/>
+                            </svg>
+                        </div>
+
+                        <!-- Center Digital Readout Hub -->
+                        <div style="position: relative; z-index: 5; text-align: center; pointer-events: none; padding: 4px;">
+                            <div id="hud-readout-distance" style="font-size: 24px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">-- m</div>
+                            <div id="hud-readout-bearing" style="font-size: 13px; font-weight: 700; color: var(--accent-teal); margin-top: 1px;">--° --</div>
+                            <div id="hud-readout-car-label" style="font-size: 10px; color: #94a3b8; text-transform: uppercase;">Vehicle Waypoint</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Waypoint info & Mark Location buttons -->
+                <div style="display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap;">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="window.markCarAtCurrentLocationFromHud()" style="background: linear-gradient(135deg, #00d2ff 0%, #0077b6 100%); color: #000; font-weight: 700; border: none; font-size: 11.5px; padding: 6px 12px;">
+                        📍 Mark Vehicle Here
+                    </button>
+                    <button type="button" class="btn btn-glass btn-sm" id="btn-hud-open-maps" onclick="window.openCarInGoogleMaps()" style="font-size: 11.5px; padding: 6px 12px;">
+                        🗺️ Maps Nav
+                    </button>
+                    <button type="button" class="btn btn-glass btn-danger btn-sm" id="btn-hud-clear-car" onclick="window.clearCarLocationFromHud()" style="font-size: 11.5px; padding: 6px 10px;">
+                        🗑️ Clear
+                    </button>
+                </div>
+            </div>
+
+            <!-- 3. Backcountry Field Safety & Distress Tools -->
+            <div class="hud-panel hud-safety-tools" style="background: rgba(0,0,0,0.35); border: 1.5px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px; text-align: center;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="font-size: 12px; font-weight: 600; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px;">🚨 Emergency &amp; Night Tools</span>
+                    <span style="font-size: 10.5px; color: #94a3b8;">100% Offline Active</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <button type="button" class="btn btn-glass btn-sm" id="btn-hud-whistle" onclick="window.toggleEmergencyWhistle()" style="border-color: rgba(239, 68, 68, 0.4); color: #ef4444; font-weight: 600; padding: 8px 10px; font-size: 12px;">
+                        <span id="hud-whistle-icon">🔊</span> <span id="hud-whistle-label">Distress Whistle</span>
+                    </button>
+                    <button type="button" class="btn btn-glass btn-sm" id="btn-hud-lantern" onclick="window.toggleEmergencyLantern()" style="border-color: rgba(251, 191, 36, 0.4); color: #fbbf24; font-weight: 600; padding: 8px 10px; font-size: 12px;">
+                        💡 Screen Lantern
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Emergency Full Screen Lantern Overlay -->
+    <div id="hud-lantern-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1000000; background: #ffffff; cursor: pointer; align-items: center; justify-content: center; flex-direction: column;" onclick="window.toggleEmergencyLantern(false)">
+        <div style="color: #111; font-family: sans-serif; font-size: 15px; font-weight: 800; text-align: center; background: rgba(255,255,255,0.9); padding: 14px 28px; border-radius: 25px; box-shadow: 0 4px 25px rgba(0,0,0,0.3);">
+            💡 Emergency Lantern Active<br><span style="font-size: 11px; font-weight: normal; color: #555;">Tap anywhere to turn off</span>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script async src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="db.js?v=101590"></script>
-    <script src="regulations.js?v=101590"></script>
-    <script src="weather.js?v=101590"></script>
-    <script src="exif.js?v=101590"></script>
-    <script src="map.js?v=101590"></script>
-    <script src="tackle_db.js?v=101590"></script>
-    <script src="fish_db.js?v=101590"></script>
-    <script src="fly_box.js?v=101590"></script>
-    <script src="knots.js?v=101590"></script>
-    <script src="auth.js?v=101590"></script>
-    <script src="app.js?v=101590"></script>
+    <script src="db.js?v=101600"></script>
+    <script src="regulations.js?v=101600"></script>
+    <script src="weather.js?v=101600"></script>
+    <script src="exif.js?v=101600"></script>
+    <script src="map.js?v=101600"></script>
+    <script src="tackle_db.js?v=101600"></script>
+    <script src="fish_db.js?v=101600"></script>
+    <script src="fly_box.js?v=101600"></script>
+    <script src="knots.js?v=101600"></script>
+    <script src="auth.js?v=101600"></script>
+    <script src="app.js?v=101600"></script>
 </body>
 </html>
