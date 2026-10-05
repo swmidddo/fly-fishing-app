@@ -1,5 +1,5 @@
 // sw.js - Middo's Fly Fishing Backcountry Offline Service Worker
-const CACHE_NAME = 'fly-fishing-v101600';
+const CACHE_NAME = 'fly-fishing-v101610';
 
 // Message Event: Allow web app clients to force immediate skipWaiting & activation
 self.addEventListener('message', (event) => {
@@ -15,6 +15,8 @@ const CORE_ASSETS = [
     '/',
     'index.html',
     'manifest.json',
+    'leaflet.css',
+    'leaflet.js',
     'styles.css',
     'app.js',
     'db.js',
@@ -31,6 +33,11 @@ const CORE_ASSETS = [
     'images/app_icon.png',
     'images/icon-192.png',
     'images/icon-512.png',
+    'images/layers.png',
+    'images/layers-2x.png',
+    'images/marker-icon.png',
+    'images/marker-icon-2x.png',
+    'images/marker-shadow.png',
     // Knot guide images
     'images/knot_albright.jpg',
     'images/knot_blood.jpg',
@@ -43,8 +50,6 @@ const CORE_ASSETS = [
     'images/knot_turle.jpg',
     'images/knot_uni.jpg',
     // External CDN Libraries for complete offline fallback
-    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
     'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
     'https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap'
 ];
@@ -70,7 +75,7 @@ self.addEventListener('install', (event) => {
     self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then(async (cache) => {
-            console.log('[Backcountry SW] Pre-caching core app shell & offline assets (v101600)...');
+            console.log('[Backcountry SW] Pre-caching core app shell & offline assets (v101610)...');
             return Promise.allSettled(
                 CORE_ASSETS.map((url) =>
                     fetch(url, { mode: url.startsWith('http') ? 'cors' : 'same-origin' })
@@ -99,7 +104,7 @@ self.addEventListener('activate', (event) => {
         caches.keys().then((keys) => {
             return Promise.all(
                 keys.map((key) => {
-                    if (key !== CACHE_NAME) {
+                    if (key !== CACHE_NAME && key !== 'fly-fishing-map-tiles') {
                         console.log('[Backcountry SW] Deleting obsolete cache:', key);
                         return caches.delete(key);
                     }
@@ -125,8 +130,7 @@ self.addEventListener('fetch', (event) => {
         url.hostname.includes('geojs.io') ||
         url.hostname.includes('freeipapi.com') ||
         url.hostname.includes('open-meteo.com') ||
-        url.hostname.includes('willyweather.com.au') ||
-        url.hostname.includes('tile.openstreetmap.org')) {
+        url.hostname.includes('willyweather.com.au')) {
         return;
     }
 
@@ -229,6 +233,39 @@ self.addEventListener('fetch', (event) => {
                 return networkRes;
             } catch (err) {
                 return caches.match(req, { ignoreSearch: true });
+            }
+        })());
+        return;
+    }
+
+    // 3.5 Map Tiles (OpenStreetMap, Esri Satellite, OpenTopoMap, RainViewer) - Dedicated Cache-First with Network Fallback
+    const isMapTile = (
+        url.hostname.includes('tile.openstreetmap.org') ||
+        url.hostname.includes('arcgisonline.com') ||
+        url.hostname.includes('opentopomap.org') ||
+        url.hostname.includes('tilecache.rainviewer.com')
+    );
+
+    if (isMapTile) {
+        event.respondWith((async () => {
+            const tileCache = await caches.open('fly-fishing-map-tiles');
+            // Check direct URL or normalized OSM URL
+            let cachedRes = await tileCache.match(req);
+            if (!cachedRes && url.hostname.includes('tile.openstreetmap.org')) {
+                cachedRes = await tileCache.match(`https://tile.openstreetmap.org${url.pathname}`);
+            }
+            if (cachedRes) {
+                return cachedRes;
+            }
+
+            try {
+                const networkRes = await fetch(req);
+                if (networkRes && networkRes.status === 200) {
+                    await tileCache.put(req, networkRes.clone());
+                }
+                return networkRes;
+            } catch (err) {
+                return cachedRes || new Response('', { status: 404, statusText: 'Offline Tile Not Cached' });
             }
         })());
         return;

@@ -27,8 +27,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Main Style -->
-    <link rel="stylesheet" href="styles.css?v=101600">
+    <!-- Main Style & Offline Leaflet -->
+    <link rel="stylesheet" href="leaflet.css?v=101610">
+    <link rel="stylesheet" href="styles.css?v=101610">
     <script>
         // Backcountry Offline PWA Service Worker Registration & Live Auto-Update Engine
         if ('serviceWorker' in navigator) {
@@ -681,6 +682,11 @@
                         <button class="btn btn-glass btn-danger" id="btn-clear-car">Clear Car</button>
                         <button class="btn btn-glass" id="btn-add-spot-here">🌲 Add Spot Here</button>
                         <button class="btn btn-primary" id="btn-map-recenter">🎯 Move Map to My Location</button>
+                        <button class="btn btn-glass" onclick="window.preCacheMapArea()" style="border-color: rgba(0, 210, 255, 0.4); color: var(--accent-teal);" title="Download and save map tiles for current view to use offline on the river">📥 Cache River Beat</button>
+                    </div>
+                    <div id="map-offline-badge" style="display: none; align-items: center; gap: 8px; padding: 6px 12px; background: rgba(10, 25, 47, 0.9); border: 1.5px solid var(--accent-teal); border-radius: 20px; font-size: 11.5px; color: var(--text-primary); margin: 6px 0; width: fit-content; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                        <span class="pulse-dot green" style="width: 8px; height: 8px;"></span>
+                        <span>📡 <b>Backcountry Offline Map Active</b> &bull; GPS Satellite &amp; Waypoints Live</span>
                     </div>
                     <div class="map-distance-overlay" id="map-distance-info" style="display: none;">
                         Car to Fishing Location: <b>Calculating...</b>
@@ -2775,16 +2781,17 @@
 
     <!-- Scripts -->
     <script async src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="db.js?v=101600"></script>
-    <script src="regulations.js?v=101600"></script>
-    <script src="weather.js?v=101600"></script>
-    <script src="exif.js?v=101600"></script>
-    <script src="map.js?v=101600"></script>
-    <script src="tackle_db.js?v=101600"></script>
-    <script src="fish_db.js?v=101600"></script>
-    <script src="fly_box.js?v=101600"></script>
-    <script src="knots.js?v=101600"></script>
-    <script src="auth.js?v=101600"></script>
-    <script src="app.js?v=101600"></script>
+    <script src="db.js?v=101610"></script>
+    <script src="regulations.js?v=101610"></script>
+    <script src="weather.js?v=101610"></script>
+    <script src="exif.js?v=101610"></script>
+    <script src="leaflet.js?v=101610"></script>
+    <script src="map.js?v=101610"></script>
+    <script src="tackle_db.js?v=101610"></script>
+    <script src="fish_db.js?v=101610"></script>
+    <script src="fly_box.js?v=101610"></script>
+    <script src="knots.js?v=101610"></script>
+    <script src="auth.js?v=101610"></script>
+    <script src="app.js?v=101610"></script>
 </body>
 </html>

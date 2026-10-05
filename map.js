@@ -72,6 +72,7 @@ const AppMap = {
         
         await this.loadLeafletAssets();
         this.initLeafletMap('map-container');
+        this.updateMapModeBadge(true);
     },
 
     // Initialize the map engine
@@ -90,28 +91,36 @@ const AppMap = {
         const container = document.getElementById(containerId);
         if (container) container.innerHTML = '';
 
+        // If online AND user has a Google Maps API Key: Try Google Maps with a fast 2.5s network timeout
         if (navigator.onLine && googleApiKey && googleApiKey.trim() !== '') {
             try {
                 await this.loadGoogleMapsScript(googleApiKey.trim());
                 this.isGoogleMaps = true;
                 this.initGoogleMap(containerId);
+                this.updateMapModeBadge(false);
                 return;
             } catch (err) {
-                console.warn("Failed to load Google Maps JS API, falling back to Leaflet:", err);
+                console.warn("Google Maps unavailable or timed out. Falling back to local offline Leaflet engine:", err);
             }
         }
 
-        // Default to Leaflet fallback (OpenStreetMap / Esri Satellite / OpenTopoMap)
-        await this.loadLeafletAssets();
+        // Offline or Google Maps unavailable: 0ms Instant Local Leaflet Engine
         this.isGoogleMaps = false;
+        await this.loadLeafletAssets();
         this.initLeafletMap(containerId);
+        this.updateMapModeBadge(true);
     },
 
-    // Dynamic Script Loader for Google Maps with 3.5s Timeout Guard & Domain Auth Handler
+    // Dynamic Script Loader for Google Maps with 2.5s Timeout Guard & Domain Auth Handler
     loadGoogleMapsScript(key) {
         return new Promise((resolve, reject) => {
             if (window.google && window.google.maps) {
                 resolve();
+                return;
+            }
+
+            if (!navigator.onLine) {
+                reject(new Error("Device is offline"));
                 return;
             }
 
@@ -125,9 +134,10 @@ const AppMap = {
                 }
             };
 
+            // Fast 2.5s timeout guard to prevent UI freezes in weak/remote "Lie-Fi" zones
             const timer = setTimeout(() => {
-                reject(new Error("Google Maps script load timed out. Falling back to Leaflet."));
-            }, 8000);
+                reject(new Error("Google Maps script load timed out. Falling back to offline Leaflet."));
+            }, 2500);
 
             const script = document.createElement('script');
             script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__initGoogleMapCallback&loading=async`;
@@ -145,27 +155,29 @@ const AppMap = {
         });
     },
 
-    // Dynamic Loader for Leaflet
+    // Dynamic Loader for Leaflet (Local First-Party Assets)
     loadLeafletAssets() {
         return new Promise((resolve) => {
             if (window.L) {
                 resolve();
                 return;
             }
+
             const timer = setTimeout(() => {
-                console.warn("Leaflet assets load timed out. Continuing...");
                 resolve();
-            }, 3000);
+            }, 1500);
 
-            // Link CSS
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-            document.head.appendChild(link);
+            // Link local CSS if not already attached
+            if (!document.querySelector('link[href*="leaflet"]')) {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = 'leaflet.css';
+                document.head.appendChild(link);
+            }
 
-            // Link JS
+            // Link local JS if not already attached
             const script = document.createElement('script');
-            script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+            script.src = 'leaflet.js';
             script.onload = () => {
                 clearTimeout(timer);
                 resolve();
@@ -222,31 +234,80 @@ const AppMap = {
 
     // Initialize Leaflet Map
     initLeafletMap(containerId) {
-        const defaultCenter = [-25.2744, 133.7751]; // Australia
-        this.map = L.map(containerId, { maxZoom: 20 }).setView(defaultCenter, 4);
+        if (typeof L === 'undefined') {
+            console.error("Leaflet library failed to load");
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = `
+                    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-primary); text-align:center; padding:20px;">
+                        <span style="font-size:32px;">🗺️</span>
+                        <h4 style="margin:10px 0 5px 0;">Offline Map Initializing...</h4>
+                        <p style="font-size:12px; color:var(--text-secondary); max-width:320px;">Loading local map engine. If this persists, tap below to reload.</p>
+                        <button class="btn btn-primary btn-sm" onclick="window.location.reload()" style="margin-top:10px;">Reload App</button>
+                    </div>
+                `;
+            }
+            return;
+        }
 
-        // Define Tile Layers
+        // Set default icon path to local images directory
+        try {
+            L.Icon.Default.imagePath = 'images/';
+        } catch(e){}
+
+        const defaultCenter = [-25.2744, 133.7751]; // Australia
+        const initialCenter = (this.userCoords && this.userCoords.lat) ? 
+            [this.userCoords.lat, this.userCoords.lng] : defaultCenter;
+        const initialZoom = (this.userCoords && this.userCoords.lat) ? 13 : 4;
+
+        this.map = L.map(containerId, { maxZoom: 20 }).setView(initialCenter, initialZoom);
+
+        // Tactical Offline Backcountry Grid SVG Fallback for un-cached tiles in remote zones
+        const fallbackTileSvg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+    <rect width="256" height="256" fill="#0a192f"/>
+    <path d="M0 0h256v256H0z" fill="none" stroke="rgba(0, 210, 255, 0.12)" stroke-width="1"/>
+    <path d="M0 64h256 M0 128h256 M0 192h256 M64 0v256 M128 0v256 M192 0v256" stroke="rgba(255, 255, 255, 0.03)" stroke-width="1"/>
+    <circle cx="128" cy="128" r="3" fill="rgba(0, 210, 255, 0.4)"/>
+    <text x="128" y="145" fill="rgba(0, 210, 255, 0.35)" font-family="monospace" font-size="9" text-anchor="middle">📡 OFFLINE BACKCOUNTRY</text>
+</svg>
+`);
+
+        const attachTileFallback = (layer) => {
+            layer.on('tileerror', function(error) {
+                if (error && error.tile) {
+                    error.tile.src = fallbackTileSvg;
+                }
+            });
+            return layer;
+        };
+
+        // Define Tile Layers with offline tileerror fallback
         this.leafletLayers = {
-            roadmap: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            roadmap: attachTileFallback(L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 20,
                 maxNativeZoom: 18,
                 attribution: '© OpenStreetMap contributors'
-            }),
-            satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            })),
+            satellite: attachTileFallback(L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
                 maxZoom: 20,
                 maxNativeZoom: 18,
-                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-            }),
-            terrain: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                attribution: 'Tiles © Esri'
+            })),
+            terrain: attachTileFallback(L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
                 maxZoom: 20,
                 maxNativeZoom: 15,
-                attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap (CC-BY-SA)'
-            })
+                attribution: '© OpenTopoMap'
+            }))
         };
 
         // Load active map type
         const activeType = localStorage.getItem('mapType') || 'roadmap';
-        this.leafletLayers[activeType].addTo(this.map);
+        if (this.leafletLayers[activeType]) {
+            this.leafletLayers[activeType].addTo(this.map);
+        } else {
+            this.leafletLayers.roadmap.addTo(this.map);
+        }
 
         // Click Listener
         this.map.on('click', (e) => {
@@ -594,9 +655,20 @@ const AppMap = {
             });
         } else {
             if (this.markers.car) this.map.removeLayer(this.markers.car);
-            this.markers.car = L.marker(pos)
+            const carIcon = L.divIcon({
+                className: 'car-location-marker-container',
+                html: `
+                    <div style="background: rgba(10,25,47,0.92); border: 2px solid #00d2ff; border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,210,255,0.4); font-size: 18px;">
+                        🚗
+                    </div>
+                `,
+                iconSize: [34, 34],
+                iconAnchor: [17, 17],
+                popupAnchor: [0, -17]
+            });
+            this.markers.car = L.marker(pos, { icon: carIcon })
                 .addTo(this.map)
-                .bindPopup("Starting Point / Parked Car 🚗");
+                .bindPopup("<b>Starting Point / Parked Car 🚗</b><br><span style='font-size:11px;color:#94a3b8;'>Waypoint saved for Return-to-Car HUD</span>");
         }
     },
 
@@ -1037,7 +1109,102 @@ const AppMap = {
             }
             this.markers.tempDroppedPin = null;
         }
+    },
+
+    // Update Floating Map Mode Badge
+    updateMapModeBadge(isLeaflet) {
+        const badge = document.getElementById('map-offline-badge');
+        if (!badge) return;
+        if (isLeaflet) {
+            badge.style.display = 'inline-flex';
+            if (!navigator.onLine) {
+                badge.innerHTML = `<span class="pulse-dot amber" style="width:8px;height:8px;"></span> <span>📡 <b>Backcountry Offline Map Active</b> &bull; GPS Satellite &amp; Waypoints Live</span>`;
+            } else {
+                badge.innerHTML = `<span class="pulse-dot green" style="width:8px;height:8px;"></span> <span>🗺️ <b>Offline-Ready Leaflet Map</b> &bull; Satellite &amp; Topo Available</span>`;
+            }
+        } else {
+            badge.style.display = 'none';
+        }
+    },
+
+    // Pre-cache river map tiles for current map view before heading into the backcountry
+    async preCacheMapArea() {
+        if (!this.map) {
+            alert("Please wait for map to load first.");
+            return;
+        }
+        if (!navigator.onLine) {
+            alert("An internet connection is required to pre-cache map tiles before heading into remote areas.");
+            return;
+        }
+
+        let bounds;
+        if (this.isGoogleMaps) {
+            const b = this.map.getBounds();
+            if (!b) return;
+            bounds = {
+                north: b.getNorthEast().lat(),
+                south: b.getSouthWest().lat(),
+                east: b.getNorthEast().lng(),
+                west: b.getSouthWest().lng()
+            };
+        } else {
+            const b = this.map.getBounds();
+            bounds = {
+                north: b.getNorth(),
+                south: b.getSouth(),
+                east: b.getEast(),
+                west: b.getWest()
+            };
+        }
+
+        // Convert lat/lng to tile numbers
+        const lat2tile = (lat, zoom) => Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom));
+        const lon2tile = (lon, zoom) => Math.floor((lon + 180) / 360 * Math.pow(2, zoom));
+
+        const tilesToFetch = [];
+        for (let z = 12; z <= 15; z++) {
+            const minX = lon2tile(bounds.west, z);
+            const maxX = lon2tile(bounds.east, z);
+            const minY = lat2tile(bounds.north, z);
+            const maxY = lat2tile(bounds.south, z);
+
+            for (let x = Math.min(minX, maxX); x <= Math.max(minX, maxX); x++) {
+                for (let y = Math.min(minY, maxY); y <= Math.max(minY, maxY); y++) {
+                    tilesToFetch.push({ z, x, y });
+                    if (tilesToFetch.length >= 80) break;
+                }
+                if (tilesToFetch.length >= 80) break;
+            }
+        }
+
+        if (window.showSyncToast) window.showSyncToast(`📥 Pre-caching ${tilesToFetch.length} backcountry river map tiles...`);
+
+        try {
+            const cache = await caches.open('fly-fishing-map-tiles');
+            let completed = 0;
+            await Promise.allSettled(tilesToFetch.map(async (t) => {
+                const url = `https://tile.openstreetmap.org/${t.z}/${t.x}/${t.y}.png`;
+                try {
+                    const res = await fetch(url);
+                    if (res && res.ok) {
+                        await cache.put(url, res);
+                        completed++;
+                    }
+                } catch(e){}
+            }));
+            if (window.showSyncToast) window.showSyncToast(`✅ ${completed} River Map Tiles Cached for Offline Use!`);
+            else alert(`Successfully downloaded ${completed} river map tiles for offline backcountry use!`);
+        } catch(err) {
+            console.warn("Tile caching error:", err);
+            alert("Notice pre-caching tiles: " + err.message);
+        }
     }
 };
 
 window.AppMap = AppMap;
+window.preCacheMapArea = function() {
+    if (window.AppMap && typeof window.AppMap.preCacheMapArea === 'function') {
+        window.AppMap.preCacheMapArea();
+    }
+};
