@@ -61,38 +61,154 @@ const AppMap = {
         }
     },
 
-    // Fallback to Leaflet if Google Maps fails auth or encounters an API error
-    async fallbackToLeaflet() {
-        console.warn("Switching map engine from Google Maps to Leaflet fallback...");
-        this.isGoogleMaps = false;
-        const container = document.getElementById('map-container');
-        if (container) container.innerHTML = '';
+    // Clean up any existing map instance on container before re-initializing
+    cleanupMapContainer(containerId = 'map-container') {
+        if (this._resizeObserver) {
+            try { this._resizeObserver.disconnect(); } catch(e){}
+            this._resizeObserver = null;
+        }
+        if (this._gmapsWatchdogTimer) {
+            clearTimeout(this._gmapsWatchdogTimer);
+            this._gmapsWatchdogTimer = null;
+        }
+        if (this.map && !this.isGoogleMaps && typeof this.map.remove === 'function') {
+            try { this.map.remove(); } catch(e){}
+        }
         this.map = null;
         this.markers = { user: null, car: null, fishingSpots: [], catches: [], tempDroppedPin: null };
+        this.paths = { carToSpot: null };
+        this.trackPolyline = null;
+        const container = document.getElementById(containerId);
+        if (container) {
+            container.innerHTML = '';
+            if (container._leaflet_id) {
+                try { delete container._leaflet_id; } catch(e) { container._leaflet_id = null; }
+            }
+        }
+    },
+
+    // Resolve best initial center & zoom from live GPS, saved map view, cached river beat, or car waypoint
+    getInitialView() {
+        if (this.userCoords && Number.isFinite(this.userCoords.lat) && Number.isFinite(this.userCoords.lng)) {
+            return { lat: this.userCoords.lat, lng: this.userCoords.lng, zoom: this._preservedZoom || 13, isDefault: false };
+        }
+        if (window.AppState && window.AppState.userCoords && Number.isFinite(window.AppState.userCoords.lat) && Number.isFinite(window.AppState.userCoords.lng)) {
+            this.userCoords = { lat: window.AppState.userCoords.lat, lng: window.AppState.userCoords.lng };
+            return { lat: this.userCoords.lat, lng: this.userCoords.lng, zoom: this._preservedZoom || 13, isDefault: false };
+        }
+        try {
+            const cachedBeat = JSON.parse(localStorage.getItem('cachedRiverBeatCenter') || 'null');
+            if (!navigator.onLine && cachedBeat && Number.isFinite(cachedBeat.lat) && Number.isFinite(cachedBeat.lng)) {
+                return { lat: cachedBeat.lat, lng: cachedBeat.lng, zoom: cachedBeat.zoom || 13, isDefault: false };
+            }
+        } catch(e){}
+        try {
+            const savedUser = JSON.parse(localStorage.getItem('user_last_coords') || 'null');
+            if (savedUser && Number.isFinite(savedUser.lat) && Number.isFinite(savedUser.lng)) {
+                this.userCoords = { lat: savedUser.lat, lng: savedUser.lng };
+                return { lat: savedUser.lat, lng: savedUser.lng, zoom: 13, isDefault: false };
+            }
+        } catch(e){}
+        try {
+            const savedView = JSON.parse(localStorage.getItem('lastMapView') || 'null');
+            if (savedView && Number.isFinite(savedView.lat) && Number.isFinite(savedView.lng)) {
+                return { lat: savedView.lat, lng: savedView.lng, zoom: savedView.zoom || 13, isDefault: false };
+            }
+        } catch(e){}
+        if (this.carCoords && Number.isFinite(this.carCoords.lat) && Number.isFinite(this.carCoords.lng)) {
+            return { lat: this.carCoords.lat, lng: this.carCoords.lng, zoom: 14, isDefault: false };
+        }
+        return { lat: -25.2744, lng: 133.7751, zoom: 4, isDefault: true };
+    },
+
+    // Capture current viewport before switching map engines
+    captureCurrentViewport() {
+        if (!this.map) return;
+        try {
+            if (this.isGoogleMaps && typeof this.map.getCenter === 'function') {
+                const c = this.map.getCenter();
+                if (c) {
+                    this.userCoords = this.userCoords || { lat: c.lat(), lng: c.lng() };
+                    this._preservedCenter = { lat: c.lat(), lng: c.lng() };
+                    this._preservedZoom = this.map.getZoom() || 13;
+                }
+            } else if (!this.isGoogleMaps && typeof this.map.getCenter === 'function') {
+                const c = this.map.getCenter();
+                if (c) {
+                    this._preservedCenter = { lat: c.lat, lng: c.lng };
+                    this._preservedZoom = this.map.getZoom() || 13;
+                }
+            }
+        } catch(e){}
+    },
+
+    // Fallback to Leaflet if Google Maps fails auth, times out, or device goes offline
+    async fallbackToLeaflet() {
+        console.warn("Switching map engine to local offline-ready Leaflet engine...");
+        this.captureCurrentViewport();
+        this.isGoogleMaps = false;
+        this.cleanupMapContainer('map-container');
         
         await this.loadLeafletAssets();
         this.initLeafletMap('map-container');
         this.updateMapModeBadge(true);
     },
 
+    // Toggle between Google Maps and Offline-Ready Leaflet Map manually
+    async toggleMapEngine() {
+        if (this.isGoogleMaps) {
+            localStorage.setItem('preferOfflineLeafletMap', 'true');
+            await this.fallbackToLeaflet();
+            if (window.showSyncToast) window.showSyncToast("🗺️ Switched to Offline-Ready Leaflet Map Engine");
+        } else {
+            if (!navigator.onLine) {
+                if (window.showSyncToast) window.showSyncToast("📡 Currently offline — Leaflet Backcountry Map is active", true);
+                return;
+            }
+            localStorage.removeItem('preferOfflineLeafletMap');
+            const key = (localStorage.getItem('googleMapsApiKey') || window.DEFAULT_GOOGLE_MAPS_KEY || '').trim();
+            if (!key) {
+                if (window.showSyncToast) window.showSyncToast("⚠️ No Google Maps API key configured in Settings", true);
+                return;
+            }
+            this.captureCurrentViewport();
+            await this.init('map-container', key, this.onMapClickCallback, this.onMapMoveCallback);
+            if (this.isGoogleMaps && window.showSyncToast) {
+                window.showSyncToast("🌐 Switched to Google Maps Engine");
+            }
+        }
+    },
+
     // Initialize the map engine
     async init(containerId, googleApiKey, onMapClick, onMapMove) {
         this.onMapClickCallback = onMapClick;
         this.onMapMoveCallback = onMapMove;
-        this.fishingSpotsData = JSON.parse(localStorage.getItem('fishingSpots') || '[]');
-        this.carCoords = JSON.parse(localStorage.getItem('carCoords') || 'null');
+        try { this.fishingSpotsData = JSON.parse(localStorage.getItem('fishingSpots') || '[]'); } catch(e) { this.fishingSpotsData = []; }
+        try { this.carCoords = JSON.parse(localStorage.getItem('carCoords') || 'null'); } catch(e) { this.carCoords = null; }
         
-        // Register Google Maps auth failure notice logger (Preserve Google Maps engine)
-        window.gm_authFailure = () => {
-            console.warn("Google Maps JS API auth notice received. Preserving Google Maps engine.");
-        };
+        // Bind automatic network connectivity listeners once
+        if (!this._networkListenersBound) {
+            this._networkListenersBound = true;
+            window.addEventListener('offline', () => {
+                if (this.isGoogleMaps) {
+                    console.log("[Map Engine] Network lost — automatically switching to offline Leaflet map...");
+                    this.fallbackToLeaflet();
+                } else {
+                    this.updateMapModeBadge(true);
+                }
+            });
+            window.addEventListener('online', () => {
+                this.updateMapModeBadge(!this.isGoogleMaps);
+            });
+        }
 
-        // Clean container first
-        const container = document.getElementById(containerId);
-        if (container) container.innerHTML = '';
+        // Clean container & previous instance first
+        this.cleanupMapContainer(containerId);
 
-        // If online AND user has a Google Maps API Key: Try Google Maps with a fast 2.5s network timeout
-        if (navigator.onLine && googleApiKey && googleApiKey.trim() !== '') {
+        const preferLeaflet = localStorage.getItem('preferOfflineLeafletMap') === 'true';
+
+        // If online, user hasn't forced Leaflet mode, AND has a Google Maps API Key: Try Google Maps with 2.5s timeout
+        if (navigator.onLine && !preferLeaflet && googleApiKey && googleApiKey.trim() !== '') {
             try {
                 await this.loadGoogleMapsScript(googleApiKey.trim());
                 this.isGoogleMaps = true;
@@ -114,23 +230,26 @@ const AppMap = {
     // Dynamic Script Loader for Google Maps with 2.5s Timeout Guard & Domain Auth Handler
     loadGoogleMapsScript(key) {
         return new Promise((resolve, reject) => {
-            if (window.google && window.google.maps) {
-                resolve();
-                return;
-            }
-
             if (!navigator.onLine) {
                 reject(new Error("Device is offline"));
                 return;
             }
 
-            // Register Google Auth Failure handler for domain referrer debugging
-            window.gm_authFailure = function() {
+            if (window.google && window.google.maps) {
+                resolve();
+                return;
+            }
+
+            // Register Google Auth Failure handler for automatic fallback to Leaflet
+            window.gm_authFailure = () => {
                 console.error("[Google Maps Auth] Key rejected for domain:", window.location.origin);
                 const badgeEl = document.getElementById('gmaps-status-badge');
                 if (badgeEl) {
                     badgeEl.textContent = `❌ Domain Blocked: Add ${window.location.origin}/* in Google Cloud Console`;
                     badgeEl.style.color = "#ff5252";
+                }
+                if (this.isGoogleMaps) {
+                    this.fallbackToLeaflet();
                 }
             };
 
@@ -192,16 +311,17 @@ const AppMap = {
 
     // Initialize Google Map
     initGoogleMap(containerId) {
-        const defaultCenter = { lat: -25.2744, lng: 133.7751 }; // Center of Australia
         const mapType = localStorage.getItem('mapType') || 'roadmap';
-
-        const initialCenter = (this.userCoords && this.userCoords.lat) ? 
-            { lat: this.userCoords.lat, lng: this.userCoords.lng } : defaultCenter;
-        const initialZoom = (this.userCoords && this.userCoords.lat) ? 13 : 4;
+        const view = this._preservedCenter
+            ? { lat: this._preservedCenter.lat, lng: this._preservedCenter.lng, zoom: this._preservedZoom || 13, isDefault: false }
+            : this.getInitialView();
+        this._preservedCenter = null;
+        this._preservedZoom = null;
+        this._isDefaultView = !!view.isDefault;
 
         this.map = new google.maps.Map(document.getElementById(containerId), {
-            center: initialCenter,
-            zoom: initialZoom,
+            center: { lat: view.lat, lng: view.lng },
+            zoom: view.zoom,
             mapTypeId: mapType,
             gestureHandling: 'greedy',
             disableDefaultUI: false,
@@ -210,6 +330,21 @@ const AppMap = {
             streetViewControl: false,
             fullscreenControl: false
         });
+
+        // Watchdog: If browser served cached google.maps JS in a dead-signal zone and tiles fail to load
+        let tilesLoadedOnce = false;
+        this.map.addListener('tilesloaded', () => {
+            tilesLoadedOnce = true;
+            if (this._gmapsWatchdogTimer) {
+                clearTimeout(this._gmapsWatchdogTimer);
+                this._gmapsWatchdogTimer = null;
+            }
+        });
+        this._gmapsWatchdogTimer = setTimeout(() => {
+            if (!tilesLoadedOnce && !navigator.onLine && this.isGoogleMaps) {
+                this.fallbackToLeaflet();
+            }
+        }, 4000);
 
         // Add Click Listener
         this.map.addListener('click', (e) => {
@@ -223,9 +358,18 @@ const AppMap = {
 
         // Add Idle (Move End) Listener
         this.map.addListener('idle', () => {
-            if (this.onMapMoveCallback) {
-                const center = this.map.getCenter();
-                this.onMapMoveCallback(center.lat(), center.lng());
+            const center = this.map.getCenter();
+            if (center) {
+                try {
+                    localStorage.setItem('lastMapView', JSON.stringify({
+                        lat: center.lat(),
+                        lng: center.lng(),
+                        zoom: this.map.getZoom() || 13
+                    }));
+                } catch(e){}
+                if (this.onMapMoveCallback) {
+                    this.onMapMoveCallback(center.lat(), center.lng());
+                }
             }
         });
 
@@ -255,12 +399,36 @@ const AppMap = {
             L.Icon.Default.imagePath = 'images/';
         } catch(e){}
 
-        const defaultCenter = [-25.2744, 133.7751]; // Australia
-        const initialCenter = (this.userCoords && this.userCoords.lat) ? 
-            [this.userCoords.lat, this.userCoords.lng] : defaultCenter;
-        const initialZoom = (this.userCoords && this.userCoords.lat) ? 13 : 4;
+        const view = this._preservedCenter
+            ? { lat: this._preservedCenter.lat, lng: this._preservedCenter.lng, zoom: this._preservedZoom || 13, isDefault: false }
+            : this.getInitialView();
+        this._preservedCenter = null;
+        this._preservedZoom = null;
+        this._isDefaultView = !!view.isDefault;
 
-        this.map = L.map(containerId, { maxZoom: 20 }).setView(initialCenter, initialZoom);
+        const containerEl = document.getElementById(containerId);
+        if (containerEl && containerEl._leaflet_id) {
+            try { delete containerEl._leaflet_id; } catch(e) { containerEl._leaflet_id = null; }
+        }
+
+        this.map = L.map(containerId, { maxZoom: 20 }).setView([view.lat, view.lng], view.zoom);
+
+        // Automatically recalculate tile layout whenever #map-container becomes visible or resizes
+        if (containerEl && typeof ResizeObserver !== 'undefined') {
+            this._resizeObserver = new ResizeObserver((entries) => {
+                for (const entry of entries) {
+                    if (entry.contentRect.width > 0 && entry.contentRect.height > 0 && this.map && !this.isGoogleMaps) {
+                        this.map.invalidateSize({ animate: false });
+                    }
+                }
+            });
+            this._resizeObserver.observe(containerEl);
+        }
+        setTimeout(() => {
+            if (this.map && !this.isGoogleMaps) {
+                try { this.map.invalidateSize({ animate: false }); } catch(e){}
+            }
+        }, 180);
 
         // Tactical Offline Backcountry Grid SVG Fallback for un-cached tiles in remote zones
         const fallbackTileSvg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
@@ -275,7 +443,7 @@ const AppMap = {
 
         const attachTileFallback = (layer) => {
             layer.on('tileerror', function(error) {
-                if (error && error.tile) {
+                if (error && error.tile && error.tile.src !== fallbackTileSvg) {
                     error.tile.src = fallbackTileSvg;
                 }
             });
@@ -321,9 +489,18 @@ const AppMap = {
 
         // Add Move End Listener
         this.map.on('moveend', () => {
-            if (this.onMapMoveCallback) {
-                const center = this.map.getCenter();
-                this.onMapMoveCallback(center.lat, center.lng);
+            const center = this.map.getCenter();
+            if (center) {
+                try {
+                    localStorage.setItem('lastMapView', JSON.stringify({
+                        lat: center.lat,
+                        lng: center.lng,
+                        zoom: this.map.getZoom() || 13
+                    }));
+                } catch(e){}
+                if (this.onMapMoveCallback) {
+                    this.onMapMoveCallback(center.lat, center.lng);
+                }
             }
         });
 
@@ -347,7 +524,11 @@ const AppMap = {
                     }
                 });
                 // Add new layer
-                this.leafletLayers[type].addTo(this.map);
+                if (this.leafletLayers[type]) {
+                    this.leafletLayers[type].addTo(this.map);
+                } else {
+                    this.leafletLayers.roadmap.addTo(this.map);
+                }
             }
         }
     },
@@ -357,6 +538,19 @@ const AppMap = {
         this.userCoords = { lat, lng: lon };
         if (!this.map) return;
         const center = this.isGoogleMaps ? new google.maps.LatLng(lat, lon) : [lat, lon];
+
+        // If map booted on continent-wide fallback view (zoom <= 5), automatically center on user's river coordinates!
+        if (this._isDefaultView) {
+            this._isDefaultView = false;
+            try {
+                if (this.isGoogleMaps) {
+                    this.map.setCenter(center);
+                    this.map.setZoom(13);
+                } else {
+                    this.map.setView(center, 13);
+                }
+            } catch(e){}
+        }
 
         if (this.isGoogleMaps) {
             if (!this.markers.user) {
@@ -1115,15 +1309,21 @@ const AppMap = {
     updateMapModeBadge(isLeaflet) {
         const badge = document.getElementById('map-offline-badge');
         if (!badge) return;
+        badge.style.display = 'inline-flex';
+        badge.style.cursor = 'pointer';
+        badge.onclick = () => this.toggleMapEngine();
+
         if (isLeaflet) {
-            badge.style.display = 'inline-flex';
             if (!navigator.onLine) {
+                badge.title = "Offline Backcountry Map Active";
                 badge.innerHTML = `<span class="pulse-dot amber" style="width:8px;height:8px;"></span> <span>📡 <b>Backcountry Offline Map Active</b> &bull; GPS Satellite &amp; Waypoints Live</span>`;
             } else {
-                badge.innerHTML = `<span class="pulse-dot green" style="width:8px;height:8px;"></span> <span>🗺️ <b>Offline-Ready Leaflet Map</b> &bull; Satellite &amp; Topo Available</span>`;
+                badge.title = "Tap to switch to Google Maps";
+                badge.innerHTML = `<span class="pulse-dot green" style="width:8px;height:8px;"></span> <span>🗺️ <b>Offline-Ready Leaflet Map</b> &bull; <u style="color:var(--accent-teal);">Tap for Google Maps</u></span>`;
             }
         } else {
-            badge.style.display = 'none';
+            badge.title = "Tap to switch to Offline-Ready Leaflet Map";
+            badge.innerHTML = `<span class="pulse-dot green" style="width:8px;height:8px;"></span> <span>🌐 <b>Google Maps Active</b> &bull; <u style="color:var(--accent-teal);">Tap to Test Offline Map</u></span>`;
         }
     },
 
@@ -1138,61 +1338,98 @@ const AppMap = {
             return;
         }
 
-        let bounds;
+        let centerLat = -25.2744;
+        let centerLng = 133.7751;
+        let currentZoom = 13;
+
         if (this.isGoogleMaps) {
-            const b = this.map.getBounds();
-            if (!b) return;
-            bounds = {
-                north: b.getNorthEast().lat(),
-                south: b.getSouthWest().lat(),
-                east: b.getNorthEast().lng(),
-                west: b.getSouthWest().lng()
-            };
+            const c = this.map.getCenter();
+            if (c) {
+                centerLat = c.lat();
+                centerLng = c.lng();
+            }
+            currentZoom = this.map.getZoom() || 13;
         } else {
-            const b = this.map.getBounds();
-            bounds = {
-                north: b.getNorth(),
-                south: b.getSouth(),
-                east: b.getEast(),
-                west: b.getWest()
-            };
+            const c = this.map.getCenter();
+            if (c) {
+                centerLat = c.lat;
+                centerLng = c.lng;
+            }
+            currentZoom = this.map.getZoom() || 13;
         }
 
-        // Convert lat/lng to tile numbers
+        // Save river beat center so offline launches open directly at this cached river beat!
+        try {
+            localStorage.setItem('cachedRiverBeatCenter', JSON.stringify({
+                lat: centerLat,
+                lng: centerLng,
+                zoom: Math.max(12, Math.min(15, currentZoom)),
+                timestamp: Date.now()
+            }));
+            localStorage.setItem('lastMapView', JSON.stringify({
+                lat: centerLat,
+                lng: centerLng,
+                zoom: Math.max(12, Math.min(15, currentZoom))
+            }));
+        } catch(e){}
+
+        // Convert lat/lng to Web Mercator tile coordinates
         const lat2tile = (lat, zoom) => Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom));
         const lon2tile = (lon, zoom) => Math.floor((lon + 180) / 360 * Math.pow(2, zoom));
 
-        const tilesToFetch = [];
-        for (let z = 12; z <= 15; z++) {
-            const minX = lon2tile(bounds.west, z);
-            const maxX = lon2tile(bounds.east, z);
-            const minY = lat2tile(bounds.north, z);
-            const maxY = lat2tile(bounds.south, z);
+        // Build center-outward tile list across overview zooms (5, 8, 10, 11) and detailed river beat zooms (12..15)
+        const zoomRadii = [
+            { z: 5, radius: 1 },
+            { z: 8, radius: 1 },
+            { z: 10, radius: 1 },
+            { z: 11, radius: 1 },
+            { z: 12, radius: 2 },
+            { z: 13, radius: 2 },
+            { z: 14, radius: 2 },
+            { z: 15, radius: 1 }
+        ];
 
-            for (let x = Math.min(minX, maxX); x <= Math.max(minX, maxX); x++) {
-                for (let y = Math.min(minY, maxY); y <= Math.max(minY, maxY); y++) {
-                    tilesToFetch.push({ z, x, y });
-                    if (tilesToFetch.length >= 80) break;
+        const activeType = localStorage.getItem('mapType') || 'roadmap';
+        const urlsToFetch = [];
+
+        for (const { z, radius } of zoomRadii) {
+            const cx = lon2tile(centerLng, z);
+            const cy = lat2tile(centerLat, z);
+            const maxTile = Math.pow(2, z) - 1;
+
+            for (let dx = -radius; dx <= radius; dx++) {
+                for (let dy = -radius; dy <= radius; dy++) {
+                    const x = Math.max(0, Math.min(maxTile, cx + dx));
+                    const y = Math.max(0, Math.min(maxTile, cy + dy));
+                    urlsToFetch.push(`https://tile.openstreetmap.org/${z}/${x}/${y}.png`);
+                    if (activeType === 'satellite') {
+                        urlsToFetch.push(`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`);
+                    } else if (activeType === 'terrain' && z <= 15) {
+                        urlsToFetch.push(`https://a.tile.opentopomap.org/${z}/${x}/${y}.png`);
+                    }
                 }
-                if (tilesToFetch.length >= 80) break;
             }
         }
 
-        if (window.showSyncToast) window.showSyncToast(`📥 Pre-caching ${tilesToFetch.length} backcountry river map tiles...`);
+        if (window.showSyncToast) window.showSyncToast(`📥 Pre-caching ${urlsToFetch.length} backcountry river map tiles...`);
 
         try {
             const cache = await caches.open('fly-fishing-map-tiles');
             let completed = 0;
-            await Promise.allSettled(tilesToFetch.map(async (t) => {
-                const url = `https://tile.openstreetmap.org/${t.z}/${t.x}/${t.y}.png`;
-                try {
-                    const res = await fetch(url);
-                    if (res && res.ok) {
-                        await cache.put(url, res);
-                        completed++;
-                    }
-                } catch(e){}
-            }));
+            // Fetch in controlled batches of 12 to avoid overwhelming mobile connections
+            const batchSize = 12;
+            for (let i = 0; i < urlsToFetch.length; i += batchSize) {
+                const batch = urlsToFetch.slice(i, i + batchSize);
+                await Promise.allSettled(batch.map(async (url) => {
+                    try {
+                        const res = await fetch(url);
+                        if (res && (res.ok || res.type === 'opaque')) {
+                            await cache.put(url, res);
+                            completed++;
+                        }
+                    } catch(e){}
+                }));
+            }
             if (window.showSyncToast) window.showSyncToast(`✅ ${completed} River Map Tiles Cached for Offline Use!`);
             else alert(`Successfully downloaded ${completed} river map tiles for offline backcountry use!`);
         } catch(err) {
@@ -1206,5 +1443,10 @@ window.AppMap = AppMap;
 window.preCacheMapArea = function() {
     if (window.AppMap && typeof window.AppMap.preCacheMapArea === 'function') {
         window.AppMap.preCacheMapArea();
+    }
+};
+window.toggleMapEngine = function() {
+    if (window.AppMap && typeof window.AppMap.toggleMapEngine === 'function') {
+        window.AppMap.toggleMapEngine();
     }
 };

@@ -193,11 +193,15 @@ const WEATHER = {
     },
 
     async willyFetch(targetUrl) {
+        if (!navigator.onLine) return null;
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         if (isLocal) {
             try {
                 const proxyUrl = `/willyproxy?url=${encodeURIComponent(targetUrl)}`;
-                const pRes = await fetch(proxyUrl);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3500);
+                const pRes = await fetch(proxyUrl, { signal: controller.signal });
+                clearTimeout(timeoutId);
                 if (pRes.ok) return pRes;
             } catch (e) {
                 console.warn("[WillyWeather Local Proxy] Fallback:", e);
@@ -216,13 +220,16 @@ const WEATHER = {
             }
         }
 
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3500);
-            const dRes = await fetch(targetUrl, { signal: controller.signal });
-            clearTimeout(timeoutId);
-            if (dRes.ok) return dRes;
-        } catch (e) {}
+        // Only attempt direct fetch if targetUrl is not api.willyweather.com.au (which blocks browser CORS)
+        if (!targetUrl.includes('api.willyweather.com.au')) {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                const dRes = await fetch(targetUrl, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (dRes.ok) return dRes;
+            } catch (e) {}
+        }
 
         return null;
     },
@@ -507,9 +514,13 @@ const WEATHER = {
 
             const locationId = chosen.id;
 
-            // Fetch comprehensive WillyWeather data with live BOM station observations
+            // Fetch comprehensive WillyWeather data and official BOM warnings concurrently
             const weatherUrl = `https://api.willyweather.com.au/v2/${apiKey}/locations/${locationId}/weather.json?observational=true&forecasts=weather,wind,rainfall,tides,sunrisesunset,uv,moonphases&days=7`;
-            const weatherRes = await this.willyFetch(weatherUrl);
+            const warnUrl = `https://api.willyweather.com.au/v2/${apiKey}/locations/${locationId}/warnings.json`;
+            const [weatherRes, warnRes] = await Promise.all([
+                this.willyFetch(weatherUrl),
+                this.willyFetch(warnUrl).catch(() => null)
+            ]);
             
             // If cached station failed, remove it and retry full search once
             if (!weatherRes || !weatherRes.ok) {
@@ -522,11 +533,9 @@ const WEATHER = {
 
             const wData = await weatherRes.json();
 
-            // Fetch official BOM weather warnings for this station's region
+            // Parse official BOM weather warnings for this station's region
             let bomWarnings = [];
             try {
-                const warnUrl = `https://api.willyweather.com.au/v2/${apiKey}/locations/${locationId}/warnings.json`;
-                const warnRes = await this.willyFetch(warnUrl);
                 if (warnRes && warnRes.ok) {
                     const warnData = await warnRes.json();
                     if (Array.isArray(warnData)) bomWarnings = warnData;
@@ -795,8 +804,8 @@ const WEATHER = {
             }
         } catch(e) {}
 
-        // 2. Try Australian Bureau of Meteorology RSS Warning Feed via CORS Proxy Network
-        if (warnings.length === 0) {
+        // 2. Try Australian Bureau of Meteorology RSS Warning Feed via CORS Proxy Network only if no live telemetry is passed
+        if (warnings.length === 0 && !curData && !dailyData && navigator.onLine) {
             let stateCode = 'nsw';
             let xmlId = 'IDZ00054';
 
@@ -809,15 +818,13 @@ const WEATHER = {
 
             const bomUrl = `http://www.bom.gov.au/fwo/${xmlId}.warnings_${stateCode}.xml`;
             const corsProxies = [
-                `https://api.allorigins.win/raw?url=${encodeURIComponent(bomUrl)}`,
-                `https://corsproxy.io/?url=${encodeURIComponent(bomUrl)}`,
-                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(bomUrl)}`
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(bomUrl)}`
             ];
 
             for (const proxy of corsProxies) {
                 try {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 2500);
+                    const timeoutId = setTimeout(() => controller.abort(), 1800);
                     const res = await fetch(proxy, { signal: controller.signal });
                     clearTimeout(timeoutId);
 
@@ -968,6 +975,37 @@ const WEATHER = {
         }
     },
 
+    getAstronomicalSunTimes(lat = -35.0, lon = 148.0, date = new Date()) {
+        try {
+            const rad = Math.PI / 180;
+            const deg = 180 / Math.PI;
+            const start = new Date(date.getFullYear(), 0, 0);
+            const dayOfYear = Math.floor((date - start) / 86400000);
+            const gamma = ((2 * Math.PI) / 365) * (dayOfYear - 1);
+            const eqTime = 229.18 * (0.000075 + 0.001868 * Math.cos(gamma) - 0.032077 * Math.sin(gamma) - 0.014615 * Math.cos(2 * gamma) - 0.040849 * Math.sin(2 * gamma));
+            const decl = 0.006918 - 0.399912 * Math.cos(gamma) + 0.070257 * Math.sin(gamma) - 0.006758 * Math.cos(2 * gamma) + 0.000907 * Math.sin(2 * gamma) - 0.002697 * Math.cos(3 * gamma) + 0.00148 * Math.sin(3 * gamma);
+            const tzOffsetMin = -date.getTimezoneOffset();
+            const solarNoonMin = 720 - (4 * lon) - eqTime + tzOffsetMin;
+            const cosHA = (Math.cos(90.833 * rad) / (Math.cos(lat * rad) * Math.cos(decl))) - (Math.tan(lat * rad) * Math.tan(decl));
+            const clamped = Math.max(-1, Math.min(1, cosHA));
+            const haDeg = Math.acos(clamped) * deg;
+            const fmt = (mins) => {
+                const norm = ((Math.round(mins) % 1440) + 1440) % 1440;
+                const h24 = Math.floor(norm / 60);
+                const m = norm % 60;
+                const ampm = h24 >= 12 ? 'PM' : 'AM';
+                const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+                return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+            };
+            return {
+                sunrise: fmt(solarNoonMin - haDeg * 4),
+                sunset: fmt(solarNoonMin + haDeg * 4)
+            };
+        } catch (e) {
+            return { sunrise: "06:15 AM", sunset: "05:45 PM" };
+        }
+    },
+
     getWillyWeatherOfflineFallback(lat, lon) {
         let locationName = "Local River Station";
         if (window.AppState && window.AppState.userCoords && window.AppState.userCoords.city) {
@@ -981,6 +1019,8 @@ const WEATHER = {
                 } catch(e){}
             }
         }
+
+        const sunTimes = this.getAstronomicalSunTimes(lat || -35.0, lon || 148.0, new Date());
 
         return {
             latitude: lat,
@@ -1007,8 +1047,8 @@ const WEATHER = {
                 { date: "Today", tempMax: 22, tempMin: 14, condition: "Backcountry Offline", icon: "🌤️", windSpeed: 10, windDirection: 180 },
                 { date: "Tomorrow", tempMax: 23, tempMin: 13, condition: "Backcountry Offline", icon: "🌤️", windSpeed: 12, windDirection: 180 }
             ],
-            sunrise: "06:15 AM",
-            sunset: "05:45 PM"
+            sunrise: sunTimes.sunrise,
+            sunset: sunTimes.sunset
         };
     },
 

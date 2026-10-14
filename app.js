@@ -45,13 +45,17 @@ window.switchTab = function(tabId) {
             setTimeout(() => {
                 try {
                     if (window.AppMap) {
+                        if (!navigator.onLine && window.AppMap.isGoogleMaps && typeof window.AppMap.fallbackToLeaflet === 'function') {
+                            window.AppMap.fallbackToLeaflet('Offline — Switched to Cached River Map');
+                            return;
+                        }
                         if (window.AppMap.map && !window.AppMap.isGoogleMaps) {
-                            window.AppMap.map.invalidateSize();
+                            window.AppMap.map.invalidateSize({ animate: false });
                         }
                         window.AppMap.renderCatchSpots();
                     }
                 } catch(e){}
-            }, 100);
+            }, 60);
         } else if (tabId === 'weather') {
             setTimeout(() => {
                 if (typeof window.drawTideChart === 'function') window.drawTideChart();
@@ -80,7 +84,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101610';
+window.APP_VERSION = 'v101620';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -712,18 +716,6 @@ window.initMainApp = async function() {
         clearDbBtn: document.getElementById('btn-clear-db'),
         tackleList: document.getElementById('tackle-list'),
         dashRecentCatches: document.getElementById('dashboard-recent-catches'),
-        dashWeatherIcon: document.getElementById('dash-weather-icon'),
-        dashWeatherTemp: document.getElementById('dash-weather-temp'),
-        dashWeatherDesc: document.getElementById('dash-weather-desc'),
-        dashWind: document.getElementById('dash-wind'),
-        dashPressure: document.getElementById('dash-pressure'),
-        dashSunrise: document.getElementById('dash-sunrise'),
-        dashSunset: document.getElementById('dash-sunset'),
-        dashMoonIcon: document.getElementById('dash-moon-icon'),
-        dashMoonPhase: document.getElementById('dash-moon-phase'),
-        dashMoonIllum: document.getElementById('dash-moon-illum'),
-        dashTideHeight: document.getElementById('dash-tide-height'),
-        dashTideDir: document.getElementById('dash-tide-dir'),
         
         // Modals
         modalLogCatch: document.getElementById('modal-log-catch'),
@@ -894,6 +886,10 @@ window.initMainApp = async function() {
             mobileTabLabel.textContent = tabTitles[tabId] || tabId;
         }
 
+        if (typeof window.toggleMobileMoreDrawer === 'function') {
+            window.toggleMobileMoreDrawer(false);
+        }
+
         const navItems = document.querySelectorAll('.nav-item, .mobile-nav-item, .mobile-drawer-card, [data-tab]');
         navItems.forEach(item => {
             if (item.getAttribute('data-tab') === tabId) {
@@ -930,12 +926,17 @@ window.initMainApp = async function() {
                 renderLicensesList();
             } else if (tabId === 'map') {
                 setTimeout(() => {
-                    if (window.AppMap && window.AppMap.map) {
-                        if (!window.AppMap.isGoogleMaps) {
-                            window.AppMap.map.invalidateSize();
+                    if (window.AppMap) {
+                        if (!navigator.onLine && window.AppMap.isGoogleMaps && typeof window.AppMap.fallbackToLeaflet === 'function') {
+                            window.AppMap.fallbackToLeaflet('Offline — Switched to Cached River Map');
+                            return;
                         }
+                        if (window.AppMap.map && !window.AppMap.isGoogleMaps) {
+                            window.AppMap.map.invalidateSize({ animate: false });
+                        }
+                        window.AppMap.renderCatchSpots(AppState.catches);
                     }
-                }, 100);
+                }, 60);
             } else if (tabId === 'weather') {
                 if (typeof drawTideChart === 'function') drawTideChart();
             }
@@ -1804,142 +1805,146 @@ window.initMainApp = async function() {
             }
         }
 
-        if (radarBtn) {
-            radarBtn.addEventListener('click', async () => {
-                const opacity = overlayRadarOpacity ? parseFloat(overlayRadarOpacity.value) / 100 : 0.5;
-                const isActive = await window.AppMap.toggleRadar(undefined, opacity);
-                await updateRadarState(isActive);
-            });
-        }
+        if (!AppState.mapControlsBound) {
+            AppState.mapControlsBound = true;
 
-        if (overlayRadarToggle) {
-            overlayRadarToggle.addEventListener('change', async () => {
-                const opacity = overlayRadarOpacity ? parseFloat(overlayRadarOpacity.value) / 100 : 0.5;
-                const isActive = await window.AppMap.toggleRadar(overlayRadarToggle.checked, opacity);
-                await updateRadarState(isActive);
-            });
-        }
+            if (radarBtn) {
+                radarBtn.addEventListener('click', async () => {
+                    const opacity = overlayRadarOpacity ? parseFloat(overlayRadarOpacity.value) / 100 : 0.5;
+                    const isActive = await window.AppMap.toggleRadar(undefined, opacity);
+                    await updateRadarState(isActive);
+                });
+            }
 
-        if (overlayRadarOpacity && radarOpacityVal) {
-            overlayRadarOpacity.addEventListener('input', () => {
-                const val = overlayRadarOpacity.value;
-                radarOpacityVal.textContent = `${val}%`;
-                window.AppMap.setRadarOpacity(parseFloat(val) / 100);
-            });
-        }
+            if (overlayRadarToggle) {
+                overlayRadarToggle.addEventListener('change', async () => {
+                    const opacity = overlayRadarOpacity ? parseFloat(overlayRadarOpacity.value) / 100 : 0.5;
+                    const isActive = await window.AppMap.toggleRadar(overlayRadarToggle.checked, opacity);
+                    await updateRadarState(isActive);
+                });
+            }
 
-        const weatherBtn = document.getElementById('btn-map-weather');
-        const weatherOverlay = document.getElementById('map-weather-overlay');
-        const closeWeatherBtn = document.getElementById('btn-close-weather-overlay');
+            if (overlayRadarOpacity && radarOpacityVal) {
+                overlayRadarOpacity.addEventListener('input', () => {
+                    const val = overlayRadarOpacity.value;
+                    radarOpacityVal.textContent = `${val}%`;
+                    window.AppMap.setRadarOpacity(parseFloat(val) / 100);
+                });
+            }
 
-        if (weatherBtn && weatherOverlay) {
-            weatherBtn.addEventListener('click', () => {
-                const isHidden = weatherOverlay.style.display === 'none';
-                weatherOverlay.style.display = isHidden ? 'block' : 'none';
-                weatherBtn.classList.toggle('btn-primary', isHidden);
-                
-                // Fetch weather immediately for current map center when opening
-                if (isHidden && window.AppMap && window.AppMap.map) {
-                    const center = window.AppMap.isGoogleMaps ? window.AppMap.map.getCenter() : window.AppMap.map.getCenter();
-                    if (center) {
-                        const lat = window.AppMap.isGoogleMaps ? center.lat() : center.lat;
-                        const lng = window.AppMap.isGoogleMaps ? center.lng() : center.lng;
-                        loadMapWeather(lat, lng);
+            const weatherBtn = document.getElementById('btn-map-weather');
+            const weatherOverlay = document.getElementById('map-weather-overlay');
+            const closeWeatherBtn = document.getElementById('btn-close-weather-overlay');
+
+            if (weatherBtn && weatherOverlay) {
+                weatherBtn.addEventListener('click', () => {
+                    const isHidden = weatherOverlay.style.display === 'none';
+                    weatherOverlay.style.display = isHidden ? 'block' : 'none';
+                    weatherBtn.classList.toggle('btn-primary', isHidden);
+                    
+                    // Fetch weather immediately for current map center when opening
+                    if (isHidden && window.AppMap && window.AppMap.map) {
+                        const center = window.AppMap.map.getCenter();
+                        if (center) {
+                            const lat = window.AppMap.isGoogleMaps ? center.lat() : center.lat;
+                            const lng = window.AppMap.isGoogleMaps ? center.lng() : center.lng;
+                            loadMapWeather(lat, lng);
+                        }
                     }
-                }
-            });
-        }
+                });
+            }
 
-        if (closeWeatherBtn && weatherOverlay && weatherBtn) {
-            closeWeatherBtn.addEventListener('click', () => {
-                weatherOverlay.style.display = 'none';
-                weatherBtn.classList.remove('btn-primary');
-            });
-        }
+            if (closeWeatherBtn && weatherOverlay && weatherBtn) {
+                closeWeatherBtn.addEventListener('click', () => {
+                    weatherOverlay.style.display = 'none';
+                    weatherBtn.classList.remove('btn-primary');
+                });
+            }
 
-        // Bind Overlay Tab switching events
-        const overlayTabs = document.querySelectorAll('.overlay-tab-btn');
-        overlayTabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                // Remove active classes
-                overlayTabs.forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.overlay-tab-pane').forEach(p => p.classList.remove('active'));
-                
-                // Add active class to clicked tab and corresponding pane
-                tab.classList.add('active');
-                const paneId = tab.getAttribute('data-overlay-tab');
-                const pane = document.getElementById(paneId);
-                if (pane) pane.classList.add('active');
+            // Bind Overlay Tab switching events
+            const overlayTabs = document.querySelectorAll('.overlay-tab-btn');
+            overlayTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Remove active classes
+                    overlayTabs.forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.overlay-tab-pane').forEach(p => p.classList.remove('active'));
+                    
+                    // Add active class to clicked tab and corresponding pane
+                    tab.classList.add('active');
+                    const paneId = tab.getAttribute('data-overlay-tab');
+                    const pane = document.getElementById(paneId);
+                    if (pane) pane.classList.add('active');
+                });
             });
-        });
 
-        // Set up Map Controls UI
-        if (elements.btnMapType) {
-            elements.btnMapType.addEventListener('click', () => {
-                const currentType = localStorage.getItem('mapType') || 'roadmap';
-                let nextType = 'roadmap';
-                if (currentType === 'roadmap') nextType = 'satellite';
-                else if (currentType === 'satellite') nextType = 'terrain';
-                
-                window.AppMap.setMapType(nextType);
-                updateMapTypeBtnLabel(nextType);
-            });
-        }
+            // Set up Map Controls UI
+            if (elements.btnMapType) {
+                elements.btnMapType.addEventListener('click', () => {
+                    const currentType = localStorage.getItem('mapType') || 'roadmap';
+                    let nextType = 'roadmap';
+                    if (currentType === 'roadmap') nextType = 'satellite';
+                    else if (currentType === 'satellite') nextType = 'terrain';
+                    
+                    window.AppMap.setMapType(nextType);
+                    updateMapTypeBtnLabel(nextType);
+                });
+            }
 
-        if (elements.btnSetCar) {
-            elements.btnSetCar.addEventListener('click', () => {
-                if (AppState.userCoords) {
-                    window.AppMap.setCarLocation(AppState.userCoords.lat, AppState.userCoords.lng);
-                    alert("Car starting point set at your current GPS location! 🚗");
-                } else {
-                    // Fallback to center of map
-                    const center = window.AppMap.map ? (window.AppMap.isGoogleMaps ? window.AppMap.map.getCenter() : window.AppMap.map.getCenter()) : null;
-                    if (center) {
-                        const lat = window.AppMap.isGoogleMaps ? center.lat() : center.lat;
-                        const lng = window.AppMap.isGoogleMaps ? center.lng() : center.lng;
-                        window.AppMap.setCarLocation(lat, lng);
-                        alert("Car starting point set at map center. 🚗");
+            if (elements.btnSetCar) {
+                elements.btnSetCar.addEventListener('click', () => {
+                    if (AppState.userCoords) {
+                        window.AppMap.setCarLocation(AppState.userCoords.lat, AppState.userCoords.lng);
+                        alert("Car starting point set at your current GPS location! 🚗");
                     } else {
-                        alert("Could not fetch coordinates. Please try again.");
+                        // Fallback to center of map
+                        const center = window.AppMap.map ? window.AppMap.map.getCenter() : null;
+                        if (center) {
+                            const lat = window.AppMap.isGoogleMaps ? center.lat() : center.lat;
+                            const lng = window.AppMap.isGoogleMaps ? center.lng() : center.lng;
+                            window.AppMap.setCarLocation(lat, lng);
+                            alert("Car starting point set at map center. 🚗");
+                        } else {
+                            alert("Could not fetch coordinates. Please try again.");
+                        }
                     }
-                }
-            });
-        }
+                });
+            }
 
-        if (elements.btnClearCar) {
-            elements.btnClearCar.addEventListener('click', () => {
-                window.AppMap.clearCarLocation();
-                alert("Car location cleared.");
-            });
-        }
+            if (elements.btnClearCar) {
+                elements.btnClearCar.addEventListener('click', () => {
+                    window.AppMap.clearCarLocation();
+                    alert("Car location cleared.");
+                });
+            }
 
-        if (elements.btnAddSpotHere) {
-            elements.btnAddSpotHere.addEventListener('click', () => {
-                let coords = AppState.userCoords;
-                if (!coords) {
-                    const center = window.AppMap.map ? (window.AppMap.isGoogleMaps ? window.AppMap.map.getCenter() : window.AppMap.map.getCenter()) : null;
-                    if (center) {
-                        coords = {
-                            lat: window.AppMap.isGoogleMaps ? center.lat() : center.lat,
-                            lng: window.AppMap.isGoogleMaps ? center.lng() : center.lng
-                        };
+            if (elements.btnAddSpotHere) {
+                elements.btnAddSpotHere.addEventListener('click', () => {
+                    let coords = AppState.userCoords;
+                    if (!coords) {
+                        const center = window.AppMap.map ? window.AppMap.map.getCenter() : null;
+                        if (center) {
+                            coords = {
+                                lat: window.AppMap.isGoogleMaps ? center.lat() : center.lat,
+                                lng: window.AppMap.isGoogleMaps ? center.lng() : center.lng
+                            };
+                        }
                     }
-                }
-                
-                // Open add spot modal with coordinates pre-filled
-                if (coords) {
-                    elements.spotLat.value = coords.lat.toFixed(6);
-                    elements.spotLng.value = coords.lng.toFixed(6);
-                }
-                window.showAddSpotModal();
-            });
-        }
+                    
+                    // Open add spot modal with coordinates pre-filled
+                    if (coords) {
+                        elements.spotLat.value = coords.lat.toFixed(6);
+                        elements.spotLng.value = coords.lng.toFixed(6);
+                    }
+                    window.showAddSpotModal();
+                });
+            }
 
-        if (elements.btnMapRecenter) {
-            elements.btnMapRecenter.addEventListener('click', () => {
-                requestOrientationPermission();
-                window.AppMap.reCenter();
-            });
+            if (elements.btnMapRecenter) {
+                elements.btnMapRecenter.addEventListener('click', () => {
+                    requestOrientationPermission();
+                    window.AppMap.reCenter();
+                });
+            }
         }
 
         function requestOrientationPermission() {
@@ -1957,6 +1962,8 @@ window.initMainApp = async function() {
         }
 
         function initOrientationListener() {
+            if (AppState.orientationListenerBound) return;
+            AppState.orientationListenerBound = true;
             const eventName = 'ondeviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation';
             window.addEventListener(eventName, (event) => {
                 let heading = null;
@@ -5030,6 +5037,9 @@ window.initMainApp = async function() {
                         const lng = pos.coords.longitude;
                         AppState.userCoords = { lat, lng };
                         localStorage.setItem('user_last_coords', JSON.stringify({ lat, lng, timestamp: Date.now() }));
+                        if (window.AppMap && window.AppMap.map && typeof window.AppMap.updateUserLocation === 'function') {
+                            window.AppMap.updateUserLocation(lat, lng);
+                        }
                         this.updateHud();
                     },
                     (err) => console.log("HUD GPS watch note:", err),
@@ -5132,38 +5142,44 @@ window.initMainApp = async function() {
             const user = this.getUserCoordinates();
             const car = this.getCarCoordinates();
 
-            // 1. Solar Events (NOAA calculation)
-            const solar = this.calculateSolarEvents(user.lat, user.lng, now);
+            // 1. Solar Events (NOAA calculation cached per date & 0.001° coordinate)
+            const solarKey = `${user.lat.toFixed(3)}_${user.lng.toFixed(3)}_${now.toDateString()}`;
+            if (!this._solarCache || this._solarCache.key !== solarKey) {
+                const computedSolar = this.calculateSolarEvents(user.lat, user.lng, now);
+                const fmt = (d) => (!d || isNaN(d.getTime())) ? '--:--' : d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                this._solarCache = {
+                    key: solarKey,
+                    solar: computedSolar,
+                    sunsetStr: fmt(computedSolar?.sunset),
+                    duskStr: fmt(computedSolar?.dusk)
+                };
+            }
+            const solar = this._solarCache.solar;
             let sunsetDate = solar?.sunset;
             let duskDate = solar?.dusk;
+            let sunsetStr = this._solarCache.sunsetStr;
+            let duskStr = this._solarCache.duskStr;
 
             // Fallback to Weather API sunset if available
             if ((!sunsetDate || !duskDate) && AppState.weatherData?.daily?.sunset && AppState.weatherData.daily.sunset[0]) {
                 try {
                     sunsetDate = new Date(AppState.weatherData.daily.sunset[0]);
                     duskDate = new Date(sunsetDate.getTime() + 28 * 60 * 1000);
+                    sunsetStr = sunsetDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                    duskStr = duskDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
                 } catch(e){}
             }
 
-            // Format times
-            const formatTime = (d) => {
-                if (!d || isNaN(d.getTime())) return '--:--';
-                return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-            };
-
-            const sunsetStr = formatTime(sunsetDate);
-            const duskStr = formatTime(duskDate);
-
             const sunsetEl = document.getElementById('hud-solar-sunset');
             const duskEl = document.getElementById('hud-solar-dusk');
-            if (sunsetEl) sunsetEl.textContent = sunsetStr;
-            if (duskEl) duskEl.textContent = duskStr;
+            if (sunsetEl && sunsetEl.textContent !== sunsetStr) sunsetEl.textContent = sunsetStr;
+            if (duskEl && duskEl.textContent !== duskStr) duskEl.textContent = duskStr;
 
             // Update dashboard card sunset/dusk text
             const dashSunsetTxt = document.getElementById('dash-hud-sunset-text');
             const dashDuskTxt = document.getElementById('dash-hud-dusk-text');
-            if (dashSunsetTxt) dashSunsetTxt.textContent = sunsetStr;
-            if (dashDuskTxt) dashDuskTxt.textContent = duskStr;
+            if (dashSunsetTxt && dashSunsetTxt.textContent !== sunsetStr) dashSunsetTxt.textContent = sunsetStr;
+            if (dashDuskTxt && dashDuskTxt.textContent !== duskStr) dashDuskTxt.textContent = duskStr;
 
             // 2. Countdown calculation
             let targetDuskTime = duskDate ? duskDate.getTime() : null;
@@ -5219,17 +5235,17 @@ window.initMainApp = async function() {
             }
 
             if (timerEl) timerEl.textContent = countdownStr;
-            if (timerLabelEl) timerLabelEl.textContent = labelText;
-            if (statusBadgeEl) {
+            if (timerLabelEl && timerLabelEl.textContent !== labelText) timerLabelEl.textContent = labelText;
+            if (statusBadgeEl && statusBadgeEl.textContent !== statusText) {
                 statusBadgeEl.textContent = statusText;
                 statusBadgeEl.style = statusStyle;
             }
             if (dashCountdownEl) dashCountdownEl.textContent = countdownStr;
-            if (dashDuskPill) {
+            if (dashDuskPill && dashDuskPill.textContent !== statusText) {
                 dashDuskPill.textContent = statusText;
                 dashDuskPill.style = statusStyle;
             }
-            if (dashDuskSub) dashDuskSub.textContent = labelText;
+            if (dashDuskSub && dashDuskSub.textContent !== labelText) dashDuskSub.textContent = labelText;
 
             // 3. Vehicle Distance, Bearing, and Bushwalk ETA
             let distanceMeters = 0;
@@ -5259,8 +5275,8 @@ window.initMainApp = async function() {
                     : `${(distanceMeters / 1000).toFixed(2)} km`;
                 const bearingDisplay = `${Math.round(bearingDeg)}° ${cardinal}`;
 
-                if (distEl) distEl.textContent = distDisplay;
-                if (bearingEl) bearingEl.textContent = bearingDisplay;
+                if (distEl && distEl.textContent !== distDisplay) distEl.textContent = distDisplay;
+                if (bearingEl && bearingEl.textContent !== bearingDisplay) bearingEl.textContent = bearingDisplay;
                 if (walkEtaEl) walkEtaEl.textContent = `~${walkMins} mins`;
                 if (dashCarDistEl) dashCarDistEl.textContent = `🚗 Car: ${distDisplay} ${cardinal}`;
                 if (dashCarBearingEl) dashCarBearingEl.textContent = `Bearing: ${bearingDisplay} • Tap for HUD →`;
@@ -5269,13 +5285,13 @@ window.initMainApp = async function() {
                 const lightMinsRemaining = remainingMs !== null ? Math.floor(remainingMs / 60000) : 999;
 
                 if (safetyAlertEl && safetyTextEl) {
-                    safetyAlertEl.classList.remove('hud-pulse-urgent');
+                    const isUrgent = lightMinsRemaining > 0 && lightMinsRemaining < walkMins;
+                    safetyAlertEl.classList.toggle('hud-pulse-urgent', isUrgent);
                     if (lightMinsRemaining <= 0) {
                         safetyAlertEl.style = "margin-top: 12px; padding: 10px 14px; border-radius: 8px; font-size: 11.5px; text-align: left; display: flex; align-items: center; gap: 8px; background: rgba(239, 68, 68, 0.2); border: 1.5px solid #ef4444; color: #ff5252;";
                         if (safetyIconEl) safetyIconEl.textContent = '🚨';
                         safetyTextEl.innerHTML = `<strong>PITCH BLACK:</strong> Estimated ~${walkMins} min bushwalk back to vehicle. Turn on headlamp, watch for river snags, and use whistle if separated!`;
                     } else if (lightMinsRemaining < walkMins) {
-                        safetyAlertEl.classList.add('hud-pulse-urgent');
                         safetyAlertEl.style = "margin-top: 12px; padding: 10px 14px; border-radius: 8px; font-size: 11.5px; text-align: left; display: flex; align-items: center; gap: 8px; background: rgba(239, 68, 68, 0.2); border: 2px solid #ef4444; color: #ff5252;";
                         if (safetyIconEl) safetyIconEl.textContent = '🚨';
                         safetyTextEl.innerHTML = `<strong>TURN BACK NOW!</strong> Your ~${walkMins} min walk exceeds the ${lightMinsRemaining} mins of legal daylight remaining. Reel in immediately!`;
@@ -5300,6 +5316,7 @@ window.initMainApp = async function() {
                 if (dashCarBearingEl) dashCarBearingEl.textContent = 'Tap to mark vehicle & view HUD →';
 
                 if (safetyAlertEl && safetyTextEl) {
+                    safetyAlertEl.classList.remove('hud-pulse-urgent');
                     safetyAlertEl.style = "margin-top: 12px; padding: 8px 12px; border-radius: 8px; font-size: 11.5px; text-align: left; display: flex; align-items: center; gap: 8px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); color: #fbbf24;";
                     if (safetyIconEl) safetyIconEl.textContent = '📍';
                     safetyTextEl.innerHTML = `<strong>VEHICLE NOT MARKED:</strong> Tap <b>'Mark Vehicle Here'</b> below to save your vehicle coordinates before dusk!`;
@@ -9236,7 +9253,7 @@ window.initMainApp = async function() {
     }
 
     function updateAppVersionDisplay() {
-        const ver = window.APP_VERSION || 'v101610';
+        const ver = window.APP_VERSION || 'v101620';
         const settingsVerEl = document.getElementById('settings-app-version');
         if (settingsVerEl) settingsVerEl.textContent = `${ver} (Latest Build)`;
         const sidebarVerEl = document.getElementById('global-app-version-tag');
@@ -10540,7 +10557,7 @@ Respond ONLY in valid JSON format:
                     await reg.update();
                 }
             }
-            if (window.showSyncToast) window.showSyncToast(`✨ App is on the latest build (${window.APP_VERSION || 'v101610'})!`);
+            if (window.showSyncToast) window.showSyncToast(`✨ App is on the latest build (${window.APP_VERSION || 'v101620'})!`);
         } catch(e) {
             console.warn("Update check error:", e);
         }

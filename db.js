@@ -238,12 +238,13 @@ const DB = {
         
         try { localStorage.removeItem('demo_catches_cleared'); } catch(e){}
 
-        // Save full resolution photo to IndexedDB
-        if (item.photo && item.photo.length > 20) {
+        // Save full resolution photo to IndexedDB only if it is a full photo (not already a thumbnail)
+        if (item.photo && item.photo.length > 50000) {
             await this.saveFullPhoto(item.id, item.photo, 'catch');
             // Generate micro-thumbnail for instant list card rendering
             item.thumbnail = await this.generateMicroThumbnail(item.photo, 320);
             item.hasFullPhoto = true;
+            item.photo = item.thumbnail;
         }
 
         // Lightweight storage copy for localStorage (uses thumbnail, avoids QuotaExceededError)
@@ -297,10 +298,11 @@ const DB = {
     },
 
     async updateCatch(item) {
-        if (item.photo && item.photo.length > 20) {
+        if (item.photo && item.photo.length > 50000) {
             await this.saveFullPhoto(item.id, item.photo, 'catch');
             item.thumbnail = await this.generateMicroThumbnail(item.photo, 320);
             item.hasFullPhoto = true;
+            item.photo = item.thumbnail;
         }
 
         const storageCopy = { ...item };

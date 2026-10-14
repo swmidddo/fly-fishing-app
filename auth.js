@@ -336,11 +336,11 @@ window.AuthApp = (function() {
             const rigs = window.DB && window.DB.getAllRigs ? await window.DB.getAllRigs() : [];
             const licenses = window.DB && window.DB.getAllLicenses ? await window.DB.getAllLicenses() : [];
 
-            // Sanitize catches to prevent huge base64 string quota crashes
+            // Sanitize catches to prevent huge base64 string quota crashes without corrupting JPEG data
             const catches = rawCatches.map(c => {
                 const item = { ...c };
-                if (item.photo && typeof item.photo === 'string' && item.photo.length > 200000) {
-                    item.photo = item.photo.substring(0, 200000);
+                if (item.photo && typeof item.photo === 'string' && item.photo.length > 100000) {
+                    item.photo = item.thumbnail || '';
                 }
                 return item;
             });
@@ -587,7 +587,7 @@ window.AuthApp = (function() {
                 headerProfileEl.innerHTML = `
                     <div class="user-avatar-badge" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(0, 210, 255, 0.08); border: 1px solid var(--accent-teal); border-radius: 10px; cursor: pointer;" onclick="window.openAuthModal()">
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <img src="${currentUser.avatar}" alt="${currentUser.name}" style="width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--accent-teal);">
+                            <img src="${currentUser.avatar}" alt="${currentUser.name}" onerror="this.onerror=null;this.src='images/app_icon.png';" style="width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--accent-teal);">
                             <div style="font-size: 12px; display: flex; flex-direction: column; text-align: left; line-height: 1.2;">
                                 <strong style="color: var(--text-primary); font-weight: 600;">${currentUser.name}</strong>
                                 <span style="font-size: 9.5px; color: var(--accent-teal); margin-top: 2px;">${badgeText}</span>
@@ -610,7 +610,7 @@ window.AuthApp = (function() {
                 settingsUserCard.innerHTML = `
                     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
                         <div style="display: flex; align-items: center; gap: 12px;">
-                            <img src="${currentUser.avatar}" alt="Avatar" style="width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--accent-teal);">
+                            <img src="${currentUser.avatar}" alt="Avatar" onerror="this.onerror=null;this.src='images/app_icon.png';" style="width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--accent-teal);">
                             <div>
                                 <h4 style="margin: 0;">${currentUser.name}</h4>
                                 <p style="font-size: 12px; color: var(--text-secondary); margin: 2px 0 0 0;">${currentUser.email}</p>
@@ -648,7 +648,7 @@ window.AuthApp = (function() {
                         <span class="badge-active" style="background: rgba(46, 213, 115, 0.15); color: var(--success); border: 1px solid var(--success);">🟢 Synced</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                        <img src="${currentUser.avatar}" alt="Avatar" style="width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--accent-teal);">
+                        <img src="${currentUser.avatar}" alt="Avatar" onerror="this.onerror=null;this.src='images/app_icon.png';" style="width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--accent-teal);">
                         <div>
                             <strong style="color: var(--text-primary); font-size: 13px;">${currentUser.name}</strong>
                             <div style="font-size: 10px; color: var(--accent-teal);">${badgeText}</div>

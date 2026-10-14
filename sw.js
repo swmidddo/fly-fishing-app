@@ -1,5 +1,5 @@
 // sw.js - Middo's Fly Fishing Backcountry Offline Service Worker
-const CACHE_NAME = 'fly-fishing-v101610';
+const CACHE_NAME = 'fly-fishing-v101620';
 
 // Message Event: Allow web app clients to force immediate skipWaiting & activation
 self.addEventListener('message', (event) => {
@@ -75,7 +75,7 @@ self.addEventListener('install', (event) => {
     self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then(async (cache) => {
-            console.log('[Backcountry SW] Pre-caching core app shell & offline assets (v101610)...');
+            console.log('[Backcountry SW] Pre-caching core app shell & offline assets (v101620)...');
             return Promise.allSettled(
                 CORE_ASSETS.map((url) =>
                     fetch(url, { mode: url.startsWith('http') ? 'cors' : 'same-origin' })
@@ -204,41 +204,7 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 3. Static Media Assets, CDNs & Fonts - Cache-First with Background Refresh
-    if (url.pathname.match(/\.(png|jpg|jpeg|svg|gif|webp|ico|woff2?|ttf|eot)$/i) || 
-        url.hostname.includes('unpkg.com') || 
-        url.hostname.includes('fonts.googleapis.com') || 
-        url.hostname.includes('fonts.gstatic.com')) {
-        event.respondWith((async () => {
-            const cachedRes = await caches.match(req, { ignoreSearch: true });
-            if (cachedRes) {
-                if (navigator.onLine) {
-                    fetch(req).then(async (freshRes) => {
-                        if (freshRes && freshRes.status === 200) {
-                            const cache = await caches.open(CACHE_NAME);
-                            await cache.put(req, freshRes);
-                        }
-                    }).catch(() => {});
-                }
-                return cachedRes;
-            }
-
-            try {
-                const networkRes = await fetch(req);
-                if (networkRes && networkRes.status === 200) {
-                    const copy = networkRes.clone();
-                    const cache = await caches.open(CACHE_NAME);
-                    await cache.put(req, copy);
-                }
-                return networkRes;
-            } catch (err) {
-                return caches.match(req, { ignoreSearch: true });
-            }
-        })());
-        return;
-    }
-
-    // 3.5 Map Tiles (OpenStreetMap, Esri Satellite, OpenTopoMap, RainViewer) - Dedicated Cache-First with Network Fallback
+    // 3. Map Tiles (OpenStreetMap, Esri Satellite, OpenTopoMap, RainViewer) - Dedicated Persistent Cache-First
     const isMapTile = (
         url.hostname.includes('tile.openstreetmap.org') ||
         url.hostname.includes('arcgisonline.com') ||
@@ -249,10 +215,13 @@ self.addEventListener('fetch', (event) => {
     if (isMapTile) {
         event.respondWith((async () => {
             const tileCache = await caches.open('fly-fishing-map-tiles');
-            // Check direct URL or normalized OSM URL
-            let cachedRes = await tileCache.match(req);
+            // Check direct URL or normalized OSM/OpenTopoMap URL (ignoring Vary header differences between fetch & img)
+            let cachedRes = await tileCache.match(req, { ignoreVary: true, ignoreSearch: true });
             if (!cachedRes && url.hostname.includes('tile.openstreetmap.org')) {
-                cachedRes = await tileCache.match(`https://tile.openstreetmap.org${url.pathname}`);
+                cachedRes = await tileCache.match(`https://tile.openstreetmap.org${url.pathname}`, { ignoreVary: true, ignoreSearch: true });
+            }
+            if (!cachedRes && url.hostname.includes('opentopomap.org')) {
+                cachedRes = await tileCache.match(`https://a.tile.opentopomap.org${url.pathname}`, { ignoreVary: true, ignoreSearch: true });
             }
             if (cachedRes) {
                 return cachedRes;
@@ -260,8 +229,12 @@ self.addEventListener('fetch', (event) => {
 
             try {
                 const networkRes = await fetch(req);
-                if (networkRes && networkRes.status === 200) {
-                    await tileCache.put(req, networkRes.clone());
+                if (networkRes && (networkRes.status === 200 || networkRes.type === 'opaque')) {
+                    const clone = networkRes.clone();
+                    await tileCache.put(req, clone);
+                    if (url.hostname.includes('tile.openstreetmap.org')) {
+                        try { await tileCache.put(`https://tile.openstreetmap.org${url.pathname}`, networkRes.clone()); } catch(e){}
+                    }
                 }
                 return networkRes;
             } catch (err) {
@@ -271,10 +244,44 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 4. Default: Cache match with network fallback
+    // 4. Static Media Assets, CDNs & Fonts - Cache-First with Background Refresh
+    if (url.pathname.match(/\.(png|jpg|jpeg|svg|gif|webp|ico|woff2?|ttf|eot)$/i) || 
+        url.hostname.includes('unpkg.com') || 
+        url.hostname.includes('fonts.googleapis.com') || 
+        url.hostname.includes('fonts.gstatic.com')) {
+        event.respondWith((async () => {
+            const cachedRes = await caches.match(req, { ignoreSearch: true, ignoreVary: true });
+            if (cachedRes) {
+                if (navigator.onLine) {
+                    fetch(req).then(async (freshRes) => {
+                        if (freshRes && (freshRes.status === 200 || freshRes.type === 'opaque')) {
+                            const cache = await caches.open(CACHE_NAME);
+                            await cache.put(req, freshRes);
+                        }
+                    }).catch(() => {});
+                }
+                return cachedRes;
+            }
+
+            try {
+                const networkRes = await fetch(req);
+                if (networkRes && (networkRes.status === 200 || networkRes.type === 'opaque')) {
+                    const copy = networkRes.clone();
+                    const cache = await caches.open(CACHE_NAME);
+                    await cache.put(req, copy);
+                }
+                return networkRes;
+            } catch (err) {
+                return (await caches.match(req, { ignoreSearch: true, ignoreVary: true })) || new Response('', { status: 404 });
+            }
+        })());
+        return;
+    }
+
+    // 5. Default: Cache match with network fallback
     event.respondWith(
         caches.match(req, { ignoreSearch: true }).then((cached) => {
-            return cached || fetch(req).catch(() => caches.match('./', { ignoreSearch: true }));
+            return cached || fetch(req).catch(async () => (await caches.match('./', { ignoreSearch: true })) || new Response('', { status: 404 }));
         })
     );
 });
