@@ -106,7 +106,7 @@ const WEATHER = {
         return Math.round(est * 10) / 10;
     },
 
-    getStreamConditions() {
+    getStreamConditions(airTempOverride = null, latOverride = null) {
         let saved = null;
         try {
             const raw = localStorage.getItem('currentStreamConditions_v1');
@@ -117,23 +117,30 @@ const WEATHER = {
         // Keep manual thermometer reading active for 18 hours
         const hasFreshManualTemp = saved && saved.isManual && saved.waterTemp !== null && saved.waterTemp !== undefined && !isNaN(parseFloat(saved.waterTemp)) && (!saved.updatedAt || (now - saved.updatedAt) < 18 * 3600 * 1000);
 
-        const airTemp = (window.AppState && window.AppState.weatherData && window.AppState.weatherData.current && window.AppState.weatherData.current.temp != null)
-            ? window.AppState.weatherData.current.temp
-            : 20;
-        const lat = (window.AppState && window.AppState.userCoords && window.AppState.userCoords.lat)
-            ? window.AppState.userCoords.lat
-            : -36.0;
+        const airTemp = (airTempOverride !== null && airTempOverride !== undefined && !isNaN(parseFloat(airTempOverride)))
+            ? parseFloat(airTempOverride)
+            : ((window.AppState && window.AppState.weatherData && window.AppState.weatherData.current && window.AppState.weatherData.current.temp != null)
+                ? window.AppState.weatherData.current.temp
+                : 20);
+        const lat = (latOverride !== null && latOverride !== undefined && !isNaN(parseFloat(latOverride)))
+            ? parseFloat(latOverride)
+            : ((window.AppState && window.AppState.userCoords && window.AppState.userCoords.lat)
+                ? window.AppState.userCoords.lat
+                : -36.0);
 
         const waterTemp = hasFreshManualTemp
             ? Math.round(parseFloat(saved.waterTemp) * 10) / 10
             : this.estimateWaterTempFromAir(airTemp, new Date(), lat);
 
-        const riverFlow = (saved && saved.riverFlow) ? saved.riverFlow : 'Steady / Ideal';
+        const riverFlow = (saved && saved.riverFlow && saved.riverFlow !== 'freshwater' && saved.riverFlow !== 'saltwater')
+            ? saved.riverFlow
+            : 'Steady / Ideal';
 
         return {
             waterTemp,
             riverFlow,
             isManual: !!hasFreshManualTemp,
+            isEstimated: !hasFreshManualTemp,
             updatedAt: saved ? saved.updatedAt : null
         };
     },
@@ -142,7 +149,7 @@ const WEATHER = {
         const cleanTemp = (waterTemp !== '' && waterTemp !== null && waterTemp !== undefined && !isNaN(parseFloat(waterTemp)))
             ? Math.round(parseFloat(waterTemp) * 10) / 10
             : null;
-        const cleanFlow = riverFlow || 'Steady / Ideal';
+        const cleanFlow = (riverFlow && riverFlow !== 'freshwater' && riverFlow !== 'saltwater') ? riverFlow : 'Steady / Ideal';
         const payload = {
             waterTemp: cleanTemp,
             riverFlow: cleanFlow,
@@ -159,6 +166,10 @@ const WEATHER = {
         const temp = (waterTemp !== null && waterTemp !== undefined && !isNaN(parseFloat(waterTemp)))
             ? parseFloat(waterTemp)
             : null;
+
+        if (riverFlow === 'freshwater' || riverFlow === 'saltwater' || riverFlow === 'estuary') {
+            riverFlow = 'Steady / Ideal';
+        }
 
         let tempBoost = 0;
         let zoneLabel = 'Estimated Stream Temp';
@@ -231,21 +242,35 @@ const WEATHER = {
             flowNote = `${riverFlow} (-4% Slack Tide)`;
         }
 
+        let zoneBg = 'rgba(0, 210, 255, 0.15)';
+        if (zoneColor === '#34d399') zoneBg = 'rgba(16, 185, 129, 0.16)';
+        else if (zoneColor === '#fbbf24') zoneBg = 'rgba(251, 191, 36, 0.16)';
+        else if (zoneColor === '#f87171') zoneBg = 'rgba(239, 68, 68, 0.18)';
+        else if (zoneColor === '#38bdf8') zoneBg = 'rgba(56, 189, 248, 0.16)';
+
+        const totalMod = tempBoost + flowBoost;
+
         return {
             waterTemp: temp,
             riverFlow: riverFlow || 'Steady / Ideal',
             tempBoost,
             flowBoost,
-            totalBoost: tempBoost + flowBoost,
+            totalBoost: totalMod,
+            scoreMod: totalMod,
             zoneLabel,
             zoneShort,
+            zone: zoneShort || zoneLabel || 'Normal',
             zoneIcon,
+            icon: zoneIcon,
             zoneColor,
+            color: zoneColor,
+            bg: zoneBg,
             isHootOwl,
             advice,
             flowNote
         };
     },
+
 
     calculateBiteScore(pressure = 1016, windSpeed = 10, moonPhaseName = "New Moon", waterTemp = null, riverFlow = null) {
         let score = 50;

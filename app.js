@@ -32,7 +32,11 @@ window.switchTab = function(tabId) {
     }
 
     try {
-        if (tabId === 'flybox' && window.FlyBoxApp && typeof window.FlyBoxApp.renderFlyBoxUI === 'function') {
+        if (tabId === 'dashboard') {
+            if (typeof window.refreshSolunarAndAstroUI === 'function') {
+                try { window.refreshSolunarAndAstroUI(); } catch(e){}
+            }
+        } else if (tabId === 'flybox' && window.FlyBoxApp && typeof window.FlyBoxApp.renderFlyBoxUI === 'function') {
             window.FlyBoxApp.renderFlyBoxUI();
             if (typeof window.FlyBoxApp.renderHatchMatcherUI === 'function') {
                 window.FlyBoxApp.renderHatchMatcherUI();
@@ -57,6 +61,9 @@ window.switchTab = function(tabId) {
                 } catch(e){}
             }, 60);
         } else if (tabId === 'weather') {
+            if (typeof window.refreshSolunarAndAstroUI === 'function') {
+                try { window.refreshSolunarAndAstroUI(); } catch(e){}
+            }
             setTimeout(() => {
                 if (typeof window.drawTideChart === 'function') window.drawTideChart();
                 if (typeof window.drawPressureChart === 'function') window.drawPressureChart();
@@ -110,7 +117,7 @@ window.toggleMapToolsDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101695';
+window.APP_VERSION = 'v101700';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -944,6 +951,9 @@ window.initMainApp = async function() {
                 if (typeof window.updateDashboardHudCard === 'function') {
                     try { window.updateDashboardHudCard(); } catch(e){}
                 }
+                if (typeof window.refreshSolunarAndAstroUI === 'function') {
+                    try { window.refreshSolunarAndAstroUI(); } catch(e){}
+                }
             } else if (tabId === 'flybox' && window.FlyBoxApp) {
                 if (typeof window.FlyBoxApp.renderFlyBoxUI === 'function') window.FlyBoxApp.renderFlyBoxUI();
                 if (typeof window.FlyBoxApp.renderHatchGuideUI === 'function') window.FlyBoxApp.renderHatchGuideUI();
@@ -966,6 +976,9 @@ window.initMainApp = async function() {
                     }
                 }, 60);
             } else if (tabId === 'weather') {
+                if (typeof window.refreshSolunarAndAstroUI === 'function') {
+                    try { window.refreshSolunarAndAstroUI(); } catch(e){}
+                }
                 if (typeof drawTideChart === 'function') drawTideChart();
             }
         } catch (tabHookErr) {
@@ -6669,41 +6682,43 @@ window.initMainApp = async function() {
     let lastWeatherFetchLon = null;
 
     async function loadWeatherAndTides(lat, lon, forceRefresh = false) {
-        window.loadWeatherAndTides = loadWeatherAndTides;
-        window.__internalLoadWeatherAndTides = loadWeatherAndTides;
         if (!lat || !lon) {
             if (AppState.userCoords && AppState.userCoords.lat && AppState.userCoords.lng) {
                 lat = AppState.userCoords.lat;
                 lon = AppState.userCoords.lng;
             } else {
-                const storedCoordsStr = localStorage.getItem('user_last_coords');
-                const saved = storedCoordsStr ? JSON.parse(storedCoordsStr) : null;
-                if (saved && saved.lat && saved.lng) {
-                    lat = saved.lat;
-                    lon = saved.lng;
-                }
+                try {
+                    const storedCoordsStr = localStorage.getItem('user_last_coords');
+                    const saved = storedCoordsStr ? JSON.parse(storedCoordsStr) : null;
+                    if (saved && saved.lat && saved.lng) {
+                        lat = saved.lat;
+                        lon = saved.lng;
+                    }
+                } catch (e) {}
             }
         }
 
-        if (!lat || !lon) {
-            // Still no coordinates available - do NOT silently query Narrabri!
-            const dashBadgeEl = document.getElementById('dash-weather-station-badge');
-            if (dashBadgeEl) dashBadgeEl.innerHTML = `📡 Acquiring Live GPS for local weather...`;
-            return;
-        }
+        const astroLat = (lat && Number.isFinite(Number(lat))) ? Number(lat) : -36.4;
+        const astroLon = (lon && Number.isFinite(Number(lon))) ? Number(lon) : 146.9;
 
         // 1. ALWAYS render Astronomical & Solunar data immediately (0ms local CPU math, zero network delay)
         try {
             const nowObj = new Date();
             const moon = window.WEATHER ? window.WEATHER.getMoonPhase(nowObj) : { label: 'New Moon', icon: '🌑', illumination: 0 };
-            const tides = window.WEATHER ? window.WEATHER.getTideData(lat, lon, nowObj) : { currentHeight: '1.2m', tideDirection: 'Rising', nextEvents: [] };
+            const tides = window.WEATHER ? window.WEATHER.getTideData(astroLat, astroLon, nowObj) : { currentHeight: '1.2m', tideDirection: 'Rising', nextEvents: [] };
 
             AppState.moonData = moon;
             AppState.tideData = tides;
 
-            displayAstroData(moon, tides, lat, lon);
+            displayAstroData(moon, tides, astroLat, astroLon);
         } catch (e) {
             console.error("Astro display error:", e);
+        }
+
+        if (!lat || !lon) {
+            const dashBadgeEl = document.getElementById('dash-weather-station-badge');
+            if (dashBadgeEl) dashBadgeEl.innerHTML = `📡 Acquiring Live GPS for local weather...`;
+            return;
         }
 
         const now = Date.now();
@@ -6754,42 +6769,54 @@ window.initMainApp = async function() {
             console.error("Weather forecast display error:", e);
         }
     }
+    window.loadWeatherAndTides = loadWeatherAndTides;
+    window.__internalLoadWeatherAndTides = loadWeatherAndTides;
 
     const setupInteractiveSolunarTimeline = window.setupInteractiveSolunarTimeline;
 
     // Dashboard Stream Thermometer & River Flow Quick-Logger Sync
     window.syncDashboardStreamThermoUI = function() {
-        if (!window.WEATHER || typeof window.WEATHER.getStreamConditions !== 'function') return;
-        const airTemp = AppState.weatherData?.current?.temp !== undefined ? AppState.weatherData.current.temp : 18;
-        const lat = AppState.userCoords?.lat ?? -36.4;
-        const cond = window.WEATHER.getStreamConditions(airTemp, lat);
-        const tempInput = document.getElementById('dash-stream-temp-input');
-        const flowSelect = document.getElementById('dash-stream-flow-select');
-        const badgeEl = document.getElementById('dash-thermal-zone-badge');
-        const adviceEl = document.getElementById('dash-thermal-advice-text');
+        try {
+            if (!window.WEATHER || typeof window.WEATHER.getStreamConditions !== 'function') return;
+            const airTemp = AppState.weatherData?.current?.temp !== undefined ? AppState.weatherData.current.temp : 18;
+            const lat = AppState.userCoords?.lat ?? -36.4;
+            const cond = window.WEATHER.getStreamConditions(airTemp, lat);
+            const tempInput = document.getElementById('dash-stream-temp-input');
+            const flowSelect = document.getElementById('dash-stream-flow-select');
+            const badgeEl = document.getElementById('dash-thermal-zone-badge');
+            const adviceEl = document.getElementById('dash-thermal-advice-text');
 
-        if (tempInput && cond.waterTemp !== null && cond.waterTemp !== undefined) {
-            if (document.activeElement !== tempInput) {
-                tempInput.value = cond.waterTemp;
+            if (tempInput && cond.waterTemp !== null && cond.waterTemp !== undefined) {
+                if (document.activeElement !== tempInput) {
+                    tempInput.value = cond.waterTemp;
+                }
             }
-        }
-        if (flowSelect && cond.riverFlow) {
-            flowSelect.value = cond.riverFlow;
-        }
-        if (window.WEATHER.getThermalBioZone && cond.waterTemp !== null && cond.waterTemp !== undefined) {
-            const zone = window.WEATHER.getThermalBioZone(cond.waterTemp, 'freshwater');
-            if (badgeEl) {
-                const srcTag = cond.isEstimated ? 'Est' : 'Live';
-                badgeEl.innerHTML = `${zone.icon} ${cond.waterTemp}°C (${srcTag}) • ${zone.zone.replace(/^[^\w]+/, '')}`;
-                badgeEl.style.color = zone.color;
-                badgeEl.style.borderColor = zone.color;
-                badgeEl.style.background = zone.bg;
+            if (flowSelect && cond.riverFlow) {
+                flowSelect.value = cond.riverFlow;
             }
-            if (adviceEl) {
-                const flowLabel = cond.riverFlow || 'Normal Flow';
-                const boostSign = zone.scoreMod > 0 ? `+${zone.scoreMod}%` : `${zone.scoreMod}%`;
-                adviceEl.innerHTML = `<b>${zone.icon} ${zone.zone} (${boostSign} Bite Mod) • 🌊 ${flowLabel}:</b> ${zone.advice}`;
+            if (window.WEATHER.getThermalBioZone && cond.waterTemp !== null && cond.waterTemp !== undefined) {
+                const zone = window.WEATHER.getThermalBioZone(cond.waterTemp, cond.riverFlow || 'Steady / Ideal');
+                const zoneName = String(zone.zone || zone.zoneShort || zone.zoneLabel || 'Normal').replace(/^[^\w]+/, '');
+                const zIcon = zone.icon || zone.zoneIcon || '🌡️';
+                const zColor = zone.color || zone.zoneColor || '#34d399';
+                const zBg = zone.bg || 'rgba(16, 185, 129, 0.16)';
+                const zMod = zone.scoreMod !== undefined ? zone.scoreMod : (zone.totalBoost || 0);
+
+                if (badgeEl) {
+                    const srcTag = cond.isEstimated ? 'Est' : 'Live';
+                    badgeEl.innerHTML = `${zIcon} ${cond.waterTemp}°C (${srcTag}) • ${zoneName}`;
+                    badgeEl.style.color = zColor;
+                    badgeEl.style.borderColor = zColor;
+                    badgeEl.style.background = zBg;
+                }
+                if (adviceEl) {
+                    const flowLabel = cond.riverFlow || 'Steady / Ideal';
+                    const boostSign = zMod > 0 ? `+${zMod}%` : `${zMod}%`;
+                    adviceEl.innerHTML = `<b>${zIcon} ${zoneName} (${boostSign} Bite Mod) • 🌊 ${flowLabel}:</b> ${zone.advice || ''}`;
+                }
             }
+        } catch (err) {
+            console.warn("Stream thermometer UI sync notice:", err);
         }
     };
 
@@ -6803,15 +6830,15 @@ window.initMainApp = async function() {
 
         let wt = tempInput && tempInput.value !== '' ? parseFloat(tempInput.value) : existing.waterTemp;
         if (isNaN(wt)) wt = existing.waterTemp;
-        const flow = (flowSelect && flowSelect.value) ? flowSelect.value : (existing.riverFlow || 'Normal Flow');
-        const isEst = isManualTemp ? false : existing.isEstimated;
+        const flow = (flowSelect && flowSelect.value) ? flowSelect.value : (existing.riverFlow || 'Steady / Ideal');
+        const isManual = isManualTemp ? true : !!existing.isManual;
 
-        window.WEATHER.setStreamConditions(wt, flow, isEst);
+        window.WEATHER.setStreamConditions(wt, flow, isManual);
         window.syncDashboardStreamThermoUI();
 
         // Recompute Solunar & Bite Index and Hatch Matcher immediately
         const cLat = AppState.userCoords?.lat ?? -36.4;
-        const cLng = AppState.userCoords?.lng ?? 148.6;
+        const cLng = AppState.userCoords?.lng ?? 146.9;
         const moon = window.WEATHER.getMoonPhase ? window.WEATHER.getMoonPhase(new Date()) : { icon: '🌕', label: 'Full Moon', illumination: 100 };
         const tides = window.WEATHER.getTideData ? window.WEATHER.getTideData(cLat, cLng, new Date()) : { currentHeight: '1.2m', tideDirection: 'Rising', nextEvents: [] };
         displayAstroData(moon, tides, cLat, cLng);
@@ -6829,8 +6856,8 @@ window.initMainApp = async function() {
         const tempInput = document.getElementById('dash-stream-temp-input');
         const flowSelect = document.getElementById('dash-stream-flow-select');
         if (tempInput) tempInput.value = est;
-        const flow = (flowSelect && flowSelect.value) ? flowSelect.value : 'Normal Flow';
-        window.WEATHER.setStreamConditions(est, flow, true);
+        const flow = (flowSelect && flowSelect.value) ? flowSelect.value : 'Steady / Ideal';
+        window.WEATHER.setStreamConditions(est, flow, false);
         window.applyQuickStreamConditions(false);
         if (typeof window.showSyncToast === 'function') {
             window.showSyncToast(`🌡️ Stream Water Temp estimated at ${est}°C from ${airTemp}°C Air Temp & Hydro-Lag Model`, 3200);
@@ -6839,7 +6866,23 @@ window.initMainApp = async function() {
 
     function displayAstroData(moon, tides, lat, lon) {
         const now = new Date();
-        window.syncDashboardStreamThermoUI();
+        const safeLat = (lat && Number.isFinite(Number(lat))) ? Number(lat) : (AppState.userCoords?.lat ?? -36.4);
+        const safeLon = (lon && Number.isFinite(Number(lon))) ? Number(lon) : (AppState.userCoords?.lng ?? 146.9);
+
+        try {
+            window.syncDashboardStreamThermoUI();
+        } catch (e) {}
+
+        if (!moon) {
+            moon = (window.WEATHER && typeof window.WEATHER.getMoonPhase === 'function')
+                ? window.WEATHER.getMoonPhase(now)
+                : { icon: '🌕', label: 'Full Moon', illumination: 100 };
+        }
+        if (!tides) {
+            tides = (window.WEATHER && typeof window.WEATHER.getTideData === 'function')
+                ? window.WEATHER.getTideData(safeLat, safeLon, now)
+                : { currentHeight: '1.2m', tideDirection: 'Rising', nextEvents: [] };
+        }
         
         // Moon & Tide Dashboard Elements
         const dashMoonIconEl = document.getElementById('dash-moon-icon') || elements.dashMoonIcon;
@@ -6862,10 +6905,10 @@ window.initMainApp = async function() {
         const currentPressure = (AppState.weatherData && AppState.weatherData.current && AppState.weatherData.current.pressure) ? AppState.weatherData.current.pressure : 1016;
         const currentAirTemp = (AppState.weatherData && AppState.weatherData.current && AppState.weatherData.current.temp !== undefined) ? AppState.weatherData.current.temp : 18;
         const streamCond = (window.WEATHER && typeof window.WEATHER.getStreamConditions === 'function')
-            ? window.WEATHER.getStreamConditions(currentAirTemp, lat)
-            : { waterTemp: null, riverFlow: 'Normal Flow' };
+            ? window.WEATHER.getStreamConditions(currentAirTemp, safeLat)
+            : { waterTemp: 13.5, riverFlow: 'Steady / Ideal' };
         const solunar = (window.WEATHER && typeof window.WEATHER.getSolunarData === 'function')
-            ? window.WEATHER.getSolunarData(now, lat, lon, currentPressure, {
+            ? window.WEATHER.getSolunarData(now, safeLat, safeLon, currentPressure, {
                 waterTemp: streamCond.waterTemp,
                 riverFlow: streamCond.riverFlow,
                 airTemp: currentAirTemp
@@ -6878,7 +6921,13 @@ window.initMainApp = async function() {
                 pressureNote: "Normal Feeding",
                 majorWindows: [{ title: "Major Window 1", start: "07:15 AM", end: "09:15 AM" }, { title: "Major Window 2", start: "07:45 PM", end: "09:45 PM" }],
                 minorWindows: [{ title: "Minor Window 1", start: "01:30 AM", end: "02:30 AM" }, { title: "Minor Window 2", start: "01:55 PM", end: "02:55 PM" }],
-                hourlyTimeline: []
+                hourlyTimeline: Array.from({ length: 24 }, (_, hr) => ({
+                    hour: hr,
+                    label: hr === 0 ? '12A' : hr === 12 ? '12P' : hr > 12 ? `${hr - 12}P` : `${hr}A`,
+                    activity: (hr >= 6 && hr <= 9) || (hr >= 18 && hr <= 20) ? 88 : 54,
+                    isCurrentHour: now.getHours() === hr,
+                    isPeak: (hr >= 6 && hr <= 9) || (hr >= 18 && hr <= 20)
+                }))
             };
 
         AppState.solunarData = solunar;
@@ -6942,7 +6991,7 @@ window.initMainApp = async function() {
         if (elements.moonDetailedPhase) elements.moonDetailedPhase.textContent = moon.label;
         if (elements.moonDetailedIllum) elements.moonDetailedIllum.textContent = `${moon.illumination}% Illumination`;
 
-            if (elements.tideEventsList) {
+        if (elements.tideEventsList && Array.isArray(tides.nextEvents)) {
             elements.tideEventsList.innerHTML = '';
             tides.nextEvents.forEach(e => {
                 const cls = e.type === 'High' ? 'high-tide' : 'low-tide';
@@ -6956,8 +7005,15 @@ window.initMainApp = async function() {
         }
 
         // Render Interactive Solunar Feeding Times & 7-Day Peak Bite Calendar
-        renderSolunarInteractiveCalendar(lat, lon);
+        renderSolunarInteractiveCalendar(safeLat, safeLon);
     }
+    window.displayAstroData = displayAstroData;
+    window.refreshSolunarAndAstroUI = function() {
+        const cLat = AppState.userCoords?.lat ?? -36.4;
+        const cLng = AppState.userCoords?.lng ?? 146.9;
+        displayAstroData(AppState.moonData, AppState.tideData, cLat, cLng);
+    };
+
 
     let currentSolunarForecast = null;
     let selectedSolunarDayIndex = 0;
@@ -9683,6 +9739,7 @@ window.initMainApp = async function() {
     try { initLocationTracking(); } catch (e) { console.error("GPS init failed", e); }
     try { initRegulations(); } catch (e) { console.error("Regulations init failed", e); }
     try { if (typeof window.updateDashboardHudCard === 'function') window.updateDashboardHudCard(); } catch(e){}
+    try { if (typeof window.refreshSolunarAndAstroUI === 'function') window.refreshSolunarAndAstroUI(); } catch (e) { console.warn("Initial Solunar render failed:", e); }
 
     // Instant Solunar & Weather from warm saved coordinates or immediate IP detection
     if (savedBoot && Number.isFinite(savedBoot.lat) && Number.isFinite(savedBoot.lng)) {
