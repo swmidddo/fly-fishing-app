@@ -84,7 +84,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101680';
+window.APP_VERSION = 'v101685';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -11999,22 +11999,44 @@ Respond ONLY in valid JSON format:
 
     window.launchOfflineRiverSessionFromPreFlight = function(startBreadcrumbTrail) {
         window.closeOfflinePreFlightModal();
-        const mapTabBtn = document.querySelector('.nav-item[data-tab="tab-map"]');
-        if (mapTabBtn) mapTabBtn.click();
+        if (typeof window.switchTab === 'function') {
+            window.switchTab('map');
+        } else {
+            const mapTabBtn = document.querySelector('.nav-item[data-tab="map"]');
+            if (mapTabBtn) mapTabBtn.click();
+        }
         try {
             const raw = localStorage.getItem('offlinePreFlightPacket_v1');
-            if (raw) {
-                const packet = JSON.parse(raw);
-                setTimeout(() => {
-                    if (window.AppMap && window.AppMap.map && typeof packet.lat === 'number') {
-                        window.AppMap.map.setView([packet.lat, packet.lng], 13);
+            const packet = raw ? JSON.parse(raw) : window.getPreFlightTargetLocation();
+            setTimeout(() => {
+                if (window.AppMap) {
+                    if (!window.AppMap.map && typeof window.AppMap.initMap === 'function') {
+                        window.AppMap.initMap();
                     }
-                    if (startBreadcrumbTrail && window.AppMap && typeof window.AppMap.toggleWadingTrail === 'function' && !window.AppMap.wadingTrailActive) {
-                        window.AppMap.toggleWadingTrail();
+                    if (window.AppMap.map) {
+                        if (typeof window.AppMap.map.invalidateSize === 'function') {
+                            window.AppMap.map.invalidateSize();
+                        }
+                        if (packet && typeof packet.lat === 'number' && typeof packet.lng === 'number') {
+                            window.AppMap.map.setView([packet.lat, packet.lng], 13);
+                        }
                     }
-                }, 250);
-            }
-        } catch (e) {}
+                    if (startBreadcrumbTrail && typeof window.AppMap.startWadingTrack === 'function' && !window.AppMap.isRecordingTrack) {
+                        window.AppMap.startWadingTrack({
+                            startLat: packet ? packet.lat : null,
+                            startLng: packet ? packet.lng : null
+                        });
+                    }
+                }
+                if (window.showSyncToast && packet && packet.corridorName) {
+                    window.showSyncToast(startBreadcrumbTrail
+                        ? `👣 Started Offline Wading Trail on ${packet.corridorName}!`
+                        : `🗺️ Opened ${packet.corridorName} Corridor Map!`);
+                }
+            }, 250);
+        } catch (e) {
+            console.warn('launchOfflineRiverSessionFromPreFlight notice:', e);
+        }
     };
 
     // Render Pre-Flight Banner on Dashboard initialization
