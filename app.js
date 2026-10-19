@@ -117,7 +117,7 @@ window.toggleMapToolsDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101700';
+window.APP_VERSION = 'v101705';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -125,6 +125,15 @@ window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCO
 // PWA Mobile Navigation & Android Hardware / Gesture Back Button Engine
 (function initPWAMobileNavigation() {
     let isHistoryNavigating = false;
+
+    window.hideViewCatchModal = function() {
+        const m = document.getElementById('modal-view-catch');
+        if (m) { m.classList.remove('active'); m.style.display = 'none'; }
+    };
+    window.hideKnotDetailModal = function() {
+        const m = document.getElementById('modal-knot-detail');
+        if (m) { m.classList.remove('active'); m.style.display = 'none'; }
+    };
 
     window.closeAnyActiveModal = function() {
         let closed = false;
@@ -2254,6 +2263,7 @@ window.initMainApp = async function() {
         }
     }
     window.loadTackle = loadTackle;
+    window.renderTackleList = renderTackleList;
 
     function renderTackleList() {
         if (!elements.tackleList) return;
@@ -3285,55 +3295,56 @@ window.initMainApp = async function() {
     }
 
     // Auto-populate tackle items when selecting a saved Combo in the Log Catch form
-    if (elements.rigComboSelect) {
-        elements.rigComboSelect.addEventListener('change', () => {
-            const rigId = elements.rigComboSelect.value;
-            if (!rigId) return;
+    window.onCatchComboSelectChange = function(rigIdOverride) {
+        const rigId = rigIdOverride !== undefined ? rigIdOverride : (elements.rigComboSelect ? elements.rigComboSelect.value : '');
+        if (!rigId) return;
 
-            const rig = (AppState.rigs || []).find(r => String(r.id) === String(rigId));
-            if (rig) {
-                const rod = (AppState.tackle || []).find(t => t.id === Number(rig.rodId));
-                const reel = (AppState.tackle || []).find(t => t.id === Number(rig.reelId));
-                const line = (AppState.tackle || []).find(t => t.id === Number(rig.lineId));
+        const rig = (AppState.rigs || []).find(r => String(r.id) === String(rigId) || r.name === String(rigId));
+        if (rig) {
+            const rod = (AppState.tackle || []).find(t => t.id === Number(rig.rodId));
+            const reel = (AppState.tackle || []).find(t => t.id === Number(rig.reelId));
+            const line = (AppState.tackle || []).find(t => t.id === Number(rig.lineId));
 
-                const selectDropdownOption = (selectEl, tackleItem) => {
-                    if (!selectEl || !tackleItem) return;
-                    const label = getTackleDisambiguatedLabel(tackleItem, AppState.tackle);
-                    let found = false;
-                    for (let i = 0; i < selectEl.options.length; i++) {
-                        const opt = selectEl.options[i];
-                        if (opt.value === label || opt.value === tackleItem.name || opt.text === label || opt.text === tackleItem.name || opt.text.startsWith(tackleItem.name)) {
-                            selectEl.selectedIndex = i;
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found) {
-                        selectEl.value = label;
-                    }
-                };
-
-                if (rod && elements.rigRod) selectDropdownOption(elements.rigRod, rod);
-                if (reel && elements.rigReel) selectDropdownOption(elements.rigReel, reel);
-                if (line && elements.rigFlyline) selectDropdownOption(elements.rigFlyline, line);
-
-                // Auto-populate fly field from the combo's configured Point Fly
-                if (rig.pointFly && elements.rigFly) {
-                    let flyFound = false;
-                    for (let i = 0; i < elements.rigFly.options.length; i++) {
-                        const opt = elements.rigFly.options[i];
-                        if (opt.value === rig.pointFly || opt.text === rig.pointFly || opt.text.includes(rig.pointFly)) {
-                            elements.rigFly.selectedIndex = i;
-                            flyFound = true;
-                            break;
-                        }
-                    }
-                    if (!flyFound) {
-                        elements.rigFly.value = rig.pointFly;
+            const selectDropdownOption = (selectEl, tackleItem) => {
+                if (!selectEl || !tackleItem) return;
+                const label = getTackleDisambiguatedLabel(tackleItem, AppState.tackle);
+                let found = false;
+                for (let i = 0; i < selectEl.options.length; i++) {
+                    const opt = selectEl.options[i];
+                    if (opt.value === label || opt.value === tackleItem.name || opt.text === label || opt.text === tackleItem.name || opt.text.startsWith(tackleItem.name)) {
+                        selectEl.selectedIndex = i;
+                        found = true;
+                        break;
                     }
                 }
+                if (!found) {
+                    selectEl.value = label;
+                }
+            };
+
+            if (rod && elements.rigRod) selectDropdownOption(elements.rigRod, rod);
+            if (reel && elements.rigReel) selectDropdownOption(elements.rigReel, reel);
+            if (line && elements.rigFlyline) selectDropdownOption(elements.rigFlyline, line);
+
+            // Auto-populate fly field from the combo's configured Point Fly
+            if (rig.pointFly && elements.rigFly) {
+                let flyFound = false;
+                for (let i = 0; i < elements.rigFly.options.length; i++) {
+                    const opt = elements.rigFly.options[i];
+                    if (opt.value === rig.pointFly || opt.text === rig.pointFly || opt.text.includes(rig.pointFly)) {
+                        elements.rigFly.selectedIndex = i;
+                        flyFound = true;
+                        break;
+                    }
+                }
+                if (!flyFound) {
+                    elements.rigFly.value = rig.pointFly;
+                }
             }
-        });
+        }
+    };
+    if (elements.rigComboSelect) {
+        elements.rigComboSelect.addEventListener('change', () => window.onCatchComboSelectChange());
     }
 
     async function loadCatches() {
@@ -3365,6 +3376,9 @@ window.initMainApp = async function() {
             if (typeof window.updateDraftBannersUI === 'function') window.updateDraftBannersUI();
         }
     }
+    window.loadCatches = loadCatches;
+    window.renderDashboardRecent = renderDashboardRecent;
+    window.renderCatches = renderCatches;
 
     function getFishPhoto(item) {
         if (item && item.isDraft) {
@@ -4350,6 +4364,7 @@ window.initMainApp = async function() {
         elements.modalLogCatch.classList.add('active');
     };
     window.openLogCatchModal = window.showLogCatchModal;
+    window.openQuickCatchModal = window.showLogCatchModal;
 
     window.hideLogCatchModal = () => {
         elements.modalLogCatch.classList.remove('active');
@@ -7409,8 +7424,8 @@ window.initMainApp = async function() {
     }
 
     // Drawing the Visual Tide Chart Canvas
+    window.drawTideChart = drawTideChart;
     function drawTideChart() {
-        window.drawTideChart = drawTideChart;
         const canvas = elements.tideCanvas;
         if (!canvas || !AppState.tideData) return;
 
@@ -8357,17 +8372,23 @@ window.initMainApp = async function() {
     }
     initLeaderTippetCalculator();
 
-    // 10. Service Worker register for full Offline Capability
+    // 10. Service Worker register for full Offline Capability (Non-blocking so boot sequence runs in 0ms)
     if ('serviceWorker' in navigator) {
-        try {
-            const registration = await navigator.serviceWorker.register('sw.js');
-            console.log('Service Worker registered with scope:', registration.scope);
-            document.getElementById('sw-status-label').textContent = "Offline Ready (Service Worker active)";
-            document.getElementById('sw-status-label').style.color = "var(--success)";
-        } catch (error) {
-            console.error('Service Worker registration failed:', error);
-            document.getElementById('sw-status-label').textContent = "LocalStorage Enabled Only";
-        }
+        const swVer = (window.APP_VERSION || 'v101705').replace(/^v/, '');
+        navigator.serviceWorker.register(`sw.js?v=${swVer}`)
+            .then((registration) => {
+                console.log('Service Worker registered with scope:', registration.scope);
+                const swLabel = document.getElementById('sw-status-label');
+                if (swLabel) {
+                    swLabel.textContent = "Offline Ready (Service Worker active)";
+                    swLabel.style.color = "var(--success)";
+                }
+            })
+            .catch((error) => {
+                console.error('Service Worker registration failed:', error);
+                const swLabel = document.getElementById('sw-status-label');
+                if (swLabel) swLabel.textContent = "LocalStorage Enabled Only";
+            });
     }
 
     // ==========================================
@@ -8383,8 +8404,8 @@ window.initMainApp = async function() {
         }
     }
 
+    window.renderLicensesList = renderLicensesList;
     function renderLicensesList() {
-        window.renderLicensesList = renderLicensesList;
         if (!elements.licensesList) return;
         elements.licensesList.innerHTML = '';
 
@@ -9953,19 +9974,40 @@ window.initMainApp = async function() {
 
     // Helper: 1-tap Rig & Log Catch from "What's Working" Recommendation
     window.openCatchWithRecommendedRig = function(flyName, comboName) {
-        if (typeof window.openQuickCatchModal === 'function') {
-            window.openQuickCatchModal();
+        if (typeof window.showLogCatchModal === 'function') {
+            window.showLogCatchModal();
         } else {
-            const modal = document.getElementById('modal-catch');
+            const modal = document.getElementById('modal-log-catch');
             if (modal) modal.classList.add('active');
         }
         setTimeout(() => {
-            const flyInput = document.getElementById('catch-fly');
-            if (flyInput && flyName) flyInput.value = flyName;
+            const flyInput = document.getElementById('rig-fly') || document.getElementById('catch-fly');
+            if (flyInput && flyName) {
+                if (flyInput.tagName === 'SELECT') {
+                    let optFound = false;
+                    for (let i = 0; i < flyInput.options.length; i++) {
+                        if (flyInput.options[i].value.toLowerCase().includes(flyName.toLowerCase())) {
+                            flyInput.selectedIndex = i;
+                            optFound = true;
+                            break;
+                        }
+                    }
+                    if (!optFound) {
+                        const newOpt = document.createElement('option');
+                        newOpt.value = flyName;
+                        newOpt.textContent = `🪰 ${flyName}`;
+                        newOpt.selected = true;
+                        flyInput.appendChild(newOpt);
+                    }
+                } else {
+                    flyInput.value = flyName;
+                }
+            }
             if (comboName) {
-                const comboSelect = document.getElementById('catch-combo-select');
-                if (comboSelect && AppState.tackle && Array.isArray(AppState.tackle.combos)) {
-                    const matchedCombo = AppState.tackle.combos.find(cb => cb.name === comboName || String(cb.id) === String(comboName));
+                const comboSelect = document.getElementById('rig-combo-select') || document.getElementById('catch-combo-select');
+                const rigsList = (AppState && Array.isArray(AppState.rigs)) ? AppState.rigs : [];
+                if (comboSelect && rigsList.length > 0) {
+                    const matchedCombo = rigsList.find(cb => cb.name === comboName || String(cb.id) === String(comboName));
                     if (matchedCombo) {
                         comboSelect.value = matchedCombo.id;
                         if (typeof window.onCatchComboSelectChange === 'function') {
@@ -9974,8 +10016,8 @@ window.initMainApp = async function() {
                     }
                 }
             }
-            if (typeof showToast === 'function') {
-                showToast(`🪰 Pre-loaded "${flyName}"${comboName ? ` + "${comboName}"` : ''} into Log Catch!`);
+            if (typeof window.showSyncToast === 'function') {
+                window.showSyncToast(`🪰 Pre-loaded "${flyName}"${comboName ? ` + "${comboName}"` : ''} into Log Catch!`);
             }
         }, 120);
     };
@@ -11661,21 +11703,27 @@ Respond ONLY in valid JSON format:
         ];
 
         try {
-            const cache = await caches.open('fly-fishing-v100980');
+            const cacheName = 'fly-fishing-' + (window.APP_VERSION || 'v101705');
+            const cache = await caches.open(cacheName);
             let completed = 0;
             const total = speciesPhotos.length;
+            const batchSize = 6;
 
-            for (const item of speciesPhotos) {
-                try {
-                    await cache.add(item);
-                } catch(e) {
-                    console.warn("Backcountry precache item notice:", item, e);
-                }
-                completed++;
-                const pct = Math.round((completed / total) * 100);
-                if (barEl) barEl.style.width = `${pct}%`;
-                if (pctEl) pctEl.textContent = `${pct}%`;
-                if (textEl) textEl.textContent = `Downloaded ${completed} of ${total} Backcountry offline guides...`;
+            for (let i = 0; i < total; i += batchSize) {
+                const batch = speciesPhotos.slice(i, i + batchSize);
+                await Promise.allSettled(batch.map(async (item) => {
+                    try {
+                        await cache.add(item);
+                    } catch (e) {
+                        console.warn("Backcountry precache item notice:", item, e);
+                    } finally {
+                        completed++;
+                        const pct = Math.round((completed / total) * 100);
+                        if (barEl) barEl.style.width = `${pct}%`;
+                        if (pctEl) pctEl.textContent = `${pct}%`;
+                        if (textEl) textEl.textContent = `Downloaded ${completed} of ${total} Backcountry offline guides...`;
+                    }
+                }));
             }
 
             if (textEl) textEl.textContent = "✅ Backcountry Pack 100% Downloaded & Ready for Offline River Use!";
@@ -11698,7 +11746,7 @@ Respond ONLY in valid JSON format:
                     await reg.update();
                 }
             }
-            if (window.showSyncToast) window.showSyncToast(`✨ App is on the latest build (${window.APP_VERSION || 'v101670'})!`);
+            if (window.showSyncToast) window.showSyncToast(`✨ App is on the latest build (${window.APP_VERSION || 'v101705'})!`);
         } catch(e) {
             console.warn("Update check error:", e);
         }
@@ -12098,11 +12146,16 @@ Respond ONLY in valid JSON format:
                         window.AppMap.initMap();
                     }
                     if (window.AppMap.map) {
-                        if (typeof window.AppMap.map.invalidateSize === 'function') {
-                            window.AppMap.map.invalidateSize();
+                        if (!window.AppMap.isGoogleMaps && typeof window.AppMap.map.invalidateSize === 'function') {
+                            window.AppMap.map.invalidateSize({ animate: false });
                         }
                         if (packet && typeof packet.lat === 'number' && typeof packet.lng === 'number') {
-                            window.AppMap.map.setView([packet.lat, packet.lng], 13);
+                            if (window.AppMap.isGoogleMaps && typeof window.AppMap.map.setCenter === 'function') {
+                                window.AppMap.map.setCenter({ lat: packet.lat, lng: packet.lng });
+                                if (typeof window.AppMap.map.setZoom === 'function') window.AppMap.map.setZoom(13);
+                            } else if (typeof window.AppMap.map.setView === 'function') {
+                                window.AppMap.map.setView([packet.lat, packet.lng], 13);
+                            }
                         }
                     }
                     if (startBreadcrumbTrail && typeof window.AppMap.startWadingTrack === 'function' && !window.AppMap.isRecordingTrack) {

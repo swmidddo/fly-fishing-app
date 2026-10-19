@@ -659,7 +659,11 @@ const AppMap = {
     },
 
     // Initialize the map engine
-    async init(containerId, googleApiKey, onMapClick, onMapMove) {
+    initMap(containerId = 'map-container', googleApiKey, onMapClick, onMapMove) {
+        return this.init(containerId, googleApiKey, onMapClick, onMapMove);
+    },
+
+    async init(containerId = 'map-container', googleApiKey, onMapClick, onMapMove) {
         this.onMapClickCallback = onMapClick;
         this.onMapMoveCallback = onMapMove;
         try { this.fishingSpotsData = JSON.parse(localStorage.getItem('fishingSpots') || '[]'); } catch(e) { this.fishingSpotsData = []; }
