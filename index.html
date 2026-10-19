@@ -28,8 +28,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style & Offline Leaflet -->
-    <link rel="stylesheet" href="leaflet.css?v=101670">
-    <link rel="stylesheet" href="styles.css?v=101670">
+    <link rel="stylesheet" href="leaflet.css?v=101675">
+    <link rel="stylesheet" href="styles.css?v=101675">
     <script>
         // Backcountry Offline PWA Service Worker Registration & Live Auto-Update Engine
         if ('serviceWorker' in navigator) {
@@ -3015,8 +3015,8 @@
     </div>
 
     <!-- 1-Tap "Prepare for Offline Trip" Backcountry Pre-Flight Wizard Modal -->
-    <div class="modal-overlay" id="modal-offline-preflight" style="display: none; z-index: 999990;" onclick="if(event.target===this) window.closeOfflinePreFlightModal()">
-        <div class="modal glass-panel" style="max-width: 660px; width: 95%; max-height: 90vh; overflow-y: auto; border: 1px solid rgba(56, 189, 248, 0.45); box-shadow: 0 20px 60px rgba(0,0,0,0.85); padding: 20px;">
+    <div class="modal" id="modal-offline-preflight" style="display: none; align-items: center; justify-content: center; z-index: 999990;" onclick="if(event.target===this) window.closeOfflinePreFlightModal()">
+        <div class="modal-content glass" style="max-width: 660px; width: 95%; max-height: 90vh; overflow-y: auto; border: 1px solid rgba(56, 189, 248, 0.45); box-shadow: 0 20px 60px rgba(0,0,0,0.85); padding: 20px; position: relative;">
             <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
@@ -3144,17 +3144,17 @@
 
     <!-- Scripts -->
     <script async src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="db.js?v=101670"></script>
-    <script src="regulations.js?v=101670"></script>
-    <script src="weather.js?v=101670"></script>
-    <script src="exif.js?v=101670"></script>
-    <script src="leaflet.js?v=101670"></script>
-    <script src="map.js?v=101670"></script>
-    <script src="tackle_db.js?v=101670"></script>
-    <script src="fish_db.js?v=101670"></script>
-    <script src="fly_box.js?v=101670"></script>
-    <script src="knots.js?v=101670"></script>
-    <script src="auth.js?v=101670"></script>
-    <script src="app.js?v=101670"></script>
+    <script src="db.js?v=101675"></script>
+    <script src="regulations.js?v=101675"></script>
+    <script src="weather.js?v=101675"></script>
+    <script src="exif.js?v=101675"></script>
+    <script src="leaflet.js?v=101675"></script>
+    <script src="map.js?v=101675"></script>
+    <script src="tackle_db.js?v=101675"></script>
+    <script src="fish_db.js?v=101675"></script>
+    <script src="fly_box.js?v=101675"></script>
+    <script src="knots.js?v=101675"></script>
+    <script src="auth.js?v=101675"></script>
+    <script src="app.js?v=101675"></script>
 </body>
 </html>

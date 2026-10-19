@@ -84,7 +84,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101670';
+window.APP_VERSION = 'v101675';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -122,6 +122,7 @@ window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCO
             else if (m.id === 'modal-add-license' && typeof window.hideAddLicenseModal === 'function') window.hideAddLicenseModal();
             else if (m.id === 'modal-auth' && typeof window.closeAuthModal === 'function') window.closeAuthModal();
             else if (m.id === 'modal-return-hud' && typeof window.closeReturnCarHud === 'function') window.closeReturnCarHud();
+            else if (m.id === 'modal-offline-preflight' && typeof window.closeOfflinePreFlightModal === 'function') window.closeOfflinePreFlightModal();
             else {
                 m.classList.remove('active');
                 m.style.display = 'none';
