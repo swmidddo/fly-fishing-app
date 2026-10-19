@@ -1580,6 +1580,20 @@ const AppMap = {
             const tackleSummary = [catchItem.fly, catchItem.rod, catchItem.reel, catchItem.flyline, catchItem.rigCombo].filter(Boolean).join(' | ') || 'N/A';
             const safeId = String(catchItem.id).replace(/'/g, "\\'");
 
+            const streamMetaParts = [];
+            if (catchItem.waterTemp !== undefined && catchItem.waterTemp !== null && catchItem.waterTemp !== '') {
+                streamMetaParts.push(`🌡️ ${catchItem.waterTemp}°C`);
+            }
+            if (catchItem.riverFlow) {
+                streamMetaParts.push(`🌊 ${catchItem.riverFlow}`);
+            }
+            if (catchItem.waterClarity) {
+                streamMetaParts.push(`💧 ${catchItem.waterClarity}`);
+            }
+            const streamMetaHtml = streamMetaParts.length > 0
+                ? `<p style="margin:2px 0; font-size:11px; color: #0284c7; font-weight: 600;">${streamMetaParts.join(' • ')}</p>`
+                : '';
+
             let popupContent = '';
             if (isDraft) {
                 popupContent = `
@@ -1587,6 +1601,7 @@ const AppMap = {
                         <h4 style="margin:0 0 4px 0; color: #d97706; font-size: 15px; display: flex; align-items: center; gap: 4px;">⚡ Quick-Drop Catch Pin</h4>
                         <p style="margin:2px 0; font-size:12px; color: #475569;"><b>Time:</b> ${catchItem.time || ''} (${catchItem.date || ''})</p>
                         <p style="margin:2px 0; font-size:11.5px; color: #334155;"><b>Barometer:</b> ${catchItem.pressure ? catchItem.pressure + ' hPa' : '1016 hPa'}</p>
+                        ${streamMetaHtml}
                         <p style="margin:2px 0; font-size:11px; color: #0284c7;"><b>Coordinates:</b> ${lat.toFixed(4)}, ${lng.toFixed(4)}</p>
                         <p style="margin:4px 0; font-size:11px; color: #b45309; background: rgba(245,158,11,0.12); padding: 5px; border-radius: 4px;">🐟 Fish released safely! Tap below to add photo, species &amp; fly.</p>
                         <div style="display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #cbd5e1; padding-top: 6px;">
@@ -1601,7 +1616,7 @@ const AppMap = {
                         <h4 style="margin:0 0 4px 0; color: #b45309; font-size: 15px;">🏕️ ${catchItem.sessionOutcome || 'River Recon Session'}</h4>
                         <p style="margin:2px 0 4px 0; font-size:12px; color: #475569;"><b>Targeted:</b> ${catchItem.targetSpecies || catchItem.species || 'All Species'}</p>
                         <p style="margin:2px 0; font-size:11.5px; color: #334155;"><b>Tested Gear:</b> ${tackleSummary}</p>
-                        ${catchItem.waterClarity ? `<p style="margin:2px 0; font-size:11px; color: #0284c7;"><b>Water Clarity:</b> ${catchItem.waterClarity}</p>` : ''}
+                        ${streamMetaHtml}
                         ${imgHtml}
                         <div style="display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #cbd5e1; padding-top: 6px;">
                             <button onclick="window.editCatchUI('${safeId}')" style="flex:1; background: #0284c7; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">✏️ Edit</button>
@@ -1615,6 +1630,7 @@ const AppMap = {
                         <h4 style="margin:0 0 6px 0; color: #0f172a; font-size: 15px;">🐟 ${catchItem.species}</h4>
                         <p style="margin:3px 0; font-size:12.5px; color: #334155;"><b>Length:</b> ${catchItem.length || '--'} cm</p>
                         <p style="margin:3px 0; font-size:12.5px; color: #334155;"><b>Tackle:</b> ${tackleSummary}</p>
+                        ${streamMetaHtml}
                         ${imgHtml}
                         <div style="display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid #cbd5e1; padding-top: 6px;">
                             <button onclick="window.editCatchUI('${safeId}')" style="flex:1; background: #0284c7; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11.5px; cursor: pointer; font-weight: 600;">✏️ Edit</button>

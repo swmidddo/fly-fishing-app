@@ -84,7 +84,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101630';
+window.APP_VERSION = 'v101640';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -3429,6 +3429,17 @@ window.initMainApp = async function() {
             if (displayLine) tackleParts.push(`🧵 ${displayLine}`);
             const tackleText = tackleParts.join(' | ') || 'N/A';
 
+            const streamTagParts = [];
+            if (item.waterTemp !== undefined && item.waterTemp !== null && item.waterTemp !== '') {
+                streamTagParts.push(`🌡️ ${item.waterTemp}°C`);
+            }
+            if (item.riverFlow) {
+                streamTagParts.push(`🌊 ${item.riverFlow}`);
+            }
+            const streamSummaryLine = streamTagParts.length > 0
+                ? `<p style="font-size: 10.5px; color: #38bdf8; margin-top: 2px; margin-bottom: 0; font-weight: 600;">${streamTagParts.join(' • ')}</p>`
+                : '';
+
             if (isDraft) {
                 card.innerHTML = `
                     <div class="card-img-wrapper">
@@ -3442,6 +3453,7 @@ window.initMainApp = async function() {
                             <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); window.switchTab('catches'); window.editCatchUI('${item.id}');" style="font-size: 10.5px; padding: 3px 8px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #000; font-weight: 700; border: none;">🎣 Complete</button>
                         </div>
                         <p style="font-size: 11px; color: #f59e0b; margin-top: 2px; margin-bottom: 0;">📅 ${dateStr} ${item.time || ''}</p>
+                        ${streamSummaryLine}
                         <div class="card-specs mt-10">
                             <span>Barometer: <strong>${item.pressure ? item.pressure + ' hPa' : '--'}</strong></span>
                             <span>Status: <strong style="color: #fbbf24;">Pending Review</strong></span>
@@ -3460,6 +3472,7 @@ window.initMainApp = async function() {
                             <h4 style="margin: 0; color: #f59e0b;">🏕️ ${item.sessionOutcome || 'River Recon'}</h4>
                         </div>
                         <p style="font-size: 11px; color: var(--accent-teal); margin-top: 2px; margin-bottom: 0;">📅 ${dateStr} ${item.time || ''}</p>
+                        ${streamSummaryLine}
                         <div class="card-specs mt-10">
                             <span>Targeted: <strong>${item.targetSpecies || item.species || 'All Species'}</strong></span>
                             <span>Tackle: <strong>${tackleText}</strong></span>
@@ -3479,6 +3492,7 @@ window.initMainApp = async function() {
                             <button class="btn btn-glass btn-sm" onclick="event.stopPropagation(); window.openTrophyCardModal('${item.id}')" style="font-size: 10.5px; padding: 2px 7px; color: var(--accent-gold); border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.1);">🏆 Trophy Card</button>
                         </div>
                         <p style="font-size: 11px; color: var(--accent-teal); margin-top: 2px; margin-bottom: 0;">📅 ${dateStr} ${item.time || ''}</p>
+                        ${streamSummaryLine}
                         <div class="card-specs mt-10">
                             <span>Weight: <strong>${item.weight ? item.weight + ' kg' : '--'}</strong></span>
                             <span>Tackle: <strong>${tackleText}</strong></span>
@@ -3561,6 +3575,8 @@ window.initMainApp = async function() {
                                   (item.sessionOutcome || '').toLowerCase().includes(search) ||
                                   (item.notes && item.notes.toLowerCase().includes(search)) ||
                                   (item.fly && item.fly.toLowerCase().includes(search)) ||
+                                  (item.riverFlow && item.riverFlow.toLowerCase().includes(search)) ||
+                                  (item.waterClarity && item.waterClarity.toLowerCase().includes(search)) ||
                                   (item.isDraft && 'draft pending quick drop pin'.includes(search));
             const matchesWater = waterFilter === 'all' || !waterFilter || (item.waterType || 'freshwater') === waterFilter;
             const matchesType = typeFilter === 'all' || !typeFilter ||
@@ -3596,10 +3612,20 @@ window.initMainApp = async function() {
             const { rod: displayRod, reel: displayReel, flyline: displayLine, fly: displayFly, combo: displayCombo } = resolveCatchTackle(item);
 
             let environmentalStrip = '';
-            if (item.weatherCondition || item.pressure || item.moonPhase || item.tideHeight) {
+            const hasWaterTemp = item.waterTemp !== undefined && item.waterTemp !== null && item.waterTemp !== '';
+            if (item.weatherCondition || item.pressure || item.moonPhase || item.tideHeight || hasWaterTemp || item.riverFlow || item.waterClarity || item.activeHatch) {
+                let thermalZoneTag = '';
+                if (hasWaterTemp && window.WEATHER && typeof window.WEATHER.getThermalBioZone === 'function') {
+                    const bio = window.WEATHER.getThermalBioZone(item.waterTemp, item.riverFlow);
+                    thermalZoneTag = ` <span style="color:${bio.zoneColor};">(${bio.zoneIcon} ${bio.zoneShort})</span>`;
+                }
                 environmentalStrip = `
                     <div class="card-specs card-environmental-strip">
-                        <span>🌤️ Weather: <strong>${item.weatherCondition || 'N/A'}${item.weatherTemp !== undefined && item.weatherTemp !== null ? ' (' + item.weatherTemp + '°C)' : ''}</strong></span>
+                        ${hasWaterTemp ? `<span>🌡️ Water Temp: <strong>${item.waterTemp}°C${thermalZoneTag}</strong></span>` : ''}
+                        ${item.riverFlow ? `<span>🌊 River Flow: <strong>${item.riverFlow}</strong></span>` : ''}
+                        ${item.waterClarity ? `<span>💧 Clarity: <strong>${item.waterClarity}</strong></span>` : ''}
+                        ${item.activeHatch ? `<span>🪰 Hatch: <strong>${item.activeHatch}</strong></span>` : ''}
+                        <span>🌤️ Air Weather: <strong>${item.weatherCondition || 'N/A'}${item.weatherTemp !== undefined && item.weatherTemp !== null ? ' (' + item.weatherTemp + '°C)' : ''}</strong></span>
                         <span>🎈 Barometer: <strong>${item.pressure ? item.pressure + ' hPa' : 'N/A'}</strong></span>
                         <span>🌑 Moon Phase: <strong>${item.moonPhase || 'N/A'}</strong></span>
                         <span>🌊 Tide: <strong>${item.tideHeight ? item.tideHeight + ' (' + (item.tideDirection || '') + ')' : 'N/A'}</strong></span>
@@ -3807,6 +3833,8 @@ window.initMainApp = async function() {
             const dateFormatted = formatDateSafe(c.date);
             const sizeStr = isDraft ? '⚡ Quick Stream Pin' : (isRecon ? 'River Recon (0 Fish)' : (c.length ? `${c.length} cm` : (c.weight ? `${c.weight} kg` : 'Logged Catch')));
             const titleStr = isDraft ? 'Quick-Drop Catch Pin' : (isRecon ? (c.sessionOutcome || 'River Recon Session') : c.species);
+            const tempBadge = (c.waterTemp !== undefined && c.waterTemp !== null && c.waterTemp !== '') ? `<span style="background: rgba(56,189,248,0.15); border: 1px solid #38bdf8; color: #38bdf8; font-size: 9.5px; padding: 2px 6px; border-radius: 8px; font-weight: 600;">🌡️ ${c.waterTemp}°C</span>` : '';
+            const flowBadge = c.riverFlow ? `<span style="background: rgba(16,185,129,0.14); border: 1px solid #34d399; color: #34d399; font-size: 9.5px; padding: 2px 6px; border-radius: 8px;">🌊 ${c.riverFlow}</span>` : '';
             const clarityBadge = c.waterClarity ? `<span style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); font-size: 9.5px; padding: 2px 6px; border-radius: 8px;">💧 ${c.waterClarity}</span>` : '';
             const hatchBadge = c.activeHatch ? `<span style="background: rgba(0,210,255,0.15); border: 1px solid var(--accent-teal); color: var(--accent-teal); font-size: 9.5px; padding: 2px 6px; border-radius: 8px;">🪰 ${c.activeHatch}</span>` : '';
             const targetBadge = isRecon && c.targetSpecies ? `<span style="background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); color: #f59e0b; font-size: 9.5px; padding: 2px 6px; border-radius: 8px;">🎯 ${c.targetSpecies}</span>` : '';
@@ -3827,7 +3855,7 @@ window.initMainApp = async function() {
                             <b>${sizeStr}</b> &bull; 📅 ${dateFormatted}
                         </div>
                         <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px;">
-                            ${draftBadge} ${clarityBadge} ${hatchBadge} ${targetBadge}
+                            ${draftBadge} ${tempBadge} ${flowBadge} ${clarityBadge} ${hatchBadge} ${targetBadge}
                         </div>
                     </div>
                 </div>
@@ -3983,10 +4011,11 @@ window.initMainApp = async function() {
         catchFilterTypeEl.addEventListener('change', renderCatches);
     }
 
-    // Dynamic Environmental Clarity & Prey Selector based on Water Type
-    function updateEnvironmentalSelectsByWaterType(waterType = 'freshwater', selectedClarity = '', selectedHatch = '') {
+    // Dynamic Environmental Clarity, River Flow & Prey Selector based on Water Type
+    function updateEnvironmentalSelectsByWaterType(waterType = 'freshwater', selectedClarity = '', selectedHatch = '', selectedFlow = '') {
         const claritySelect = document.getElementById('catch-clarity');
         const hatchSelect = document.getElementById('catch-hatch');
+        const flowSelect = document.getElementById('catch-river-flow');
         const isSalt = (waterType || '').toLowerCase() === 'saltwater';
 
         if (claritySelect) {
@@ -4030,6 +4059,51 @@ window.initMainApp = async function() {
                     customOpt.textContent = prevClarity;
                     customOpt.selected = true;
                     claritySelect.appendChild(customOpt);
+                }
+            }
+        }
+
+        if (flowSelect) {
+            const prevFlow = selectedFlow || flowSelect.value;
+            if (isSalt) {
+                flowSelect.innerHTML = `
+                    <option value="">Select Tidal Flow / Current...</option>
+                    <option value="Normal Flow">Normal Tidal Run (Prime)</option>
+                    <option value="Rising / Fresh Push">Flooding / Incoming Tide Push</option>
+                    <option value="Falling / Post-Rain">Ebbing / Draining Flats</option>
+                    <option value="Low / Skinny">Slack Water / Neap</option>
+                    <option value="High / Bankfull">Spring Tide Rip / Strong Current</option>
+                `;
+            } else {
+                flowSelect.innerHTML = `
+                    <option value="">Select River Flow / Level...</option>
+                    <option value="Normal Flow">Normal Flow (Prime Riffles &amp; Runs)</option>
+                    <option value="Low / Skinny">Low / Skinny (Technical Sight-Fishing)</option>
+                    <option value="Rising / Fresh Push">Rising / Fresh Push (Active Edge Feeding)</option>
+                    <option value="Falling / Post-Rain">Falling / Post-Rain (Clearing Tailouts)</option>
+                    <option value="High / Bankfull">High / Bankfull (Heavy Nymphs / Streamers)</option>
+                    <option value="Flooded / Blown Out">Flooded / Blown Out (Unfishable Spate)</option>
+                `;
+            }
+
+            if (prevFlow) {
+                let matched = false;
+                for (let i = 0; i < flowSelect.options.length; i++) {
+                    const opt = flowSelect.options[i];
+                    if (opt.value.toLowerCase() === prevFlow.toLowerCase() ||
+                        opt.value.toLowerCase().includes(prevFlow.toLowerCase()) ||
+                        prevFlow.toLowerCase().includes(opt.value.toLowerCase())) {
+                        flowSelect.selectedIndex = i;
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched && prevFlow) {
+                    const customOpt = document.createElement('option');
+                    customOpt.value = prevFlow;
+                    customOpt.textContent = prevFlow;
+                    customOpt.selected = true;
+                    flowSelect.appendChild(customOpt);
                 }
             }
         }
@@ -4082,6 +4156,31 @@ window.initMainApp = async function() {
         }
     }
     window.updateEnvironmentalSelectsByWaterType = updateEnvironmentalSelectsByWaterType;
+
+    // Live Thermal Zone Badge Helper inside Log Catch Modal
+    window.updateCatchThermalBadge = function(val) {
+        const badgeEl = document.getElementById('catch-water-temp-badge');
+        if (!badgeEl) return;
+        const num = parseFloat(val);
+        if (isNaN(num) || !window.WEATHER || typeof window.WEATHER.getThermalBioZone !== 'function') {
+            badgeEl.innerHTML = '';
+            return;
+        }
+        const waterType = document.getElementById('catch-water') ? document.getElementById('catch-water').value : 'freshwater';
+        const zone = window.WEATHER.getThermalBioZone(num, waterType || 'freshwater');
+        badgeEl.innerHTML = `<span style="color: ${zone.color}; font-weight: 700;">${zone.icon} ${zone.zone}</span>`;
+    };
+
+    window.fillEstimatedCatchWaterTemp = function() {
+        const inputEl = document.getElementById('catch-water-temp');
+        if (!inputEl || !window.WEATHER) return;
+        const airTemp = AppState.weatherData?.current?.temp !== undefined ? AppState.weatherData.current.temp : 18;
+        const lat = (elements.catchLatInput && elements.catchLatInput.value) ? parseFloat(elements.catchLatInput.value) : (AppState.userCoords?.lat || -36.4);
+        const cond = window.WEATHER.getStreamConditions(airTemp, lat);
+        const est = cond && cond.waterTemp !== null ? cond.waterTemp : window.WEATHER.estimateWaterTempFromAir(airTemp, new Date(), lat);
+        inputEl.value = est;
+        window.updateCatchThermalBadge(est);
+    };
 
     // Catch & River Recon Modal Actions
     window.setCatchModalMode = function(mode) {
@@ -4141,7 +4240,15 @@ window.initMainApp = async function() {
         elements.formLogCatch.reset();
         if (document.getElementById('catch-species')) document.getElementById('catch-species').value = '';
         if (document.getElementById('catch-water')) document.getElementById('catch-water').value = '';
-        updateEnvironmentalSelectsByWaterType('freshwater', '', '');
+        const activeStream = (window.WEATHER && typeof window.WEATHER.getStreamConditions === 'function')
+            ? window.WEATHER.getStreamConditions(AppState.weatherData?.current?.temp ?? 18, AppState.userCoords?.lat ?? -36.4)
+            : { waterTemp: '', riverFlow: 'Normal Flow' };
+        updateEnvironmentalSelectsByWaterType('freshwater', '', '', activeStream.riverFlow || 'Normal Flow');
+        const wtInput = document.getElementById('catch-water-temp');
+        if (wtInput) {
+            wtInput.value = activeStream.waterTemp !== undefined && activeStream.waterTemp !== null ? activeStream.waterTemp : '';
+            window.updateCatchThermalBadge(wtInput.value);
+        }
         if (document.getElementById('rig-combo-select')) document.getElementById('rig-combo-select').value = '';
         if (document.getElementById('rig-rod')) document.getElementById('rig-rod').value = '';
         if (document.getElementById('rig-reel')) document.getElementById('rig-reel').value = '';
@@ -4280,6 +4387,8 @@ window.initMainApp = async function() {
         let moonPhase = null;
         let tideHeight = null;
         let tideDirection = null;
+        let waterTemp = null;
+        let riverFlow = 'Normal Flow';
 
         if (window.WEATHER) {
             if (typeof window.WEATHER.getMoonPhase === 'function') {
@@ -4291,6 +4400,13 @@ window.initMainApp = async function() {
                 if (tideObj) {
                     tideHeight = tideObj.currentHeight || null;
                     tideDirection = tideObj.tideDirection || null;
+                }
+            }
+            if (typeof window.WEATHER.getStreamConditions === 'function') {
+                const sc = window.WEATHER.getStreamConditions(weatherTemp, lat);
+                if (sc) {
+                    waterTemp = sc.waterTemp;
+                    riverFlow = sc.riverFlow || 'Normal Flow';
                 }
             }
         }
@@ -4310,6 +4426,8 @@ window.initMainApp = async function() {
             moonPhase,
             tideHeight,
             tideDirection,
+            waterTemp,
+            riverFlow,
             waterType: 'freshwater'
         };
 
@@ -4425,7 +4543,12 @@ window.initMainApp = async function() {
             speciesEl.value = catchItem.isDraft ? '' : ((catchItem.isNoCatchTrip ? (catchItem.targetSpecies || catchItem.species) : catchItem.species) || '');
         }
         document.getElementById('catch-water').value = catchItem.waterType || 'freshwater';
-        updateEnvironmentalSelectsByWaterType(catchItem.waterType || 'freshwater', catchItem.waterClarity, catchItem.activeHatch);
+        updateEnvironmentalSelectsByWaterType(catchItem.waterType || 'freshwater', catchItem.waterClarity, catchItem.activeHatch, catchItem.riverFlow);
+        const wtInput = document.getElementById('catch-water-temp');
+        if (wtInput) {
+            wtInput.value = catchItem.waterTemp !== undefined && catchItem.waterTemp !== null ? catchItem.waterTemp : '';
+            window.updateCatchThermalBadge(wtInput.value);
+        }
         document.getElementById('catch-length').value = catchItem.length !== null && catchItem.length !== undefined ? catchItem.length : '';
         document.getElementById('catch-weight').value = catchItem.weight !== null && catchItem.weight !== undefined ? catchItem.weight : '';
         if (elements.catchLatInput) elements.catchLatInput.value = catchItem.lat !== null && catchItem.lat !== undefined ? catchItem.lat : '';
@@ -4614,7 +4737,15 @@ window.initMainApp = async function() {
     if (catchWaterSelect) {
         catchWaterSelect.addEventListener('change', () => {
             updateEnvironmentalSelectsByWaterType(catchWaterSelect.value);
+            const wtInput = document.getElementById('catch-water-temp');
+            if (wtInput && wtInput.value) window.updateCatchThermalBadge(wtInput.value);
         });
+    }
+
+    const catchWaterTempEl = document.getElementById('catch-water-temp');
+    if (catchWaterTempEl) {
+        catchWaterTempEl.addEventListener('input', () => window.updateCatchThermalBadge(catchWaterTempEl.value));
+        catchWaterTempEl.addEventListener('change', () => window.updateCatchThermalBadge(catchWaterTempEl.value));
     }
 
     elements.useGpsBtn.addEventListener('click', () => {
@@ -4746,6 +4877,19 @@ window.initMainApp = async function() {
 
         const waterClarity = document.getElementById('catch-clarity') ? document.getElementById('catch-clarity').value : null;
         const activeHatch = document.getElementById('catch-hatch') ? document.getElementById('catch-hatch').value : null;
+        const rawWaterTemp = document.getElementById('catch-water-temp') ? document.getElementById('catch-water-temp').value : '';
+        const waterTemp = (rawWaterTemp !== '' && !isNaN(parseFloat(rawWaterTemp))) ? Math.round(parseFloat(rawWaterTemp) * 10) / 10 : (existing ? existing.waterTemp : null);
+        const riverFlow = document.getElementById('catch-river-flow') && document.getElementById('catch-river-flow').value
+            ? document.getElementById('catch-river-flow').value
+            : (existing ? existing.riverFlow : null);
+
+        // Sync logged waterTemp & riverFlow to active stream conditions if logged today
+        if (window.WEATHER && typeof window.WEATHER.setStreamConditions === 'function' && (waterTemp !== null || riverFlow)) {
+            window.WEATHER.setStreamConditions(waterTemp, riverFlow, waterTemp === null);
+            if (typeof window.syncDashboardStreamThermoUI === 'function') {
+                window.syncDashboardStreamThermoUI();
+            }
+        }
 
         const newCatch = {
             species,
@@ -4775,7 +4919,9 @@ window.initMainApp = async function() {
             tideHeight,
             tideDirection,
             waterClarity,
-            activeHatch
+            activeHatch,
+            waterTemp,
+            riverFlow
         };
 
         if (AppState.editingCatchId) {
@@ -5935,12 +6081,16 @@ window.initMainApp = async function() {
                 // Environmental Strip
                 const envY = rigY + 68;
                 const locText = (catchItem.lat && catchItem.lng) ? `GPS ${catchItem.lat.toFixed(3)}, ${catchItem.lng.toFixed(3)}` : (catchItem.location || 'Backcountry Waters');
-                const clarity = catchItem.clarity || catchItem.waterClarity || 'Prime Flow';
+                const clarityParts = [];
+                if (catchItem.waterTemp !== undefined && catchItem.waterTemp !== null && catchItem.waterTemp !== '') clarityParts.push(`🌡️ ${catchItem.waterTemp}°C`);
+                if (catchItem.riverFlow) clarityParts.push(`🌊 ${catchItem.riverFlow}`);
+                if (catchItem.clarity || catchItem.waterClarity) clarityParts.push(catchItem.clarity || catchItem.waterClarity);
+                const clarity = clarityParts.length > 0 ? clarityParts.join(' • ') : 'Prime Flow';
                 const moon = catchItem.moonPhase ? `🌑 ${catchItem.moonPhase}` : '⭐ Major Solunar Window';
                 const weather = catchItem.weatherCondition ? `🌤️ ${catchItem.weatherCondition} ${catchItem.weatherTemp ? '('+catchItem.weatherTemp+'°C)' : ''}` : '🌤️ Prime Stream Weather';
 
                 drawSpecRow('📍 LOCATION', locText, statsX, envY, statsW / 2 - 10);
-                drawSpecRow('💎 WATER CLARITY', clarity, statsX + statsW / 2 + 10, envY, statsW / 2 - 10);
+                drawSpecRow('💧 WATER & FLOW', clarity, statsX + statsW / 2 + 10, envY, statsW / 2 - 10);
 
                 drawSpecRow('🌘 SOLUNAR / MOON', moon, statsX, envY + 68, statsW / 2 - 10);
                 drawSpecRow('🌤️ CONDITIONS', weather, statsX + statsW / 2 + 10, envY + 68, statsW / 2 - 10);
@@ -6575,8 +6725,89 @@ window.initMainApp = async function() {
 
     const setupInteractiveSolunarTimeline = window.setupInteractiveSolunarTimeline;
 
+    // Dashboard Stream Thermometer & River Flow Quick-Logger Sync
+    window.syncDashboardStreamThermoUI = function() {
+        if (!window.WEATHER || typeof window.WEATHER.getStreamConditions !== 'function') return;
+        const airTemp = AppState.weatherData?.current?.temp !== undefined ? AppState.weatherData.current.temp : 18;
+        const lat = AppState.userCoords?.lat ?? -36.4;
+        const cond = window.WEATHER.getStreamConditions(airTemp, lat);
+        const tempInput = document.getElementById('dash-stream-temp-input');
+        const flowSelect = document.getElementById('dash-stream-flow-select');
+        const badgeEl = document.getElementById('dash-thermal-zone-badge');
+        const adviceEl = document.getElementById('dash-thermal-advice-text');
+
+        if (tempInput && cond.waterTemp !== null && cond.waterTemp !== undefined) {
+            if (document.activeElement !== tempInput) {
+                tempInput.value = cond.waterTemp;
+            }
+        }
+        if (flowSelect && cond.riverFlow) {
+            flowSelect.value = cond.riverFlow;
+        }
+        if (window.WEATHER.getThermalBioZone && cond.waterTemp !== null && cond.waterTemp !== undefined) {
+            const zone = window.WEATHER.getThermalBioZone(cond.waterTemp, 'freshwater');
+            if (badgeEl) {
+                const srcTag = cond.isEstimated ? 'Est' : 'Live';
+                badgeEl.innerHTML = `${zone.icon} ${cond.waterTemp}°C (${srcTag}) • ${zone.zone.replace(/^[^\w]+/, '')}`;
+                badgeEl.style.color = zone.color;
+                badgeEl.style.borderColor = zone.color;
+                badgeEl.style.background = zone.bg;
+            }
+            if (adviceEl) {
+                const flowLabel = cond.riverFlow || 'Normal Flow';
+                const boostSign = zone.scoreMod > 0 ? `+${zone.scoreMod}%` : `${zone.scoreMod}%`;
+                adviceEl.innerHTML = `<b>${zone.icon} ${zone.zone} (${boostSign} Bite Mod) • 🌊 ${flowLabel}:</b> ${zone.advice}`;
+            }
+        }
+    };
+
+    window.applyQuickStreamConditions = function(isManualTemp = false) {
+        if (!window.WEATHER || typeof window.WEATHER.setStreamConditions !== 'function') return;
+        const tempInput = document.getElementById('dash-stream-temp-input');
+        const flowSelect = document.getElementById('dash-stream-flow-select');
+        const airTemp = AppState.weatherData?.current?.temp !== undefined ? AppState.weatherData.current.temp : 18;
+        const lat = AppState.userCoords?.lat ?? -36.4;
+        const existing = window.WEATHER.getStreamConditions(airTemp, lat);
+
+        let wt = tempInput && tempInput.value !== '' ? parseFloat(tempInput.value) : existing.waterTemp;
+        if (isNaN(wt)) wt = existing.waterTemp;
+        const flow = (flowSelect && flowSelect.value) ? flowSelect.value : (existing.riverFlow || 'Normal Flow');
+        const isEst = isManualTemp ? false : existing.isEstimated;
+
+        window.WEATHER.setStreamConditions(wt, flow, isEst);
+        window.syncDashboardStreamThermoUI();
+
+        // Recompute Solunar & Bite Index and Hatch Matcher immediately
+        const cLat = AppState.userCoords?.lat ?? -36.4;
+        const cLng = AppState.userCoords?.lng ?? 148.6;
+        const moon = window.WEATHER.getMoonPhase ? window.WEATHER.getMoonPhase(new Date()) : { icon: '🌕', label: 'Full Moon', illumination: 100 };
+        const tides = window.WEATHER.getTideData ? window.WEATHER.getTideData(cLat, cLng, new Date()) : { currentHeight: '1.2m', tideDirection: 'Rising', nextEvents: [] };
+        displayAstroData(moon, tides, cLat, cLng);
+        if (AppState.weatherData) displayWeatherData(AppState.weatherData);
+        if (window.FlyBoxApp && typeof window.FlyBoxApp.autoSyncCurrentRiverConditions === 'function') {
+            window.FlyBoxApp.autoSyncCurrentRiverConditions();
+        }
+    };
+
+    window.autoEstimateStreamTemp = function() {
+        if (!window.WEATHER || typeof window.WEATHER.estimateWaterTempFromAir !== 'function') return;
+        const airTemp = AppState.weatherData?.current?.temp !== undefined ? AppState.weatherData.current.temp : 18;
+        const lat = AppState.userCoords?.lat ?? -36.4;
+        const est = window.WEATHER.estimateWaterTempFromAir(airTemp, new Date(), lat);
+        const tempInput = document.getElementById('dash-stream-temp-input');
+        const flowSelect = document.getElementById('dash-stream-flow-select');
+        if (tempInput) tempInput.value = est;
+        const flow = (flowSelect && flowSelect.value) ? flowSelect.value : 'Normal Flow';
+        window.WEATHER.setStreamConditions(est, flow, true);
+        window.applyQuickStreamConditions(false);
+        if (typeof window.showSyncToast === 'function') {
+            window.showSyncToast(`🌡️ Stream Water Temp estimated at ${est}°C from ${airTemp}°C Air Temp & Hydro-Lag Model`, 3200);
+        }
+    };
+
     function displayAstroData(moon, tides, lat, lon) {
         const now = new Date();
+        window.syncDashboardStreamThermoUI();
         
         // Moon & Tide Dashboard Elements
         const dashMoonIconEl = document.getElementById('dash-moon-icon') || elements.dashMoonIcon;
@@ -6597,8 +6828,16 @@ window.initMainApp = async function() {
 
         // Calculate High-Precision Astronomical Solunar Feeding Windows & 24h Timeline
         const currentPressure = (AppState.weatherData && AppState.weatherData.current && AppState.weatherData.current.pressure) ? AppState.weatherData.current.pressure : 1016;
+        const currentAirTemp = (AppState.weatherData && AppState.weatherData.current && AppState.weatherData.current.temp !== undefined) ? AppState.weatherData.current.temp : 18;
+        const streamCond = (window.WEATHER && typeof window.WEATHER.getStreamConditions === 'function')
+            ? window.WEATHER.getStreamConditions(currentAirTemp, lat)
+            : { waterTemp: null, riverFlow: 'Normal Flow' };
         const solunar = (window.WEATHER && typeof window.WEATHER.getSolunarData === 'function')
-            ? window.WEATHER.getSolunarData(now, lat, lon, currentPressure)
+            ? window.WEATHER.getSolunarData(now, lat, lon, currentPressure, {
+                waterTemp: streamCond.waterTemp,
+                riverFlow: streamCond.riverFlow,
+                airTemp: currentAirTemp
+            })
             : {
                 score: 85,
                 rating: "Prime",
@@ -6943,10 +7182,18 @@ window.initMainApp = async function() {
                 summary: `Strong winds of ${windSpeed} km/h may hinder delicate dry fly presentation and roll casting. Exercise caution on open water.`
             });
         }
-        if (weather.current.temp > 28) {
+        const activeStreamCond = (window.WEATHER && typeof window.WEATHER.getStreamConditions === 'function')
+            ? window.WEATHER.getStreamConditions(weather.current.temp, weather.latitude || AppState.userCoords?.lat)
+            : null;
+        if (activeStreamCond && activeStreamCond.waterTemp >= 19.5) {
             extraWarnings.push({
-                name: `🌡️ Trout Thermal Stress Advisory (${weather.current.temp}°C)`,
-                summary: `Air temperatures above 28°C warm shallow streams quickly. Handle caught trout with care in high water temps.`
+                name: `🦉 Hoot-Owl Trout Thermal Stress Alert (Water ${activeStreamCond.waterTemp}°C)`,
+                summary: `Stream water temperature is ${activeStreamCond.waterTemp}°C (≥ 19.5°C). Dissolved oxygen is critically low for salmonids — fish early dawn only, use heavy tippet to land quickly, or switch to warmwater/saltwater species.`
+            });
+        } else if (weather.current.temp > 28) {
+            extraWarnings.push({
+                name: `🌡️ Trout Thermal Stress Advisory (${weather.current.temp}°C Air)`,
+                summary: `Air temperatures above 28°C warm shallow streams quickly. Check water temperature before targeting trout.`
             });
         }
 
@@ -9575,7 +9822,7 @@ window.initMainApp = async function() {
 
     // --- 2. Comprehensive Fly Success & Angler Analytics Calculation ---
     window.switchAnalyticsSubTab = function(tabKey) {
-        const tabs = ['flies', 'moon', 'time', 'species'];
+        const tabs = ['flies', 'moon', 'time', 'species', 'stream'];
         tabs.forEach(t => {
             const btn = document.getElementById(`btn-analytics-tab-${t}`);
             const pane = document.getElementById(`analytics-pane-${t}`);
@@ -9602,6 +9849,7 @@ window.initMainApp = async function() {
             const paneMoon = document.getElementById('analytics-pane-moon');
             const paneTime = document.getElementById('analytics-pane-time');
             const paneSpecies = document.getElementById('analytics-pane-species');
+            const paneStream = document.getElementById('analytics-pane-stream');
 
             // Fetch catches list from argument, AppState, or IndexedDB
             let catchesList = customCatches;
@@ -9624,6 +9872,7 @@ window.initMainApp = async function() {
                 if (paneMoon) paneMoon.innerHTML = emptyHtml;
                 if (paneTime) paneTime.innerHTML = emptyHtml;
                 if (paneSpecies) paneSpecies.innerHTML = emptyHtml;
+                if (paneStream) paneStream.innerHTML = emptyHtml;
                 return;
             }
 
@@ -9918,6 +10167,89 @@ window.initMainApp = async function() {
                                 </div>
                             `;
                         }).join('')}
+                    </div>
+                `;
+            }
+
+            // Render Pane 5: Water Temperature & River Flow Level Breakdown
+            if (paneStream) {
+                const tempBands = {
+                    '🥶 Cold (< 10°C)': { count: 0, color: '#38bdf8', topFlies: {} },
+                    '🔥 Prime (10–16.5°C)': { count: 0, color: '#34d399', topFlies: {} },
+                    '☀️ Warm (16.5–19.5°C)': { count: 0, color: '#fbbf24', topFlies: {} },
+                    '🦉 Thermal Stress (≥ 19.5°C)': { count: 0, color: '#ef4444', topFlies: {} }
+                };
+                const flowCounts = {};
+
+                catchesList.forEach(c => {
+                    if (c.isNoCatchTrip || c.isDraft) return;
+                    const fly = (c.fly || 'Standard Fly').trim();
+                    let wt = (c.waterTemp !== undefined && c.waterTemp !== null && c.waterTemp !== '') ? parseFloat(c.waterTemp) : NaN;
+                    if (isNaN(wt) && c.weatherTemp !== undefined && c.weatherTemp !== null && window.WEATHER && typeof window.WEATHER.estimateWaterTempFromAir === 'function') {
+                        wt = window.WEATHER.estimateWaterTempFromAir(parseFloat(c.weatherTemp), c.date ? new Date(c.date) : new Date(), c.lat || -36.4);
+                    }
+                    if (!isNaN(wt)) {
+                        let bandKey = '🔥 Prime (10–16.5°C)';
+                        if (wt < 10) bandKey = '🥶 Cold (< 10°C)';
+                        else if (wt < 16.5) bandKey = '🔥 Prime (10–16.5°C)';
+                        else if (wt < 19.5) bandKey = '☀️ Warm (16.5–19.5°C)';
+                        else bandKey = '🦉 Thermal Stress (≥ 19.5°C)';
+                        tempBands[bandKey].count += 1;
+                        tempBands[bandKey].topFlies[fly] = (tempBands[bandKey].topFlies[fly] || 0) + 1;
+                    }
+
+                    const fl = c.riverFlow || 'Normal Flow';
+                    if (!flowCounts[fl]) flowCounts[fl] = { count: 0, topFlies: {} };
+                    flowCounts[fl].count += 1;
+                    flowCounts[fl].topFlies[fly] = (flowCounts[fl].topFlies[fly] || 0) + 1;
+                });
+
+                const tempCardsHtml = Object.entries(tempBands).map(([bandTitle, bData]) => {
+                    const pct = totalCatchesCount > 0 ? Math.round((bData.count / totalCatchesCount) * 100) : 0;
+                    const topFly = Object.keys(bData.topFlies).sort((a, b) => bData.topFlies[b] - bData.topFlies[a])[0] || '--';
+                    return `
+                        <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-top: 2px solid ${bData.color}; border-radius: 8px; padding: 10px;">
+                            <div style="font-size: 11px; font-weight: 700; color: ${bData.color}; margin-bottom: 4px;">${bandTitle}</div>
+                            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                <strong style="font-size: 16px; color: var(--text-primary);">${bData.count} Fish</strong>
+                                <span style="font-size: 10.5px; color: var(--text-secondary);">${pct}%</span>
+                            </div>
+                            <div style="font-size: 10.5px; color: var(--text-secondary); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                🪰 Top: <b style="color: #cbd5e1;">${topFly}</b>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                const flowCardsHtml = Object.entries(flowCounts).sort((a, b) => b[1].count - a[1].count).map(([flowName, fData]) => {
+                    const pct = totalCatchesCount > 0 ? Math.round((fData.count / totalCatchesCount) * 100) : 0;
+                    const topFly = Object.keys(fData.topFlies).sort((a, b) => fData.topFlies[b] - fData.topFlies[a])[0] || '--';
+                    return `
+                        <div style="background: rgba(0, 210, 255, 0.04); border: 1px solid rgba(0, 210, 255, 0.18); border-radius: 8px; padding: 10px;">
+                            <div style="font-size: 11px; font-weight: 700; color: #38bdf8; margin-bottom: 4px;">🌊 ${flowName}</div>
+                            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                <strong style="font-size: 15px; color: var(--text-primary);">${fData.count} Fish</strong>
+                                <span style="font-size: 10.5px; color: var(--text-secondary);">${pct}%</span>
+                            </div>
+                            <div style="font-size: 10.5px; color: var(--text-secondary); margin-top: 4px;">
+                                🪰 Top Fly: <b style="color: #cbd5e1;">${topFly}</b>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                paneStream.innerHTML = `
+                    <div style="margin-bottom: 10px;">
+                        <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px;">🌡️ Catch Success by Water Temperature Zone</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px;">
+                            ${tempCardsHtml}
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px;">🌊 Catch Success by River Flow / Level</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px;">
+                            ${flowCardsHtml}
+                        </div>
                     </div>
                 `;
             }

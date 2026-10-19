@@ -28,8 +28,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style & Offline Leaflet -->
-    <link rel="stylesheet" href="leaflet.css?v=101630">
-    <link rel="stylesheet" href="styles.css?v=101630">
+    <link rel="stylesheet" href="leaflet.css?v=101640">
+    <link rel="stylesheet" href="styles.css?v=101640">
     <script>
         // Backcountry Offline PWA Service Worker Registration & Live Auto-Update Engine
         if ('serviceWorker' in navigator) {
@@ -485,11 +485,41 @@
                     <!-- Solunar Prime Feeding Windows Card -->
                     <div class="card glass shadow-lg card-solunar-summary" style="border-left: 4px solid var(--accent-teal);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <h3 style="margin: 0; font-size: 16px;">🔥 Solunar Feeding Windows</h3>
+                            <h3 style="margin: 0; font-size: 16px;">🔥 Solunar &amp; Thermal Bite Windows</h3>
                             <span id="dash-solunar-badge" class="badge-active" style="background: rgba(0, 210, 255, 0.15); color: var(--accent-teal); border: 1px solid var(--accent-teal); font-size: 11px;">Prime 92%</span>
                         </div>
-                        <div id="dash-solunar-windows" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px; margin-bottom: 12px;">
+                        <div id="dash-solunar-windows" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px; margin-bottom: 10px;">
                             <!-- Populated dynamically -->
+                        </div>
+
+                        <!-- Stream Thermometer (°C) & River Flow Quick-Logger (Thermal Solunar Multiplier) -->
+                        <div id="dash-stream-thermo-bar" style="background: rgba(0, 210, 255, 0.06); border: 1px solid rgba(0, 210, 255, 0.22); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px;">
+                                <span style="font-size: 11px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 4px;">
+                                    🌡️ Stream Thermometer &amp; Flow
+                                    <span id="dash-stream-temp-source-tag" style="font-size: 9.5px; font-weight: 600; color: var(--accent-teal); opacity: 0.85;">(Thermal Est)</span>
+                                </span>
+                                <span id="dash-thermal-zone-badge" class="badge" style="background: rgba(16, 185, 129, 0.16); color: #34d399; border: 1px solid #34d399; font-size: 10px; padding: 1px 6px;">🔥 Prime Zone (10–16.5°C)</span>
+                            </div>
+                            <div style="display: grid; grid-template-columns: minmax(115px, 1fr) minmax(135px, 1.3fr); gap: 6px; align-items: center;">
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <div style="position: relative; flex: 1;">
+                                        <input type="number" id="dash-stream-temp-input" class="form-input" step="0.5" min="0" max="35" placeholder="14.0" onchange="window.applyQuickStreamConditions(true)" style="padding: 4px 24px 4px 8px; font-size: 12px; height: 28px; font-weight: 700; color: var(--accent-teal);">
+                                        <span style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-size: 10.5px; color: var(--text-secondary); pointer-events: none;">°C</span>
+                                    </div>
+                                    <button type="button" class="btn btn-glass btn-sm" onclick="window.autoEstimateStreamTemp()" title="Auto-estimate stream water temperature from local air temp &amp; season" style="padding: 4px 7px; height: 28px; font-size: 10.5px; white-space: nowrap;">⚡ Est</button>
+                                </div>
+                                <select id="dash-stream-flow-select" class="form-select" onchange="window.applyQuickStreamConditions(false)" style="padding: 3px 6px; font-size: 11.5px; height: 28px;">
+                                    <option value="Steady / Ideal">🌊 Steady / Ideal Flow</option>
+                                    <option value="Falling / Clearing">📉 Falling / Clearing (Prime)</option>
+                                    <option value="Low / Clear">💧 Low / Gin Clear</option>
+                                    <option value="Rising / Pushing">📈 Rising / Pushing</option>
+                                    <option value="High / Blown Out">⚠️ High / Blown Out</option>
+                                </select>
+                            </div>
+                            <div id="dash-thermal-advice-text" style="font-size: 10px; color: var(--text-secondary); margin-top: 5px; line-height: 1.35;">
+                                Peak trout feeding &amp; dissolved oxygen! Expect active surface hatches.
+                            </div>
                         </div>
                         
                         <!-- 24-Hour Solunar Feeding Activity Timeline -->
@@ -837,8 +867,9 @@
                                 Empirical success rates, top-producing fly patterns, and lunar phase correlations from your catch log.
                             </p>
                         </div>
-                        <div style="display: flex; gap: 6px; background: rgba(255,255,255,0.05); padding: 3px; border-radius: 8px;">
+                        <div style="display: flex; gap: 6px; background: rgba(255,255,255,0.05); padding: 3px; border-radius: 8px; flex-wrap: wrap;">
                             <button type="button" class="btn btn-sm btn-glass active" id="btn-analytics-tab-flies" onclick="window.switchAnalyticsSubTab('flies')" style="padding: 5px 10px; font-size: 11.5px;">🪰 Fly Leaderboard</button>
+                            <button type="button" class="btn btn-sm btn-glass" id="btn-analytics-tab-stream" onclick="window.switchAnalyticsSubTab('stream')" style="padding: 5px 10px; font-size: 11.5px;">🌡️ Water Temp &amp; Flow</button>
                             <button type="button" class="btn btn-sm btn-glass" id="btn-analytics-tab-moon" onclick="window.switchAnalyticsSubTab('moon')" style="padding: 5px 10px; font-size: 11.5px;">🌙 Moon Phases</button>
                             <button type="button" class="btn btn-sm btn-glass" id="btn-analytics-tab-time" onclick="window.switchAnalyticsSubTab('time')" style="padding: 5px 10px; font-size: 11.5px;">⏰ Time of Day</button>
                             <button type="button" class="btn btn-sm btn-glass" id="btn-analytics-tab-species" onclick="window.switchAnalyticsSubTab('species')" style="padding: 5px 10px; font-size: 11.5px;">🐟 Species Records</button>
@@ -848,6 +879,9 @@
                     <!-- Analytics Sub-Tab Content Panes -->
                     <div id="analytics-pane-flies">
                         <!-- Populated dynamically: Ranked Fly Podium & Performance Table -->
+                    </div>
+                    <div id="analytics-pane-stream" style="display: none;">
+                        <!-- Populated dynamically: Water Temperature Band & River Flow Level Breakdown -->
                     </div>
                     <div id="analytics-pane-moon" style="display: none;">
                         <!-- Populated dynamically: Moon Phase Success Breakdown -->
@@ -1818,6 +1852,31 @@
                     <div class="form-group">
                         <label for="catch-weight">Weight (kg)</label>
                         <input type="number" id="catch-weight" class="form-input" placeholder="e.g. 1.2" step="0.01">
+                    </div>
+                </div>
+
+                <!-- Stream Thermometer (°C) & River Flow Level -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="catch-water-temp" style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
+                            <span>🌡️ Water Temp (°C)</span>
+                            <span id="catch-water-temp-badge" style="font-size: 10px; font-weight: 700; color: #34d399;"></span>
+                        </label>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <input type="number" id="catch-water-temp" class="form-input" placeholder="e.g. 13.5" step="0.5" min="0" max="38" oninput="window.updateCatchThermalBadge()" style="flex: 1;">
+                            <button type="button" class="btn btn-glass btn-sm" onclick="window.fillEstimatedCatchWaterTemp()" title="Auto-fill from stream thermometer or estimate from air temp &amp; season" style="white-space: nowrap; padding: 8px 10px; font-size: 11.5px; color: var(--accent-teal); border-color: rgba(0, 210, 255, 0.35);">⚡ Estimate</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="catch-river-flow" id="label-catch-river-flow">🌊 River Flow / Level</label>
+                        <select id="catch-river-flow" class="form-select">
+                            <option value="">Select River Flow / Level...</option>
+                            <option value="Steady / Ideal">🌊 Steady / Ideal Flow (Prime Drifts)</option>
+                            <option value="Falling / Clearing">📉 Falling / Clearing After Rain (Peak Bite!)</option>
+                            <option value="Low / Clear">💧 Low / Gin Clear (6X Stealth Required)</option>
+                            <option value="Rising / Pushing">📈 Rising / Pushing (Fish Soft Bank Edges)</option>
+                            <option value="High / Blown Out">⚠️ High / Blown Out (Heavy Streamers / Edges)</option>
+                        </select>
                     </div>
                 </div>
 
@@ -2837,17 +2896,17 @@
 
     <!-- Scripts -->
     <script async src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="db.js?v=101630"></script>
-    <script src="regulations.js?v=101630"></script>
-    <script src="weather.js?v=101630"></script>
-    <script src="exif.js?v=101630"></script>
-    <script src="leaflet.js?v=101630"></script>
-    <script src="map.js?v=101630"></script>
-    <script src="tackle_db.js?v=101630"></script>
-    <script src="fish_db.js?v=101630"></script>
-    <script src="fly_box.js?v=101630"></script>
-    <script src="knots.js?v=101630"></script>
-    <script src="auth.js?v=101630"></script>
-    <script src="app.js?v=101630"></script>
+    <script src="db.js?v=101640"></script>
+    <script src="regulations.js?v=101640"></script>
+    <script src="weather.js?v=101640"></script>
+    <script src="exif.js?v=101640"></script>
+    <script src="leaflet.js?v=101640"></script>
+    <script src="map.js?v=101640"></script>
+    <script src="tackle_db.js?v=101640"></script>
+    <script src="fish_db.js?v=101640"></script>
+    <script src="fly_box.js?v=101640"></script>
+    <script src="knots.js?v=101640"></script>
+    <script src="auth.js?v=101640"></script>
+    <script src="app.js?v=101640"></script>
 </body>
 </html>

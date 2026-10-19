@@ -668,11 +668,15 @@ const FlyBoxApp = {
     autoSyncCurrentRiverConditions() {
         const now = new Date();
         const currentMonth = now.getMonth() + 1;
-        
-        let temp = 16;
-        if (window.AppState && window.AppState.weatherData && window.AppState.weatherData.current && window.AppState.weatherData.current.temp) {
-            temp = window.AppState.weatherData.current.temp;
+
+        let streamCond = { waterTemp: 14.0, riverFlow: 'Steady / Ideal', isManual: false };
+        if (window.WEATHER && typeof window.WEATHER.getStreamConditions === 'function') {
+            streamCond = window.WEATHER.getStreamConditions();
+        } else if (window.AppState && window.AppState.weatherData && window.AppState.weatherData.current && window.AppState.weatherData.current.temp) {
+            streamCond.waterTemp = Math.round((window.AppState.weatherData.current.temp * 0.72) * 10) / 10;
         }
+
+        const temp = streamCond.waterTemp != null ? streamCond.waterTemp : 14.0;
 
         let tempBracket = 'prime';
         if (temp < 10) tempBracket = 'cold';
@@ -693,8 +697,9 @@ const FlyBoxApp = {
         if (tempSelect) tempSelect.value = tempBracket;
 
         this.renderHatchGuideUI();
-        if (window.showSyncToast) window.showSyncToast(`🌊 Auto-synced with live stream conditions (Month: ${now.toLocaleDateString(undefined, {month:'short'})}, Air/Water: ~${temp}°C)!`);
-        else alert(`Auto-synced with live stream conditions (Month: ${now.toLocaleDateString(undefined, {month:'short'})}, Air/Water: ~${temp}°C)!`);
+        const srcTag = streamCond.isManual ? 'Thermometer' : 'Thermal Est';
+        if (window.showSyncToast) window.showSyncToast(`🌡️ Synced to Stream Water Temp: ${temp}°C (${srcTag}) • Flow: ${streamCond.riverFlow}!`);
+        else alert(`Synced to Stream Water Temp: ${temp}°C (${srcTag}) • Flow: ${streamCond.riverFlow}!`);
     },
 
     renderHatchMatcherUI() {
@@ -996,20 +1001,41 @@ window.recommendFlyPattern = function() {
     const water = waterEl.value;
     const activity = actEl.value;
 
+    const streamCond = (window.WEATHER && typeof window.WEATHER.getStreamConditions === 'function')
+        ? window.WEATHER.getStreamConditions()
+        : { waterTemp: 14.0, riverFlow: 'Steady / Ideal', isManual: false };
+    const bio = (window.WEATHER && typeof window.WEATHER.getThermalBioZone === 'function')
+        ? window.WEATHER.getThermalBioZone(streamCond.waterTemp, streamCond.riverFlow)
+        : { zoneIcon: '🌡️', zoneShort: 'Prime Zone', zoneColor: '#34d399', isHootOwl: false };
+
     let recFly = "Parachute Adams (#14)";
     let tippetRec = "5X Nylon Monofilament (4.75 lbs)";
     let tech = "Dead-drift on surface riffles near foam lines.";
     let icon = "🪰";
 
     if (target === 'trout') {
-        if (activity === 'dry') {
+        const wTemp = streamCond.waterTemp || 14;
+        const fLow = (streamCond.riverFlow || '').toLowerCase();
+        if (fLow.includes('high') || fLow.includes('blown')) {
+            recFly = "Olive/Black Conehead Woolly Bugger (#6) + San Juan Worm Dropper (#12)";
+            tippetRec = "2X–3X Fluorocarbon (8.5–10 lbs)";
+            tech = `High / Blown Out Flow (${wTemp}°C): Skip fast center current! Pound slow, soft bank edges and back-eddies.`;
+            icon = "🪶";
+        } else if (wTemp < 8.5 && activity !== 'streamer') {
+            recFly = "Tungsten Perdigon / Rainbow Warrior (#16–#18)";
+            tippetRec = "6X Fluorocarbon (3.5 lbs)";
+            tech = `Cold Water Lethargy (${wTemp}°C): Trout are hugging the bottom. Euro-nymph slow and deep in tail-outs & winter pools.`;
+            icon = "❄️";
+        } else if (activity === 'dry') {
             recFly = water === 'clear' ? "Royal Wulff / Parachute Adams (#16)" : "Kosciuszko Dun / Gum Beetle (#12)";
-            tippetRec = water === 'clear' ? "6X Nylon Monofilament (3.5 lbs)" : "5X Nylon Monofilament (4.75 lbs)";
-            tech = "High-stealth delicate dry fly cast into tail-outs & seams.";
+            tippetRec = (water === 'clear' || fLow.includes('low')) ? "6X Nylon Monofilament (3.5 lbs)" : "5X Nylon Monofilament (4.75 lbs)";
+            tech = bio.isHootOwl
+                ? `🚨 Thermal Stress (${wTemp}°C): Fish fast, aerated riffles & pocket water at dawn/dusk; land & release fish immediately.`
+                : `High-stealth delicate dry fly cast into tail-outs & seams (${wTemp}°C • ${streamCond.riverFlow}).`;
         } else if (activity === 'nymph') {
             recFly = "Pheasant Tail Nymph / Copper John (#14-#16)";
             tippetRec = "5X Fluorocarbon (5.5 lbs)";
-            tech = "Indicator or Euro-nymphing through deep pools & gravel runs.";
+            tech = `Indicator or Euro-nymphing through ${wTemp >= 17 ? 'fast oxygenated riffles' : 'deep pools & gravel runs'} (${wTemp}°C).`;
             icon = "🪱";
         } else {
             recFly = "Woolly Bugger (Black/Olive #6-#8)";
@@ -1043,11 +1069,14 @@ window.recommendFlyPattern = function() {
                     <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 2px;">${recFly}</div>
                 </div>
             </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <span class="badge" style="background: rgba(0, 210, 255, 0.12); color: ${bio.zoneColor || '#00d2ff'}; border: 1px solid ${bio.zoneColor || '#00d2ff'}; padding: 6px 10px; font-size: 11.5px;">
+                    ${bio.zoneIcon} ${streamCond.waterTemp}°C • 🌊 ${streamCond.riverFlow}
+                </span>
                 <span class="badge" style="background: rgba(163, 230, 53, 0.15); color: #a3e635; border: 1px solid #a3e635; padding: 6px 12px; font-size: 12px;">
                     💡 Tippet: ${tippetRec}
                 </span>
-                <button class="btn btn-primary btn-sm" onclick="FlyBoxApp.quickAddFromHatch('${recFly.split('/')[0].trim()}', '${activity === 'dry' ? 'Dry Fly' : activity === 'nymph' ? 'Nymph' : 'Streamer'}', '#14', '${tech}')">
+                <button class="btn btn-primary btn-sm" onclick="FlyBoxApp.quickAddFromHatch('${recFly.split('/')[0].trim().replace(/'/g, "\\'")}', '${activity === 'dry' ? 'Dry Fly' : activity === 'nymph' ? 'Nymph' : 'Streamer'}', '#14', '${tech.replace(/'/g, "\\'")}')">
                     ➕ Stock in Fly Box
                 </button>
             </div>

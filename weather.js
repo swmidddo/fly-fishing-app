@@ -81,7 +81,173 @@ const WEATHER = {
         };
     },
 
-    calculateBiteScore(pressure = 1016, windSpeed = 10, moonPhaseName = "New Moon") {
+    // Estimate stream water temperature (°C) from air temperature, season, and latitude
+    estimateWaterTempFromAir(airTemp = 20, date = new Date(), lat = -36.0) {
+        const parsedAir = (airTemp !== null && airTemp !== undefined && !isNaN(parseFloat(airTemp))) ? parseFloat(airTemp) : 20;
+        const month = (date instanceof Date && !isNaN(date.getTime())) ? (date.getMonth() + 1) : (new Date().getMonth() + 1);
+        const absLat = Math.abs(lat || -36.0);
+        // Latitude adjustment: cooler highland/southern streams vs warmer northern streams
+        const latOffset = absLat > 39 ? -2.0 : absLat > 34 ? 0 : absLat > 27 ? +2.5 : +5.0;
+
+        let est = 13.5;
+        if (month === 12 || month === 1 || month === 2) {
+            // Summer: water is cooler than afternoon air due to thermal inertia & groundwater
+            est = 14.8 + (parsedAir - 22) * 0.28 + latOffset;
+            est = Math.min(23.5, Math.max(9.5, est));
+        } else if (month >= 6 && month <= 8) {
+            // Winter: cold alpine/freestone flows
+            est = 7.8 + (parsedAir - 12) * 0.26 + latOffset;
+            est = Math.min(16.0, Math.max(4.0, est));
+        } else {
+            // Spring & Autumn: prime shoulder seasons
+            est = 12.2 + (parsedAir - 18) * 0.30 + latOffset;
+            est = Math.min(20.0, Math.max(6.5, est));
+        }
+        return Math.round(est * 10) / 10;
+    },
+
+    getStreamConditions() {
+        let saved = null;
+        try {
+            const raw = localStorage.getItem('currentStreamConditions_v1');
+            if (raw) saved = JSON.parse(raw);
+        } catch (e) {}
+
+        const now = Date.now();
+        // Keep manual thermometer reading active for 18 hours
+        const hasFreshManualTemp = saved && saved.isManual && saved.waterTemp !== null && saved.waterTemp !== undefined && !isNaN(parseFloat(saved.waterTemp)) && (!saved.updatedAt || (now - saved.updatedAt) < 18 * 3600 * 1000);
+
+        const airTemp = (window.AppState && window.AppState.weatherData && window.AppState.weatherData.current && window.AppState.weatherData.current.temp != null)
+            ? window.AppState.weatherData.current.temp
+            : 20;
+        const lat = (window.AppState && window.AppState.userCoords && window.AppState.userCoords.lat)
+            ? window.AppState.userCoords.lat
+            : -36.0;
+
+        const waterTemp = hasFreshManualTemp
+            ? Math.round(parseFloat(saved.waterTemp) * 10) / 10
+            : this.estimateWaterTempFromAir(airTemp, new Date(), lat);
+
+        const riverFlow = (saved && saved.riverFlow) ? saved.riverFlow : 'Steady / Ideal';
+
+        return {
+            waterTemp,
+            riverFlow,
+            isManual: !!hasFreshManualTemp,
+            updatedAt: saved ? saved.updatedAt : null
+        };
+    },
+
+    setStreamConditions(waterTemp, riverFlow, isManual = true) {
+        const cleanTemp = (waterTemp !== '' && waterTemp !== null && waterTemp !== undefined && !isNaN(parseFloat(waterTemp)))
+            ? Math.round(parseFloat(waterTemp) * 10) / 10
+            : null;
+        const cleanFlow = riverFlow || 'Steady / Ideal';
+        const payload = {
+            waterTemp: cleanTemp,
+            riverFlow: cleanFlow,
+            isManual: !!isManual && cleanTemp !== null,
+            updatedAt: Date.now()
+        };
+        try {
+            localStorage.setItem('currentStreamConditions_v1', JSON.stringify(payload));
+        } catch (e) {}
+        return this.getStreamConditions();
+    },
+
+    getThermalBioZone(waterTemp, riverFlow = 'Steady / Ideal') {
+        const temp = (waterTemp !== null && waterTemp !== undefined && !isNaN(parseFloat(waterTemp)))
+            ? parseFloat(waterTemp)
+            : null;
+
+        let tempBoost = 0;
+        let zoneLabel = 'Estimated Stream Temp';
+        let zoneShort = 'Normal';
+        let zoneIcon = '🌡️';
+        let zoneColor = '#00d2ff';
+        let isHootOwl = false;
+        let advice = 'Match active insect hatches with standard dry-dropper or nymph rigs.';
+
+        if (temp !== null) {
+            if (temp < 7.0) {
+                tempBoost = -10;
+                zoneLabel = `Cold Water Lethargy (${temp}°C)`;
+                zoneShort = 'Cold Lethargy';
+                zoneIcon = '❄️';
+                zoneColor = '#38bdf8';
+                advice = 'Trout metabolism is slow (<7°C): Dead-drift heavy tungsten beadheads (#16–#18) slow and deep in winter pools.';
+            } else if (temp < 10.0) {
+                tempBoost = 2;
+                zoneLabel = `Cool Awakening (${temp}°C)`;
+                zoneShort = 'Cool Flow';
+                zoneIcon = '💧';
+                zoneColor = '#00d2ff';
+                advice = 'Cool water (7–10°C): Focus on sub-surface nymphs in the morning; watch for mid-day Baetis & midge emergers.';
+            } else if (temp <= 16.5) {
+                tempBoost = 8;
+                zoneLabel = `Prime Thermal Feeding Zone (${temp}°C)`;
+                zoneShort = 'Prime Thermal Zone';
+                zoneIcon = '🔥';
+                zoneColor = '#34d399';
+                advice = 'Peak metabolic feeding & dissolved oxygen (10–16.5°C)! Fish are looking up in riffles & seams for Mayflies, Caddis & Terrestrials.';
+            } else if (temp < 19.5) {
+                tempBoost = -3;
+                zoneLabel = `Warm Marginal Flow (${temp}°C)`;
+                zoneShort = 'Warm Marginal';
+                zoneIcon = '☀️';
+                zoneColor = '#fbbf24';
+                advice = 'Warming water (16.5–19.5°C): Dissolved oxygen is dropping in slow pools. Target fast, aerated riffles, pocket water, and dawn/dusk windows.';
+            } else {
+                tempBoost = -15;
+                zoneLabel = `Hoot-Owl Thermal Stress (${temp}°C ≥19.5°C)`;
+                zoneShort = 'Hoot-Owl Stress';
+                zoneIcon = '🚨';
+                zoneColor = '#f87171';
+                isHootOwl = true;
+                advice = 'Thermal Stress Alert (≥19.5°C): Trout experience critical oxygen stress. Fish early dawn only in fast oxygenated runs, land quickly & keep fish submerged!';
+            }
+        }
+
+        let flowBoost = 0;
+        let flowNote = riverFlow || 'Steady / Ideal';
+        const fLower = (riverFlow || '').toLowerCase();
+        if (fLower.includes('falling') || fLower.includes('clearing')) {
+            flowBoost = 6;
+            flowNote = 'Falling / Clearing (+6% Prime Bite)';
+        } else if (fLower.includes('steady') || fLower.includes('ideal')) {
+            flowBoost = 4;
+            flowNote = 'Steady / Ideal Flow (+4%)';
+        } else if (fLower.includes('rising') || fLower.includes('pushing') || fLower.includes('run-in') || fLower.includes('run-out')) {
+            flowBoost = 3;
+            flowNote = `${riverFlow} (+3% Active Edges)`;
+        } else if (fLower.includes('low') || fLower.includes('clear')) {
+            flowBoost = -2;
+            flowNote = 'Low & Clear (Spooky Fish — Use 6X Tippet)';
+        } else if (fLower.includes('high') || fLower.includes('blown')) {
+            flowBoost = -12;
+            flowNote = 'High / Blown Out (-12% — Fish Slow Bank Seams with Streamers)';
+        } else if (fLower.includes('slack')) {
+            flowBoost = -4;
+            flowNote = `${riverFlow} (-4% Slack Tide)`;
+        }
+
+        return {
+            waterTemp: temp,
+            riverFlow: riverFlow || 'Steady / Ideal',
+            tempBoost,
+            flowBoost,
+            totalBoost: tempBoost + flowBoost,
+            zoneLabel,
+            zoneShort,
+            zoneIcon,
+            zoneColor,
+            isHootOwl,
+            advice,
+            flowNote
+        };
+    },
+
+    calculateBiteScore(pressure = 1016, windSpeed = 10, moonPhaseName = "New Moon", waterTemp = null, riverFlow = null) {
         let score = 50;
 
         if (pressure >= 1013 && pressure <= 1025) {
@@ -104,22 +270,32 @@ const WEATHER = {
             score += 10;
         }
 
-        score = Math.min(98, Math.max(25, score));
+        const streamCond = this.getStreamConditions();
+        const activeTemp = (waterTemp !== null && waterTemp !== undefined) ? waterTemp : streamCond.waterTemp;
+        const activeFlow = riverFlow || streamCond.riverFlow;
+        const bio = this.getThermalBioZone(activeTemp, activeFlow);
+
+        score += bio.totalBoost;
+        score = Math.min(99, Math.max(20, Math.round(score)));
+
         let text = "Good Feeding Conditions";
         let color = "var(--accent-teal)";
 
-        if (score >= 80) {
-            text = "🔥 PRIME BITE WINDOW! Fish feeding actively.";
+        if (bio.isHootOwl) {
+            text = `🚨 Thermal Stress (${activeTemp}°C) — Fish oxygenated riffles at dawn & release fast.`;
+            color = "#f87171";
+        } else if (score >= 80) {
+            text = `🔥 PRIME BITE (${activeTemp}°C • ${activeFlow})! Fish feeding actively.`;
             color = "#2ed573";
         } else if (score >= 60) {
-            text = "🌤️ Moderate Activity - Focus on riffles & seam lines.";
+            text = `🌤️ Moderate Activity (${activeTemp}°C) — Focus on riffles & seam lines.`;
             color = "#00d2ff";
         } else {
-            text = "⚠️ Slow Bite - Use small nymphs & slow retrieves.";
+            text = `⚠️ Technical Bite (${activeTemp}°C) — Use small nymphs & slow dead-drifts.`;
             color = "#ff9f43";
         }
 
-        return { score, text, color };
+        return { score, text, color, bio };
     },
 
     async getLocalitySearchTerms(lat, lon) {
@@ -1282,7 +1458,7 @@ const WEATHER = {
         let riseLocal = (transitLocal - semiDiurnalHrs + 24) % 24;
         let setLocal = (transitLocal + semiDiurnalHrs + 24) % 24;
 
-        // 3. Barometric Pressure Adjustment
+        // 3. Barometric Pressure + Stream Thermal & River Flow Multipliers
         let pressureBoost = 0;
         let pressureNote = "Stable Barometer (Normal Feeding)";
         if (currentPressure >= 1012 && currentPressure <= 1022) {
@@ -1296,14 +1472,37 @@ const WEATHER = {
             pressureNote = "High Pressure System (Slow, Technical Feeding)";
         }
 
-        let overallScore = Math.min(99, Math.max(35, Math.round(baseScore + pressureBoost)));
+        const streamCond = this.getStreamConditions();
+        const bio = this.getThermalBioZone(streamCond.waterTemp, streamCond.riverFlow);
+        const isToday = Math.abs(date.getTime() - Date.now()) < 20 * 3600 * 1000;
+        const bioMultiplier = isToday ? bio.totalBoost : Math.round(bio.totalBoost * 0.5);
+
+        let overallScore = Math.min(99, Math.max(25, Math.round(baseScore + pressureBoost + bioMultiplier)));
 
         let rating = "Fair";
         let ratingColor = "var(--accent-orange)";
         let ratingIcon = "🟡";
-        if (overallScore >= 85) { rating = "Prime / Peak"; ratingColor = "var(--accent-teal)"; ratingIcon = "🔥"; }
-        else if (overallScore >= 70) { rating = "Excellent"; ratingColor = "var(--success)"; ratingIcon = "🟢"; }
-        else if (overallScore >= 50) { rating = "Good"; ratingColor = "var(--accent-blue)"; ratingIcon = "🔵"; }
+        if (bio.isHootOwl && isToday) {
+            rating = "Hoot-Owl Stress";
+            ratingColor = "#f87171";
+            ratingIcon = "🚨";
+        } else if (overallScore >= 85) {
+            rating = "Prime / Peak";
+            ratingColor = "var(--accent-teal)";
+            ratingIcon = "🔥";
+        } else if (overallScore >= 70) {
+            rating = "Excellent";
+            ratingColor = "var(--success)";
+            ratingIcon = "🟢";
+        } else if (overallScore >= 50) {
+            rating = "Good";
+            ratingColor = "var(--accent-blue)";
+            ratingIcon = "🔵";
+        }
+
+        if (isToday && bio.waterTemp !== null) {
+            pressureNote = `${pressureNote} • ${bio.zoneIcon} ${bio.waterTemp}°C (${bio.zoneShort}) • 🌊 ${streamCond.riverFlow}`;
+        }
 
         const formatTime = (h) => {
             const hrs = Math.floor((h + 24) % 24);
@@ -1347,7 +1546,21 @@ const WEATHER = {
             if (distMinor1 < 1.5) hrActivity += (1.0 - distMinor1 / 1.5) * 25;
             if (distMinor2 < 1.5) hrActivity += (1.0 - distMinor2 / 1.5) * 25;
 
-            hrActivity += pressureBoost;
+            hrActivity += pressureBoost + bioMultiplier;
+
+            // Diurnal thermal modulation:
+            // - In Hoot-Owl / warm water (>= 18.5°C), afternoon heat (13:00-17:00) suppresses trout feeding while dawn (05:00-09:00) spikes it
+            // - In Cold Lethargy (< 8.5°C), mid-day solar warming (11:00-15:00) boosts insect emergence & feeding
+            if (bio.waterTemp !== null) {
+                if (bio.waterTemp >= 18.5) {
+                    if (hr >= 5 && hr <= 9) hrActivity += 10;
+                    else if (hr >= 13 && hr <= 17) hrActivity -= 14;
+                } else if (bio.waterTemp < 8.5) {
+                    if (hr >= 11 && hr <= 15) hrActivity += 12;
+                    else if (hr <= 7 || hr >= 20) hrActivity -= 8;
+                }
+            }
+
             hrActivity = Math.min(99, Math.max(20, Math.round(hrActivity)));
 
             hourlyTimeline.push({
@@ -1368,6 +1581,10 @@ const WEATHER = {
             moonIcon: moon.icon,
             moonIllum: moon.illumination || 0,
             pressureNote,
+            waterTemp: streamCond.waterTemp,
+            riverFlow: streamCond.riverFlow,
+            isManualStreamTemp: streamCond.isManual,
+            thermalBio: bio,
             moonTransit: formatTime(transitLocal),
             moonUnderfoot: formatTime(underfootLocal),
             moonRise: formatTime(riseLocal),
@@ -1389,16 +1606,23 @@ const WEATHER = {
         const days = [];
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const fullDayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const currentPressure = (window.AppState && window.AppState.weatherData && window.AppState.weatherData.current && window.AppState.weatherData.current.pressure)
+            ? window.AppState.weatherData.current.pressure
+            : 1016;
 
         for (let i = 0; i < 7; i++) {
             const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
-            const solunar = this.getSolunarData(date, lat, lon, 1016);
+            const solunar = this.getSolunarData(date, lat, lon, i === 0 ? currentPressure : 1016);
             const dayName = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : dayNames[date.getDay()];
             const fullDayName = fullDayNames[date.getDay()];
             const dateFormatted = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 
             let tactic = "Match active hatches with standard nymphs & dries.";
-            if (solunar.score >= 85) {
+            if (i === 0 && solunar.thermalBio && solunar.thermalBio.isHootOwl) {
+                tactic = `${solunar.thermalBio.advice} (${solunar.thermalBio.flowNote})`;
+            } else if (i === 0 && solunar.thermalBio && solunar.waterTemp !== null) {
+                tactic = `${solunar.thermalBio.advice} • River Flow: ${solunar.thermalBio.flowNote}.`;
+            } else if (solunar.score >= 85) {
                 tactic = "Target predatory gamefish with aggressive streamers and big dry flies during Major windows.";
             } else if (solunar.score >= 70) {
                 tactic = "Focus on riffles, drop-offs, and foam lines around Major and Minor transit periods.";
