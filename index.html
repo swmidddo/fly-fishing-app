@@ -28,18 +28,46 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style & Offline Leaflet -->
-    <link rel="stylesheet" href="leaflet.css?v=101690">
-    <link rel="stylesheet" href="styles.css?v=101690">
+    <link rel="stylesheet" href="leaflet.css?v=101695">
+    <link rel="stylesheet" href="styles.css?v=101695">
     <script>
+        // Inline Map Tools Drawer Toggle (Guaranteed available immediately with HTML before external JS caches update)
+        window.toggleMapToolsDrawer = function(forceState) {
+            var drawer = document.getElementById('map-tools-drawer');
+            var toggleBtn = document.getElementById('btn-map-tools-toggle');
+            if (!drawer) return false;
+            var computedDisp = window.getComputedStyle ? window.getComputedStyle(drawer).display : drawer.style.display;
+            var isOpen = computedDisp !== 'none' && drawer.style.display !== 'none';
+            var nextState = typeof forceState === 'boolean' ? forceState : !isOpen;
+            if (nextState) {
+                drawer.style.setProperty('display', 'block', 'important');
+                drawer.setAttribute('aria-expanded', 'true');
+            } else {
+                drawer.style.setProperty('display', 'none', 'important');
+                drawer.setAttribute('aria-expanded', 'false');
+            }
+            if (toggleBtn) {
+                toggleBtn.innerHTML = nextState ? '🛠️ Tools &amp; Layers ▴' : '🛠️ Tools &amp; Layers ▾';
+                toggleBtn.style.setProperty('background', nextState ? 'rgba(56, 189, 248, 0.25)' : 'rgba(10, 25, 47, 0.88)', 'important');
+                toggleBtn.style.setProperty('border-color', nextState ? '#38bdf8' : 'rgba(56, 189, 248, 0.5)', 'important');
+            }
+            if (nextState) {
+                var corrDrawer = document.getElementById('map-corridor-packs-drawer');
+                if (corrDrawer) corrDrawer.style.setProperty('display', 'none', 'important');
+            }
+            return nextState;
+        };
+
         // Backcountry Offline PWA Service Worker Registration & Live Auto-Update Engine
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js')
+                navigator.serviceWorker.register('sw.js?v=101695')
                     .then(function(reg) {
                         console.log('[Backcountry SW] Registered successfully with scope:', reg.scope);
                         window.__BACKCOUNTRY_SW_REG__ = reg;
                         window.__BACKCOUNTRY_SW_ACTIVE__ = true;
                         if (window.updateOfflineStatusUI) window.updateOfflineStatusUI(true);
+                        try { reg.update(); } catch (e) {}
 
                         // Listen for updates found while app is active
                         reg.addEventListener('updatefound', function() {
@@ -64,6 +92,7 @@
                 });
             });
         }
+
 
         // Automatic URL search parameter session restoration
         (function() {
@@ -714,18 +743,19 @@
             <section id="tab-map" class="tab-content">
                 <div id="map-auth-notice" class="card glass mb-15" style="display: none; border-left: 4px solid var(--accent-gold); padding: 12px 15px; font-size: 13px;">
                 </div>
-                <div class="map-controls">
+                <div class="map-controls" style="z-index: 1200;">
                     <!-- Compact Single-Row Map Quick Bar (Never wraps into multi-row walls over the map) -->
-                    <div class="map-actions map-quick-bar">
-                        <button class="btn btn-primary map-pill-btn" onclick="window.quickDropCatchPin()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; color: #000 !important; font-weight: 700; border: none !important; box-shadow: 0 2px 10px rgba(245, 158, 11, 0.4);">⚡ Catch Pin</button>
-                        <button class="btn btn-glass map-pill-btn" id="btn-add-spot-here">🌲 Pin Pool</button>
-                        <button class="btn btn-primary map-pill-btn" id="btn-map-recenter">🎯 My GPS</button>
-                        <button class="btn btn-glass map-pill-btn" onclick="window.openReturnCarHud()" style="border-color: rgba(245, 158, 11, 0.45) !important; color: #fbbf24 !important; font-weight: 700;">🧭 HUD</button>
-                        <button class="btn btn-glass map-pill-btn" id="btn-map-tools-toggle" onclick="window.toggleMapToolsDrawer()" style="border-color: rgba(56, 189, 248, 0.5) !important; color: #38bdf8 !important; font-weight: 700;">🛠️ Tools &amp; Layers ▾</button>
+                    <div class="map-actions map-quick-bar" style="display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 6px; pointer-events: auto; align-items: center; padding-bottom: 2px;">
+                        <button type="button" class="btn btn-primary map-pill-btn" onclick="window.quickDropCatchPin()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; color: #000 !important; font-weight: 700; border: none !important; box-shadow: 0 2px 10px rgba(245, 158, 11, 0.4);">⚡ Catch Pin</button>
+                        <button type="button" class="btn btn-glass map-pill-btn" id="btn-add-spot-here">🌲 Pin Pool</button>
+                        <button type="button" class="btn btn-primary map-pill-btn" id="btn-map-recenter">🎯 My GPS</button>
+                        <button type="button" class="btn btn-glass map-pill-btn" onclick="window.openReturnCarHud()" style="border-color: rgba(245, 158, 11, 0.45) !important; color: #fbbf24 !important; font-weight: 700;">🧭 HUD</button>
+                        <button type="button" class="btn btn-glass map-pill-btn" id="btn-map-tools-toggle" onclick="window.toggleMapToolsDrawer()" style="border-color: rgba(56, 189, 248, 0.5) !important; color: #38bdf8 !important; font-weight: 700; pointer-events: auto; cursor: pointer;">🛠️ Tools &amp; Layers ▾</button>
                     </div>
 
                     <!-- Collapsible Map Tools, Layers & Offline Drawer (Hidden by default so the map is unobstructed) -->
-                    <div id="map-tools-drawer" style="display: none; pointer-events: auto; background: rgba(10, 22, 40, 0.96); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 12px; padding: 12px 14px; max-width: 560px; box-shadow: 0 10px 30px rgba(0,0,0,0.65); backdrop-filter: blur(12px);">
+                    <div id="map-tools-drawer" style="display: none; position: relative; z-index: 2000; pointer-events: auto; background: rgba(10, 22, 40, 0.96); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 12px; padding: 12px 14px; max-width: 560px; box-shadow: 0 10px 30px rgba(0,0,0,0.65); backdrop-filter: blur(12px);">
+
                         <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-wrap: wrap;">
                             <span style="font-size: 12px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">🛠️ Map Controls, Layers &amp; Offline Tools</span>
                             <div style="display: flex; align-items: center; gap: 8px;">
@@ -3194,17 +3224,38 @@
 
     <!-- Scripts -->
     <script async src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="db.js?v=101690"></script>
-    <script src="regulations.js?v=101690"></script>
-    <script src="weather.js?v=101690"></script>
-    <script src="exif.js?v=101690"></script>
-    <script src="leaflet.js?v=101690"></script>
-    <script src="map.js?v=101690"></script>
-    <script src="tackle_db.js?v=101690"></script>
-    <script src="fish_db.js?v=101690"></script>
-    <script src="fly_box.js?v=101690"></script>
-    <script src="knots.js?v=101690"></script>
-    <script src="auth.js?v=101690"></script>
-    <script src="app.js?v=101690"></script>
+    <script src="db.js?v=101695"></script>
+    <script src="regulations.js?v=101695"></script>
+    <script src="weather.js?v=101695"></script>
+    <script src="exif.js?v=101695"></script>
+    <script src="leaflet.js?v=101695"></script>
+    <script src="map.js?v=101695"></script>
+    <script src="tackle_db.js?v=101695"></script>
+    <script src="fish_db.js?v=101695"></script>
+    <script src="fly_box.js?v=101695"></script>
+    <script src="knots.js?v=101695"></script>
+    <script src="auth.js?v=101695"></script>
+    <script src="app.js?v=101695"></script>
+    <script>
+        // Self-Healer: If an older Service Worker served a stale cached app.js, purge old SW script caches & hot-reload fresh scripts once
+        (function() {
+            var expectedVer = 'v101695';
+            if (window.APP_VERSION !== expectedVer && navigator.onLine && !sessionStorage.getItem('sw_healed_' + expectedVer)) {
+                sessionStorage.setItem('sw_healed_' + expectedVer, '1');
+                if ('caches' in window) {
+                    caches.keys().then(function(keys) {
+                        return Promise.all(keys.map(function(k) {
+                            if (k !== 'fly-fishing-map-tiles' && k !== 'fly-fishing-' + expectedVer) {
+                                return caches.delete(k);
+                            }
+                        }));
+                    }).finally(function() {
+                        window.location.reload();
+                    });
+                }
+            }
+        })();
+    </script>
 </body>
 </html>
+

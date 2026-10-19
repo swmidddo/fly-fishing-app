@@ -83,10 +83,37 @@ window.toggleMobileMoreDrawer = function(forceState) {
     }
 };
 
+window.toggleMapToolsDrawer = function(forceState) {
+    const drawer = document.getElementById('map-tools-drawer');
+    const toggleBtn = document.getElementById('btn-map-tools-toggle');
+    if (!drawer) return false;
+    const computedDisp = window.getComputedStyle ? window.getComputedStyle(drawer).display : drawer.style.display;
+    const isOpen = computedDisp !== 'none' && drawer.style.display !== 'none';
+    const nextState = typeof forceState === 'boolean' ? forceState : !isOpen;
+    if (nextState) {
+        drawer.style.setProperty('display', 'block', 'important');
+        drawer.setAttribute('aria-expanded', 'true');
+    } else {
+        drawer.style.setProperty('display', 'none', 'important');
+        drawer.setAttribute('aria-expanded', 'false');
+    }
+    if (toggleBtn) {
+        toggleBtn.innerHTML = nextState ? '🛠️ Tools &amp; Layers ▴' : '🛠️ Tools &amp; Layers ▾';
+        toggleBtn.style.setProperty('background', nextState ? 'rgba(56, 189, 248, 0.25)' : 'rgba(10, 25, 47, 0.88)', 'important');
+        toggleBtn.style.setProperty('border-color', nextState ? '#38bdf8' : 'rgba(56, 189, 248, 0.5)', 'important');
+    }
+    if (nextState) {
+        const corrDrawer = document.getElementById('map-corridor-packs-drawer');
+        if (corrDrawer) corrDrawer.style.setProperty('display', 'none', 'important');
+    }
+    return nextState;
+};
+
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101690';
+window.APP_VERSION = 'v101695';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
+
 
 // PWA Mobile Navigation & Android Hardware / Gesture Back Button Engine
 (function initPWAMobileNavigation() {
@@ -12042,18 +12069,28 @@ Respond ONLY in valid JSON format:
     window.toggleMapToolsDrawer = function(forceState) {
         const drawer = document.getElementById('map-tools-drawer');
         const toggleBtn = document.getElementById('btn-map-tools-toggle');
-        if (!drawer) return;
-        const isOpen = drawer.style.display !== 'none';
+        if (!drawer) return false;
+        const computedDisp = window.getComputedStyle ? window.getComputedStyle(drawer).display : drawer.style.display;
+        const isOpen = computedDisp !== 'none' && drawer.style.display !== 'none';
         const nextState = typeof forceState === 'boolean' ? forceState : !isOpen;
-        drawer.style.display = nextState ? 'block' : 'none';
+        if (nextState) {
+            drawer.style.setProperty('display', 'block', 'important');
+            drawer.setAttribute('aria-expanded', 'true');
+        } else {
+            drawer.style.setProperty('display', 'none', 'important');
+            drawer.setAttribute('aria-expanded', 'false');
+        }
         if (toggleBtn) {
             toggleBtn.innerHTML = nextState ? '🛠️ Tools &amp; Layers ▴' : '🛠️ Tools &amp; Layers ▾';
+            toggleBtn.style.setProperty('background', nextState ? 'rgba(56, 189, 248, 0.25)' : 'rgba(10, 25, 47, 0.88)', 'important');
+            toggleBtn.style.setProperty('border-color', nextState ? '#38bdf8' : 'rgba(56, 189, 248, 0.5)', 'important');
         }
         // Close corridor packs drawer if opening tools drawer so they never stack
         if (nextState) {
             const corrDrawer = document.getElementById('map-corridor-packs-drawer');
-            if (corrDrawer) corrDrawer.style.display = 'none';
+            if (corrDrawer) corrDrawer.style.setProperty('display', 'none', 'important');
         }
+        return nextState;
     };
 
     // Render Pre-Flight Banner on Dashboard initialization
@@ -12063,6 +12100,7 @@ Respond ONLY in valid JSON format:
         }
     }, 350);
 };
+
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => window.initMainApp());

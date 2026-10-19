@@ -1,5 +1,5 @@
 // sw.js - Middo's Fly Fishing Backcountry Offline Service Worker
-const CACHE_NAME = 'fly-fishing-v101690';
+const CACHE_NAME = 'fly-fishing-v101695';
 
 // Message Event: Allow web app clients to force immediate skipWaiting & activation
 self.addEventListener('message', (event) => {
@@ -75,10 +75,13 @@ self.addEventListener('install', (event) => {
     self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then(async (cache) => {
-            console.log('[Backcountry SW] Pre-caching core app shell & offline assets (v101620)...');
+            console.log('[Backcountry SW] Pre-caching core app shell & offline assets (v101695)...');
             return Promise.allSettled(
                 CORE_ASSETS.map((url) =>
-                    fetch(url, { mode: url.startsWith('http') ? 'cors' : 'same-origin' })
+                    fetch(url, {
+                        mode: url.startsWith('http') ? 'cors' : 'same-origin',
+                        cache: url.startsWith('http') ? 'default' : 'no-cache'
+                    })
                         .then(async (res) => {
                             if (res && res.ok) {
                                 await cache.put(url, res.clone());
@@ -170,31 +173,35 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 2. Core Scripts & Styles (JS/CSS/JSON) - Cache-First with Background Stale-While-Revalidate
+    // 2. Core Scripts & Styles (JS/CSS/JSON) - Version-Aware Cache + Offline Fallback
     if (url.origin === self.location.origin && (url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname.endsWith('.json'))) {
         event.respondWith((async () => {
-            const cachedRes = await caches.match(req, { ignoreSearch: true });
-            if (cachedRes) {
-                // Return cached version in 0ms so the app starts instantly offline
-                if (navigator.onLine) {
-                    // Revalidate in background without blocking execution
-                    fetch(req).then(async (freshRes) => {
-                        if (freshRes && freshRes.status === 200) {
-                            const cache = await caches.open(CACHE_NAME);
-                            await cache.put(req, freshRes);
-                        }
-                    }).catch(() => {});
-                }
-                return cachedRes;
+            // Offline mode: immediately serve any cached version (ignoring ?v= search params)
+            if (!navigator.onLine) {
+                const offlineCached = (await caches.match(req, { ignoreSearch: false })) || (await caches.match(req, { ignoreSearch: true }));
+                if (offlineCached) return offlineCached;
             }
 
-            // If not in cache, fetch from network and store for subsequent offline launches
+            // Online mode: check for an EXACT match first (respecting ?v=101695 query string so new deploys never load stale JS!)
+            const exactCachedRes = await caches.match(req, { ignoreSearch: false });
+            if (exactCachedRes) {
+                fetch(req, { cache: 'no-cache' }).then(async (freshRes) => {
+                    if (freshRes && freshRes.status === 200) {
+                        const cache = await caches.open(CACHE_NAME);
+                        await cache.put(req, freshRes.clone());
+                        await cache.put(url.pathname, freshRes);
+                    }
+                }).catch(() => {});
+                return exactCachedRes;
+            }
+
+            // Exact version not in cache yet: fetch fresh from network and store both versioned and bare pathname
             try {
-                const networkRes = await fetch(req);
+                const networkRes = await fetch(req, { cache: 'no-cache' });
                 if (networkRes && networkRes.status === 200) {
-                    const copy = networkRes.clone();
                     const cache = await caches.open(CACHE_NAME);
-                    await cache.put(req, copy);
+                    await cache.put(req, networkRes.clone());
+                    try { await cache.put(url.pathname, networkRes.clone()); } catch(e){}
                 }
                 return networkRes;
             } catch (err) {

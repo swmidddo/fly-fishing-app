@@ -2168,14 +2168,46 @@ window.preCacheMapArea = function(customPackOptions = null) {
         window.AppMap.preCacheMapArea(customPackOptions);
     }
 };
+window.toggleMapToolsDrawer = function(forceState) {
+    const drawer = document.getElementById('map-tools-drawer');
+    const toggleBtn = document.getElementById('btn-map-tools-toggle');
+    if (!drawer) return false;
+    const computedDisp = window.getComputedStyle ? window.getComputedStyle(drawer).display : drawer.style.display;
+    const isOpen = computedDisp !== 'none' && drawer.style.display !== 'none';
+    const nextState = typeof forceState === 'boolean' ? forceState : !isOpen;
+    if (nextState) {
+        drawer.style.setProperty('display', 'block', 'important');
+        drawer.setAttribute('aria-expanded', 'true');
+    } else {
+        drawer.style.setProperty('display', 'none', 'important');
+        drawer.setAttribute('aria-expanded', 'false');
+    }
+    if (toggleBtn) {
+        toggleBtn.innerHTML = nextState ? '🛠️ Tools &amp; Layers ▴' : '🛠️ Tools &amp; Layers ▾';
+        toggleBtn.style.setProperty('background', nextState ? 'rgba(56, 189, 248, 0.25)' : 'rgba(10, 25, 47, 0.88)', 'important');
+        toggleBtn.style.setProperty('border-color', nextState ? '#38bdf8' : 'rgba(56, 189, 248, 0.5)', 'important');
+    }
+    if (nextState) {
+        const corrDrawer = document.getElementById('map-corridor-packs-drawer');
+        if (corrDrawer) corrDrawer.style.setProperty('display', 'none', 'important');
+    }
+    return nextState;
+};
 window.toggleCorridorPacksDrawer = function(forceState = null) {
     const drawer = document.getElementById('map-corridor-packs-drawer');
     if (!drawer) return;
-    const isVisible = drawer.style.display !== 'none';
+    const computedDisp = window.getComputedStyle ? window.getComputedStyle(drawer).display : drawer.style.display;
+    const isVisible = computedDisp !== 'none' && drawer.style.display !== 'none';
     const nextState = forceState !== null ? forceState : !isVisible;
-    drawer.style.display = nextState ? 'block' : 'none';
-    if (nextState && window.AppMap && typeof window.AppMap.renderCorridorAndPoolsDrawer === 'function') {
-        window.AppMap.renderCorridorAndPoolsDrawer();
+    drawer.style.setProperty('display', nextState ? 'block' : 'none', 'important');
+    if (nextState) {
+        const toolsDrawer = document.getElementById('map-tools-drawer');
+        if (toolsDrawer) toolsDrawer.style.setProperty('display', 'none', 'important');
+        const toggleBtn = document.getElementById('btn-map-tools-toggle');
+        if (toggleBtn) toggleBtn.innerHTML = '🛠️ Tools &amp; Layers ▾';
+        if (window.AppMap && typeof window.AppMap.renderCorridorAndPoolsDrawer === 'function') {
+            window.AppMap.renderCorridorAndPoolsDrawer();
+        }
     }
 };
 window.downloadSelectedCorridorPack = function() {
@@ -2233,5 +2265,3 @@ window.viewWadingTrailOnMap = function() {
         }
     }, 180);
 };
-
-
