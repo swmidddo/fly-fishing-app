@@ -84,7 +84,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101650';
+window.APP_VERSION = 'v101660';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -2164,13 +2164,17 @@ window.initMainApp = async function() {
             const type = elements.spotType.value;
             const lat = elements.spotLat.value ? parseFloat(elements.spotLat.value) : null;
             const lng = elements.spotLng.value ? parseFloat(elements.spotLng.value) : null;
+            const notesEl = document.getElementById('spot-notes');
+            const bestFlyEl = document.getElementById('spot-best-fly');
+            const notes = notesEl ? notesEl.value.trim() : '';
+            const bestFly = bestFlyEl ? bestFlyEl.value.trim() : '';
 
             if (!name || lat === null || lng === null) {
                 alert("Please fill in all required fields.");
                 return;
             }
 
-            window.AppMap.saveFishingSpot(name, type, lat, lng);
+            window.AppMap.saveFishingSpot(name, type, lat, lng, notes, bestFly);
             window.hideAddSpotModal();
         });
     }
@@ -10051,6 +10055,7 @@ window.initMainApp = async function() {
                 catches: p.catches,
                 totalScore: p.totalScore,
                 confidencePct: rawConfidence,
+                confidence: rawConfidence,
                 maxLen: p.maxLen,
                 avgLen,
                 topCombo,
@@ -10065,6 +10070,8 @@ window.initMainApp = async function() {
 
         return {
             topPattern: ranked[0],
+            topFly: ranked[0],
+            topRig: ranked[0].topCombo ? { name: ranked[0].topCombo } : (ranked[0].topRod ? { name: ranked[0].topRod } : null),
             runnerUps: ranked.slice(1, 3),
             allRanked: ranked,
             totalAnalyzed: validCatches.length,

@@ -8,7 +8,9 @@ const AQUATIC_INSECT_HATCHES = [
         name: "Highland Mayfly / Kosciuszko Dun",
         order: "Mayfly (Ephemeroptera)",
         orderKey: "mayfly",
+        regions: ["vic_high", "nsw_snowy", "tas_lakes"],
         months: [10, 11, 12, 1, 2, 3, 4], // Oct - Apr (Peak Nov-Feb)
+        peakMonths: [11, 12, 1, 2],
         tempMin: 10,
         tempMax: 18,
         habitat: "Cold mountain freestone rivers & highland alpine streams (Snowy Mountains, Vic High Country, Tassie)",
@@ -17,7 +19,7 @@ const AQUATIC_INSECT_HATCHES = [
         stages: [
             { stage: "Nymph", pattern: "Pheasant Tail Beadhead / Copper John", sizes: "#14 - #18", tippet: "5X Fluorocarbon", tip: "Euro-nymph deep gravel runs and seamlines before midday emergence." },
             { stage: "Emerger / Dun", pattern: "Kosciuszko Dun / Parachute Adams", sizes: "#12 - #16", tippet: "5X - 6X Nylon", tip: "Dead-drift on surface foam lines as duns ride the water drying their wings." },
-            { stage: "Spinner (Spent)", pattern: "Rusty Spinner / Sherry Spinner", sizes: "#14 - #16", tippet: "6X Nylon", tip: "Evening dusk falls when spent females drop onto glassy tailouts." }
+            { stage: "Spinner (Spent)", pattern: "Rusty Spinner / Kosciuszko Red Spinner", sizes: "#14 - #16", tippet: "6X Nylon", tip: "Evening dusk falls when spent females drop onto glassy tailouts." }
         ]
     },
     {
@@ -25,10 +27,12 @@ const AQUATIC_INSECT_HATCHES = [
         name: "Blue-Winged Olive (BWO / Baetis)",
         order: "Mayfly (Ephemeroptera)",
         orderKey: "mayfly",
+        regions: ["vic_high", "nsw_snowy", "tas_lakes", "meadow"],
         months: [3, 4, 5, 8, 9, 10], // Autumn & Early Spring
+        peakMonths: [4, 5, 9, 10],
         tempMin: 6,
         tempMax: 14,
-        habitat: "Cold tailwaters, spring creeks, and cloudy overcast autumn river runs",
+        habitat: "Cold tailwaters, spring creeks, and cloudy overcast autumn river runs (Goulburn, Ovens, Eucumbene)",
         peakTime: "Overcast / Drizzly afternoons (1:00 PM - 4:00 PM)",
         icon: "🦟",
         stages: [
@@ -41,7 +45,9 @@ const AQUATIC_INSECT_HATCHES = [
         name: "March Brown / Scruffy Mayfly",
         order: "Mayfly (Ephemeroptera)",
         orderKey: "mayfly",
+        regions: ["vic_high", "nsw_snowy", "tas_lakes"],
         months: [2, 3, 4], // Feb - Apr
+        peakMonths: [3, 4],
         tempMin: 12,
         tempMax: 19,
         habitat: "Moderate to fast rocky streams, pocket water, and boulder runs",
@@ -52,6 +58,24 @@ const AQUATIC_INSECT_HATCHES = [
             { stage: "Dun", pattern: "March Brown Dry / Royal Wulff", sizes: "#12 - #14", tippet: "5X Nylon", tip: "High-floating bushy attractor dry fly skated over riffles." }
         ]
     },
+    {
+        id: "hatch_caenid_curse",
+        name: "Caenid Mayfly / Angler's Curse",
+        order: "Mayfly (Ephemeroptera)",
+        orderKey: "mayfly",
+        regions: ["stillwater", "tas_lakes", "meadow", "vic_high"],
+        months: [11, 12, 1, 2, 3], // Nov - Mar
+        peakMonths: [12, 1, 2],
+        tempMin: 14,
+        tempMax: 22,
+        habitat: "Glassy stillwater bays, muddy lake margins, and slow lowland tailwaters",
+        peakTime: "First light dawn (5:30 AM - 8:30 AM) before wind ripples the surface",
+        icon: "🦟",
+        stages: [
+            { stage: "Nymph", pattern: "Micro Unweighted Pheasant Tail", sizes: "#18 - #22", tippet: "6X - 7X Fluoro", tip: "Inch slowly just below the surface film near weed margins." },
+            { stage: "Spinner (Spent)", pattern: "Caenid Trico Spinner / Poly-Wing Curse", sizes: "#18 - #22", tippet: "6X - 7X Nylon", tip: "Lead cruising sipping trout by 4 feet on glassy dawn slicks." }
+        ]
+    },
 
     // --- 2. CADDISFLIES / SEDGES (Trichoptera) ---
     {
@@ -59,16 +83,18 @@ const AQUATIC_INSECT_HATCHES = [
         name: "Snowflake Caddis / Evening Sedge",
         order: "Caddis (Trichoptera)",
         orderKey: "caddis",
+        regions: ["vic_high", "nsw_snowy", "tas_lakes", "meadow"],
         months: [9, 10, 11, 12, 1, 2, 3, 4, 5], // Sep - May
+        peakMonths: [11, 12, 1, 2],
         tempMin: 11,
         tempMax: 21,
-        habitat: "Fast-flowing riffles, gravel river beds, and oxygenated pocket water",
+        habitat: "Fast-flowing riffles, gravel river beds, and oxygenated pocket water (Goulburn, Thredbo, Mitta)",
         peakTime: "Dusk / Twilight evening rise (6:00 PM - 8:30 PM)",
         icon: "🦋",
         stages: [
             { stage: "Larva (Case-builder)", pattern: "Peeping Caddis / Green Hydropsyche", sizes: "#12 - #16", tippet: "4X - 5X Fluoro", tip: "Dead-drift along bottom rocks where caddis larvae cling." },
             { stage: "Pupa / Emerger", pattern: "Caddis Pupa / Klinkhamer Olive", sizes: "#14 - #16", tippet: "5X Nylon", tip: "Swing fly near surface just before dark as pupae ascend." },
-            { stage: "Adult", pattern: "Elk Hair Caddis / Goddard Sedge", sizes: "#12 - #16", tippet: "5X Nylon", tip: "Skate or twitch fly across current to trigger predatory splash rises." }
+            { stage: "Adult", pattern: "Elk Hair Caddis / Snowflake Caddis", sizes: "#12 - #16", tippet: "5X Nylon", tip: "Skate or twitch fly across current to trigger predatory splash rises." }
         ]
     },
 
@@ -78,7 +104,9 @@ const AQUATIC_INSECT_HATCHES = [
         name: "Bloodworm & Chironomid Midge",
         order: "Midge (Diptera)",
         orderKey: "midge",
+        regions: ["stillwater", "nsw_snowy", "tas_lakes", "vic_high", "meadow"],
         months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], // All 12 Months
+        peakMonths: [5, 6, 7, 8, 9],
         tempMin: 2,
         tempMax: 24,
         habitat: "Stillwater lakes, hydro dams (Eucumbene, Jindabyne, Great Lake), and slow river tailwaters",
@@ -94,13 +122,15 @@ const AQUATIC_INSECT_HATCHES = [
     // --- 4. STONEFLIES (Plecoptera) ---
     {
         id: "hatch_golden_stonefly",
-        name: "Golden Stonefly / Giant Stonefly",
+        name: "Golden Stonefly / Eusthenia Alpine Stone",
         order: "Stonefly (Plecoptera)",
         orderKey: "stonefly",
+        regions: ["vic_high", "nsw_snowy", "tas_lakes"],
         months: [10, 11, 12, 1], // Oct - Jan
+        peakMonths: [10, 11, 12],
         tempMin: 9,
         tempMax: 17,
-        habitat: "Turbulent boulder-strewn alpine rivers and torrential rapids",
+        habitat: "Turbulent boulder-strewn alpine rivers and torrential rapids (Howqua, Thredbo, Rubicon)",
         peakTime: "Morning crawler migrations and late afternoon egg laying",
         icon: "🦗",
         stages: [
@@ -115,8 +145,10 @@ const AQUATIC_INSECT_HATCHES = [
         name: "Australian Gum Beetle & Red Tag",
         order: "Terrestrial (Coleoptera)",
         orderKey: "terrestrial",
+        regions: ["vic_high", "nsw_snowy", "tas_lakes", "stillwater", "meadow"],
         months: [11, 12, 1, 2, 3], // Nov - Mar (Australian Summer)
-        tempMin: 16,
+        peakMonths: [12, 1, 2],
+        tempMin: 15,
         tempMax: 30,
         habitat: "Tree-lined river banks, overhanging eucalyptus boughs, and mountain lakes",
         peakTime: "Hot, windy afternoons when beetles get blown onto water (1:00 PM - 5:30 PM)",
@@ -130,8 +162,10 @@ const AQUATIC_INSECT_HATCHES = [
         name: "Summer Grasshopper & Bush Cicada",
         order: "Terrestrial (Orthoptera)",
         orderKey: "terrestrial",
+        regions: ["vic_high", "nsw_snowy", "meadow"],
         months: [12, 1, 2, 3], // Dec - Mar
-        tempMin: 18,
+        peakMonths: [1, 2, 3],
+        tempMin: 17,
         tempMax: 34,
         habitat: "Grassy meadow stream banks, lowland rivers, and warmwater native bass rivers",
         peakTime: "Breezy sunny afternoons (12:00 PM - 6:00 PM)",
@@ -140,21 +174,57 @@ const AQUATIC_INSECT_HATCHES = [
             { stage: "Adult Terrestrial", pattern: "Foam Hopper / Cicada Bugger", sizes: "#6 - #10", tippet: "3X - 4X Nylon", tip: "Pound banks within 6 inches of grass edges; twitch once every 10 seconds." }
         ]
     },
+    {
+        id: "hatch_flying_ant_termite",
+        name: "Flying Ant & Summer Termite Fall",
+        order: "Terrestrial (Hymenoptera)",
+        orderKey: "terrestrial",
+        regions: ["vic_high", "nsw_snowy", "tas_lakes", "stillwater", "meadow"],
+        months: [11, 12, 1, 2, 3], // Nov - Mar
+        peakMonths: [1, 2],
+        tempMin: 16,
+        tempMax: 28,
+        habitat: "Forested rivers, alpine lakes, and humid pre-storm valley stretches",
+        peakTime: "Warm, humid pre-thunderstorm afternoons (<1012 hPa barometer drop)",
+        icon: "🐜",
+        stages: [
+            { stage: "Winged Adult", pattern: "Black/Cinnamon Foam Ant / McMurray Ant", sizes: "#14 - #18", tippet: "5X - 6X Nylon", tip: "Fish low in the surface film along windlanes and foam slicks." }
+        ]
+    },
 
-    // --- 6. FORAGE / MINNOWS, MUDYES & CRUSTACEANS ---
+    // --- 6. FORAGE / MINNOWS, MUDEYES, DAMSELS & CRUSTACEANS ---
     {
         id: "hatch_mudeye_dragonfly",
         name: "Australian Mudeye (Dragonfly Nymph)",
         order: "Forage & Odonata",
         orderKey: "forage",
+        regions: ["stillwater", "nsw_snowy", "tas_lakes"],
         months: [11, 12, 1, 2, 3, 4], // Nov - Apr
+        peakMonths: [12, 1, 2, 3],
         tempMin: 13,
         tempMax: 24,
-        habitat: "Weed beds, drowned timber, hydro dams, and reedy lake margins",
+        habitat: "Weed beds, drowned timber, hydro dams (Eucumbene, Jindabyne, Arthurs Lake)",
         peakTime: "Nightfall, twilight, and overcast dawn migrations",
         icon: "🦎",
         stages: [
-            { stage: "Migrating Nymph", pattern: "Mudeye Foam / Fur Mudeye", sizes: "#8 - #10", tippet: "4X Fluoro", tip: "Slow figure-eight retrieve across weed beds 2 feet below surface." }
+            { stage: "Migrating Nymph", pattern: "Mudeye Foam / Craig's Nighttime", sizes: "#6 - #10", tippet: "3X - 4X Fluoro", tip: "Slow figure-eight retrieve across weed beds 2 feet below surface after dark." }
+        ]
+    },
+    {
+        id: "hatch_olive_damsel",
+        name: "Olive Damselfly Nymph",
+        order: "Forage & Odonata",
+        orderKey: "forage",
+        regions: ["stillwater", "tas_lakes", "meadow"],
+        months: [10, 11, 12, 1, 2, 3], // Oct - Mar
+        peakMonths: [11, 12, 1, 2],
+        tempMin: 12,
+        tempMax: 23,
+        habitat: "Clear shallow stillwater weedbeds, lagoon margins, and slow backwaters",
+        peakTime: "Bright sunny mornings and midday (9:30 AM - 2:30 PM)",
+        icon: "🪲",
+        stages: [
+            { stage: "Swimming Nymph", pattern: "Marabou Olive Damsel / Eyes Damsel", sizes: "#10 - #14", tippet: "4X - 5X Fluoro", tip: "Sight-cast to cruising fish and retrieve with short, erratic 3-inch pulses." }
         ]
     },
     {
@@ -162,7 +232,9 @@ const AQUATIC_INSECT_HATCHES = [
         name: "Galaxias Minnow / Smelt / Yabby",
         order: "Forage & Baitfish",
         orderKey: "forage",
+        regions: ["vic_high", "nsw_snowy", "tas_lakes", "stillwater", "meadow"],
         months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], // Year-round
+        peakMonths: [5, 6, 7, 8, 9, 10],
         tempMin: 4,
         tempMax: 28,
         habitat: "Deep river pools, estuary drop-offs, and lake shorelines",
@@ -267,6 +339,7 @@ const FlyBoxApp = {
     flies: [],
     pendingPhotoFlyId: null,
     hatchFilters: {
+        region: 'all',
         month: new Date().getMonth() + 1,
         order: 'all',
         tempBracket: 'all'
@@ -581,42 +654,215 @@ const FlyBoxApp = {
         }).join('');
     },
 
-    // --- Master Hatch Guide Engine ---
-    renderHatchGuideUI() {
-        const container = document.getElementById('hatch-guide-cards-container');
-        if (!container) return;
-
-        const { month, order, tempBracket } = this.hatchFilters;
-
-        let filtered = AQUATIC_INSECT_HATCHES.filter(hatch => {
-            // 1. Month match
-            const matchesMonth = month === 'all' || hatch.months.includes(parseInt(month));
-
-            // 2. Order match
+    // --- Master Hatch Guide & 12-Month Emergence Calendar Engine (Option 4) ---
+    getFilteredHatches(ignoreMonth = false) {
+        const { region, month, order, tempBracket } = this.hatchFilters;
+        return AQUATIC_INSECT_HATCHES.filter(hatch => {
+            const matchesRegion = !region || region === 'all' || !Array.isArray(hatch.regions) || hatch.regions.includes(region);
+            const matchesMonth = ignoreMonth || month === 'all' || hatch.months.includes(parseInt(month));
             const matchesOrder = order === 'all' || hatch.orderKey === order;
 
-            // 3. Temp bracket match
             let matchesTemp = true;
             if (tempBracket === 'cold') matchesTemp = hatch.tempMin < 10;
             else if (tempBracket === 'spring') matchesTemp = hatch.tempMin <= 14 && hatch.tempMax >= 10;
             else if (tempBracket === 'prime') matchesTemp = hatch.tempMin <= 18 && hatch.tempMax >= 13;
             else if (tempBracket === 'summer') matchesTemp = hatch.tempMax >= 18;
 
-            return matchesMonth && matchesOrder && matchesTemp;
+            return matchesRegion && matchesMonth && matchesOrder && matchesTemp;
         });
+    },
+
+    renderHatchCalendarMatrix() {
+        const matrixEl = document.getElementById('hatch-calendar-matrix-container');
+        if (!matrixEl) return;
+
+        const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const curMonthNum = new Date().getMonth() + 1;
+        const selectedMonthNum = this.hatchFilters.month === 'all' ? null : parseInt(this.hatchFilters.month);
+        const hatchesForMatrix = this.getFilteredHatches(true);
+
+        if (hatchesForMatrix.length === 0) {
+            matrixEl.innerHTML = '';
+            return;
+        }
+
+        const headerCells = monthLabels.map((mName, idx) => {
+            const mNum = idx + 1;
+            const isSelected = selectedMonthNum === mNum;
+            const isCurrent = curMonthNum === mNum;
+            const bg = isSelected ? 'rgba(0, 210, 255, 0.25)' : (isCurrent ? 'rgba(16, 185, 129, 0.16)' : 'rgba(255,255,255,0.03)');
+            const color = isSelected ? 'var(--accent-teal)' : (isCurrent ? '#34d399' : 'var(--text-secondary)');
+            return `<th onclick="FlyBoxApp.selectMonthFromMatrix(${mNum})" style="cursor: pointer; padding: 5px 4px; text-align: center; font-size: 10.5px; background: ${bg}; color: ${color}; border-radius: 4px; user-select: none;" title="Tap to filter by ${mName}">${mName}${isCurrent ? '•' : ''}</th>`;
+        }).join('');
+
+        const rowsHtml = hatchesForMatrix.map(h => {
+            const cells = monthLabels.map((_, idx) => {
+                const mNum = idx + 1;
+                const isActive = h.months.includes(mNum);
+                const isPeak = Array.isArray(h.peakMonths) && h.peakMonths.includes(mNum);
+                const bg = isPeak
+                    ? 'rgba(16, 185, 129, 0.55)'
+                    : (isActive ? 'rgba(0, 210, 255, 0.22)' : 'rgba(255,255,255,0.02)');
+                const symbol = isPeak ? '🔥' : (isActive ? '•' : '');
+                return `<td onclick="FlyBoxApp.selectMonthFromMatrix(${mNum})" style="cursor: pointer; text-align: center; padding: 4px 2px; font-size: 10px; background: ${bg}; border-radius: 3px; color: #ecfdf5;" title="${h.name} — ${isPeak ? 'Peak Emergence' : (isActive ? 'Active Hatch' : 'Dormant')}">${symbol}</td>`;
+            }).join('');
+
+            return `
+                <tr>
+                    <td style="padding: 4px 8px; font-size: 11px; font-weight: 600; color: var(--text-primary); white-space: nowrap;">${h.icon} ${h.name.split('/')[0].trim()}</td>
+                    <td style="padding: 4px 6px; font-size: 10px; color: #38bdf8; white-space: nowrap;">${h.tempMin}–${h.tempMax}°C</td>
+                    ${cells}
+                </tr>
+            `;
+        }).join('');
+
+        matrixEl.innerHTML = `
+            <div style="background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 10px 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
+                    <span style="font-size: 11px; font-weight: 700; color: var(--accent-teal); text-transform: uppercase; letter-spacing: 0.4px;">📅 12-Month Australian Hatch Emergence Matrix (Tap any month to filter)</span>
+                    <div style="display: flex; gap: 10px; font-size: 10px; color: #94a3b8; align-items: center;">
+                        <span>🔥 Peak Hatch Window</span>
+                        <span><b style="color: var(--accent-teal);">•</b> Active Emergence</span>
+                        ${selectedMonthNum ? `<a href="javascript:void(0)" onclick="FlyBoxApp.selectMonthFromMatrix('all')" style="color: var(--accent-teal); text-decoration: underline;">Show All 12 Months</a>` : ''}
+                    </div>
+                </div>
+                <table style="width: 100%; border-collapse: separate; border-spacing: 3px;">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left; padding: 4px 8px; font-size: 10.5px; color: var(--text-secondary);">Insect / Forage</th>
+                            <th style="text-align: left; padding: 4px 6px; font-size: 10.5px; color: var(--text-secondary);">Trigger</th>
+                            ${headerCells}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    },
+
+    selectMonthFromMatrix(monthVal) {
+        const valStr = String(monthVal);
+        this.hatchFilters.month = valStr === String(this.hatchFilters.month) ? 'all' : valStr;
+        const monthSel = document.getElementById('hatch-filter-month');
+        if (monthSel) monthSel.value = String(this.hatchFilters.month);
+        this.renderHatchGuideUI();
+    },
+
+    loadSingleHatchToFlyBox(hatchId) {
+        const hatch = AQUATIC_INSECT_HATCHES.find(h => h.id === hatchId);
+        if (!hatch) return;
+        let addedCount = 0;
+        (hatch.stages || []).forEach(st => {
+            const patName = st.pattern.split('/')[0].trim();
+            const exists = this.flies.some(f => (f.name || '').toLowerCase() === patName.toLowerCase());
+            if (!exists) {
+                const cat = (st.stage.includes('Nymph') || st.stage.includes('Larva') || st.stage.includes('Pupa'))
+                    ? 'Nymph'
+                    : (st.stage.includes('Dun') || st.stage.includes('Adult') || st.stage.includes('Spinner') || st.stage.includes('Beetle'))
+                        ? 'Dry Fly'
+                        : 'Streamer';
+                const hookSz = st.sizes.split('-')[0].trim() || '#14';
+                this.flies.unshift({
+                    id: 'fly_hatch_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                    name: patName,
+                    category: cat,
+                    region: hatch.name.split('/')[0].trim(),
+                    seasons: hatch.months || [1,2,3,4,5,6,7,8,9,10,11,12],
+                    hookSizes: [hookSz],
+                    icon: hatch.icon || '🪰',
+                    description: `${st.stage}: ${st.tip}`,
+                    rating: 5
+                });
+                addedCount++;
+            }
+        });
+        if (addedCount > 0) {
+            this.saveFliesToStorage();
+            this.renderFlyBoxUI();
+            if (window.populateFlyDropdowns) window.populateFlyDropdowns();
+            if (window.populateComboTackleDropdowns) window.populateComboTackleDropdowns();
+            if (window.showSyncToast) window.showSyncToast(`📦 Loaded ${addedCount} "${hatch.name}" stage pattern${addedCount > 1 ? 's' : ''} into your Fly Box!`);
+        } else {
+            if (window.showSyncToast) window.showSyncToast(`✅ All patterns for "${hatch.name}" are already stocked in your Fly Box!`);
+        }
+    },
+
+    loadActiveHatchPackToFlyBox() {
+        const activeHatches = this.getFilteredHatches(false);
+        if (activeHatches.length === 0) {
+            if (window.showSyncToast) window.showSyncToast("⚠️ No active hatches match the current filter to load.");
+            return;
+        }
+        let addedCount = 0;
+        activeHatches.forEach(hatch => {
+            (hatch.stages || []).forEach(st => {
+                const patName = st.pattern.split('/')[0].trim();
+                const exists = this.flies.some(f => (f.name || '').toLowerCase() === patName.toLowerCase());
+                if (!exists) {
+                    const cat = (st.stage.includes('Nymph') || st.stage.includes('Larva') || st.stage.includes('Pupa'))
+                        ? 'Nymph'
+                        : (st.stage.includes('Dun') || st.stage.includes('Adult') || st.stage.includes('Spinner') || st.stage.includes('Beetle'))
+                            ? 'Dry Fly'
+                            : 'Streamer';
+                    const hookSz = st.sizes.split('-')[0].trim() || '#14';
+                    this.flies.unshift({
+                        id: 'fly_pack_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                        name: patName,
+                        category: cat,
+                        region: 'Hatch Pack',
+                        seasons: hatch.months || [1,2,3,4,5,6,7,8,9,10,11,12],
+                        hookSizes: [hookSz],
+                        icon: hatch.icon || '🪰',
+                        description: `${hatch.name} (${st.stage}): ${st.tip}`,
+                        rating: 5
+                    });
+                    addedCount++;
+                }
+            });
+        });
+
+        if (addedCount > 0) {
+            this.saveFliesToStorage();
+            this.renderFlyBoxUI();
+            if (window.populateFlyDropdowns) window.populateFlyDropdowns();
+            if (window.populateComboTackleDropdowns) window.populateComboTackleDropdowns();
+            if (window.showSyncToast) window.showSyncToast(`📦 Stocked ${addedCount} new hatch patterns from ${activeHatches.length} active hatches into your Virtual Fly Box!`);
+        } else {
+            if (window.showSyncToast) window.showSyncToast(`✅ All ${activeHatches.length} active hatch patterns are already stocked in your Fly Box!`);
+        }
+    },
+
+    renderHatchGuideUI() {
+        const container = document.getElementById('hatch-guide-cards-container');
+        if (!container) return;
+
+        this.renderHatchCalendarMatrix();
+        const filtered = this.getFilteredHatches(false);
 
         if (filtered.length === 0) {
             container.innerHTML = `
                 <div style="grid-column: 1 / -1; text-align: center; padding: 30px; background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px dashed var(--border-color);">
                     <span style="font-size: 36px; display: block; margin-bottom: 8px;">❄️</span>
                     <h4 style="margin: 0; color: var(--text-primary);">No active insect hatches matching selected filters</h4>
-                    <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Try switching to "All Months" or selecting "Midges & Chironomids" which hatch year-round.</p>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Try switching to "All Months" or "All Water Temps", or tap a month in the 12-Month Emergence Matrix above.</p>
                 </div>
             `;
             return;
         }
 
-        container.innerHTML = filtered.map(hatch => `
+        const regionBadgeLabels = {
+            vic_high: '🏔️ VIC High Country',
+            nsw_snowy: '❄️ NSW Snowy',
+            tas_lakes: '🏝️ TAS Highlands',
+            stillwater: '🏞️ Lakes/Dams',
+            meadow: '🌿 Meadow Streams'
+        };
+
+        container.innerHTML = filtered.map(hatch => {
+            const regionPills = (hatch.regions || []).slice(0, 3).map(r => `<span style="font-size: 9.5px; background: rgba(255,255,255,0.05); color: #94a3b8; padding: 2px 6px; border-radius: 4px;">${regionBadgeLabels[r] || r}</span>`).join(' ');
+            return `
             <div class="card glass shadow-lg" style="border-left: 4px solid var(--accent-teal); padding: 18px; display: flex; flex-direction: column; justify-content: space-between;">
                 <div>
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px;">
@@ -625,11 +871,17 @@ const FlyBoxApp = {
                             <div>
                                 <h3 style="margin: 0; font-size: 16px; color: var(--text-primary);">${hatch.name}</h3>
                                 <span style="font-size: 11.5px; color: var(--accent-teal); font-weight: 600;">${hatch.order}</span>
+                                <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">${regionPills}</div>
                             </div>
                         </div>
-                        <span class="badge" style="background: rgba(0, 210, 255, 0.12); color: var(--accent-blue); font-size: 10.5px;">
-                            🌡️ ${hatch.tempMin}°C - ${hatch.tempMax}°C
-                        </span>
+                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                            <span class="badge" style="background: rgba(0, 210, 255, 0.12); color: var(--accent-blue); font-size: 10.5px;">
+                                🌡️ ${hatch.tempMin}°C - ${hatch.tempMax}°C
+                            </span>
+                            <button type="button" class="btn btn-glass btn-sm" style="font-size: 10px; padding: 2px 7px; color: #34d399; border-color: rgba(16,185,129,0.4);" onclick="FlyBoxApp.loadSingleHatchToFlyBox('${hatch.id}')" title="Add all life-stages of this hatch to your Fly Box">
+                                📦 +All Stages
+                            </button>
+                        </div>
                     </div>
 
                     <div style="font-size: 11.5px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.4;">
@@ -648,7 +900,7 @@ const FlyBoxApp = {
                                     🎯 ${st.tip}
                                 </div>
                                 <div style="margin-top: 6px; text-align: right;">
-                                    <button class="btn btn-glass btn-sm" style="font-size: 10.5px; padding: 2px 8px;" onclick="FlyBoxApp.quickAddFromHatch('${st.pattern.split('/')[0].trim()}', '${st.stage.includes('Nymph') ? 'Nymph' : st.stage.includes('Larva') ? 'Nymph' : st.stage.includes('Dun') || st.stage.includes('Adult') || st.stage.includes('Spinner') ? 'Dry Fly' : 'Streamer'}', '${st.sizes.split('-')[0].trim()}', '${st.tip}')">
+                                    <button class="btn btn-glass btn-sm" style="font-size: 10.5px; padding: 2px 8px;" onclick="FlyBoxApp.quickAddFromHatch('${st.pattern.split('/')[0].trim().replace(/'/g, "\\'")}', '${st.stage.includes('Nymph') ? 'Nymph' : st.stage.includes('Larva') ? 'Nymph' : st.stage.includes('Dun') || st.stage.includes('Adult') || st.stage.includes('Spinner') ? 'Dry Fly' : 'Streamer'}', '${st.sizes.split('-')[0].trim()}', '${st.tip.replace(/'/g, "\\'")}')">
                                         ➕ Add to My Fly Box
                                     </button>
                                 </div>
@@ -657,7 +909,7 @@ const FlyBoxApp = {
                     </div>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
     },
 
     updateHatchFilters(key, val) {

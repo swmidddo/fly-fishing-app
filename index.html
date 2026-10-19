@@ -28,8 +28,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style & Offline Leaflet -->
-    <link rel="stylesheet" href="leaflet.css?v=101650">
-    <link rel="stylesheet" href="styles.css?v=101650">
+    <link rel="stylesheet" href="leaflet.css?v=101660">
+    <link rel="stylesheet" href="styles.css?v=101660">
     <script>
         // Backcountry Offline PWA Service Worker Registration & Live Auto-Update Engine
         if ('serviceWorker' in navigator) {
@@ -718,9 +718,48 @@
                         <button class="btn btn-glass" id="btn-map-weather">🌤️ Weather info</button>
                         <button class="btn btn-glass" id="btn-set-car">📍 Mark Car/Start</button>
                         <button class="btn btn-glass btn-danger" id="btn-clear-car">Clear Car</button>
-                        <button class="btn btn-glass" id="btn-add-spot-here">🌲 Add Spot Here</button>
+                        <button class="btn btn-glass" id="btn-add-spot-here">🌲 Pin Pool / Spot</button>
                         <button class="btn btn-primary" id="btn-map-recenter">🎯 Move Map to My Location</button>
-                        <button class="btn btn-glass" onclick="window.preCacheMapArea()" style="border-color: rgba(0, 210, 255, 0.4); color: var(--accent-teal);" title="Download and save map tiles for current view to use offline on the river">📥 Cache River Beat</button>
+                        <button class="btn btn-glass" onclick="window.preCacheMapArea()" style="border-color: rgba(0, 210, 255, 0.4); color: var(--accent-teal);" title="Download and save map tiles + stream gauge flow/temp snapshot for current view to use offline on the river">📥 Cache River Beat</button>
+                        <button class="btn btn-glass" id="btn-toggle-corridor-drawer" onclick="window.toggleCorridorPacksDrawer()" style="border-color: rgba(16, 185, 129, 0.45); color: #34d399; font-weight: 700;" title="Manage Offline River Corridor Packs &amp; Saved Pool Pins">🗺️ River Packs &amp; Pools</button>
+                    </div>
+                    <!-- Collapsible Offline Backcountry River Corridor Packs & Saved Pool Pins Drawer -->
+                    <div id="map-corridor-packs-drawer" style="display: none; background: rgba(10, 25, 47, 0.94); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 12px; padding: 12px 14px; margin: 8px 0; box-shadow: 0 6px 20px rgba(0,0,0,0.5);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+                            <div>
+                                <strong style="font-size: 13px; color: #34d399;">🗺️ Backcountry Offline River Corridor Packs &amp; Tactical Pool Pins</strong>
+                                <div style="font-size: 11px; color: #94a3b8;">Pre-cache multi-zoom river map tiles + live stream gauge flow/temp snapshots before entering dead zones.</div>
+                            </div>
+                            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                                <select id="corridor-preset-select" class="form-select" style="font-size: 11.5px; padding: 4px 8px; height: auto; min-width: 210px; background: rgba(15, 23, 42, 0.9); border-color: rgba(0, 210, 255, 0.35);">
+                                    <option value="current">📍 Current Map Viewport (Active River Beat)</option>
+                                    <option value="goulburn">🌊 Goulburn River Corridor (Thornton – Eildon, VIC)</option>
+                                    <option value="ovens">🌊 Ovens River Corridor (Bright – Porepunkah, VIC)</option>
+                                    <option value="howqua">🌊 Howqua River Backcountry (Sheepyard Flat, VIC)</option>
+                                    <option value="mitta">🌊 Mitta Mitta River Corridor (Hinnomunjie – Dartmouth, VIC)</option>
+                                    <option value="thredbo">❄️ Thredbo River Corridor (Crackenback – Jindabyne, NSW)</option>
+                                    <option value="eucumbene">❄️ Eucumbene River Corridor (Providence – Kiandra, NSW)</option>
+                                    <option value="greatlake">🏝️ Great Lake &amp; Shannon Rise Corridor (Central Highlands, TAS)</option>
+                                </select>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="window.downloadSelectedCorridorPack()" style="font-size: 11px; padding: 5px 10px; font-weight: 700;">
+                                    📥 Download Offline Pack
+                                </button>
+                                <button type="button" class="btn btn-glass btn-sm" onclick="window.toggleCorridorPacksDrawer(false)" style="font-size: 11px; padding: 4px 8px;">✕</button>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px;">
+                            <div>
+                                <div style="font-size: 10.5px; font-weight: 700; color: var(--accent-teal); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px;">📦 Downloaded Offline River Corridor Packs</div>
+                                <div id="offline-corridor-packs-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 175px; overflow-y: auto;"></div>
+                            </div>
+                            <div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <span style="font-size: 10.5px; font-weight: 700; color: #34d399; text-transform: uppercase; letter-spacing: 0.4px;">📌 Saved River Pool &amp; Backcountry Pins</span>
+                                    <button type="button" class="btn btn-glass btn-sm" onclick="document.getElementById('btn-add-spot-here').click()" style="font-size: 10px; padding: 2px 7px; color: #34d399; border-color: rgba(16,185,129,0.4);">+ Pin Current Spot</button>
+                                </div>
+                                <div id="saved-pool-pins-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 175px; overflow-y: auto;"></div>
+                            </div>
+                        </div>
                     </div>
                     <div id="map-trail-status-bar" style="display: none; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 6px 12px; background: rgba(10, 25, 47, 0.92); border: 1px solid rgba(245, 158, 11, 0.45); border-radius: 10px; font-size: 11.5px; color: var(--text-primary); margin: 6px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.4);">
                         <span id="map-trail-status-text">👣 <b>Wading Trail Active</b></span>
@@ -1392,18 +1431,28 @@
 
                 <!-- Master Aquatic Insect Hatch Matrix -->
                 <div class="card glass mb-20" style="padding: 20px; border-left: 4px solid var(--accent-teal);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
                         <div>
                             <h3 style="margin: 0; font-size: 17px; display: flex; align-items: center; gap: 8px;">
-                                <span>🦟</span> Master Aquatic Insect Hatch Guide
+                                <span>🦟</span> Master Aquatic Insect Hatch &amp; Regional Calendar
                             </h3>
                             <p style="font-size: 12px; color: var(--text-secondary); margin: 2px 0 0 0;">
-                                Filter Australian &amp; global insect emergence by month, water temperature, and insect family.
+                                Filter Victorian, NSW Snowy, Tasmanian &amp; global insect emergence by fishery region, month, and water temperature.
                             </p>
                         </div>
                         
                         <!-- Hatch Filter Matrix Controls -->
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                            <div>
+                                <select id="hatch-filter-region" class="form-select" style="font-size: 12px; padding: 5px 10px; border-color: rgba(16, 185, 129, 0.4);" onchange="FlyBoxApp.updateHatchFilters('region', this.value)">
+                                    <option value="all">🌏 All Regions &amp; Waters</option>
+                                    <option value="vic_high">🏔️ VIC High Country &amp; Goulburn/Ovens</option>
+                                    <option value="nsw_snowy">❄️ NSW Snowy Mountains (Thredbo/Eucumbene)</option>
+                                    <option value="tas_lakes">🏝️ Tasmanian Highland Lakes &amp; Rivers</option>
+                                    <option value="stillwater">🏞️ Alpine Lakes &amp; Hydro Dams (Stillwater)</option>
+                                    <option value="meadow">🌿 Lowland Meadow &amp; Native Streams</option>
+                                </select>
+                            </div>
                             <div>
                                 <select id="hatch-filter-month" class="form-select" style="font-size: 12px; padding: 5px 10px;" onchange="FlyBoxApp.updateHatchFilters('month', this.value)">
                                     <option value="all">📅 All Months</option>
@@ -1437,12 +1486,18 @@
                                     <option value="caddis">Caddisflies (Trichoptera)</option>
                                     <option value="midge">Midges (Diptera)</option>
                                     <option value="stonefly">Stoneflies (Plecoptera)</option>
-                                    <option value="terrestrial">Terrestrials (Beetles / Hoppers)</option>
-                                    <option value="forage">Forage (Minnow / Yabby / Mudeye)</option>
+                                    <option value="terrestrial">Terrestrials (Beetles / Hoppers / Ants)</option>
+                                    <option value="forage">Forage (Minnow / Yabby / Mudeye / Damsel)</option>
                                 </select>
                             </div>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="FlyBoxApp.loadActiveHatchPackToFlyBox()" style="font-size: 11.5px; padding: 6px 12px; font-weight: 700; background: linear-gradient(135deg, #10b981, #059669); border: none;" title="Stock all matching hatch patterns (Nymph, Emerger, Dry) for the selected filters directly into your Virtual Fly Box">
+                                📦 Load Active Hatch Pack to Fly Box
+                            </button>
                         </div>
                     </div>
+
+                    <!-- Interactive 12-Month × Hatch Emergence Calendar Matrix -->
+                    <div id="hatch-calendar-matrix-container" style="margin-bottom: 16px; overflow-x: auto;"></div>
 
                     <!-- Hatch Cards Grid -->
                     <div id="hatch-guide-cards-container" class="grid-two-col">
@@ -2226,26 +2281,51 @@
         </div>
     </div>
 
-    <!-- Add Fishing Spot Modal -->
+    <!-- Add Fishing Spot / Tactical River Pool Pin Modal -->
     <div class="modal" id="modal-add-spot">
         <div class="modal-content glass">
             <span class="modal-close" onclick="window.hideAddSpotModal()">&times;</span>
-            <h2>Add Fishing Spot</h2>
+            <h2>📌 Pin River Pool / Backcountry Waypoint</h2>
+            <div style="margin-bottom: 12px;">
+                <span style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; display: block; margin-bottom: 6px;">⚡ 1-Tap Tactical River Pool Presets:</span>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                    <button type="button" class="btn btn-glass btn-sm" onclick="window.applySpotPreset('sighted_trout', 'Sighted Trophy Trout Lie')" style="font-size: 11px; padding: 4px 9px; border-color: rgba(16,185,129,0.45); color: #34d399;">🐟 Sighted Trout</button>
+                    <button type="button" class="btn btn-glass btn-sm" onclick="window.applySpotPreset('spot', 'Prime Holding Pool / Riffle')" style="font-size: 11px; padding: 4px 9px; border-color: rgba(46,213,115,0.45); color: #2ed573;">🌲 Prime Pool</button>
+                    <button type="button" class="btn btn-glass btn-sm" onclick="window.applySpotPreset('snag', 'Snag / Undercut Logjam')" style="font-size: 11px; padding: 4px 9px; border-color: rgba(245,158,11,0.45); color: #fbbf24;">🪵 Snag / Logjam</button>
+                    <button type="button" class="btn btn-glass btn-sm" onclick="window.applySpotPreset('crossing', 'Safe Shallow Wading Crossing')" style="font-size: 11px; padding: 4px 9px; border-color: rgba(56,189,248,0.45); color: #38bdf8;">🦶 Safe Crossing</button>
+                    <button type="button" class="btn btn-glass btn-sm" onclick="window.applySpotPreset('hazard', 'Deep Hole / Wading Hazard')" style="font-size: 11px; padding: 4px 9px; border-color: rgba(239,68,68,0.45); color: #f87171;">⚠️ Wading Hazard</button>
+                    <button type="button" class="btn btn-glass btn-sm" onclick="window.applySpotPreset('parking', 'River Access / Vehicle Track')" style="font-size: 11px; padding: 4px 9px; border-color: rgba(255,159,67,0.45); color: #ff9f43;">🚗 Access Track</button>
+                </div>
+            </div>
             <form id="form-add-spot" class="modal-form">
                 <div class="form-group">
-                    <label for="spot-name">Spot Name *</label>
-                    <input type="text" id="spot-name" class="form-input" placeholder="e.g. Goulburn River Bend" required>
+                    <label for="spot-name">Pool / Waypoint Name *</label>
+                    <input type="text" id="spot-name" class="form-input" placeholder="e.g. Tailout Willow Bend, Sighted 4lb Brown, Shallow Gravel Crossing" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label for="spot-type">Pin Category &amp; Tactical Type *</label>
+                        <select id="spot-type" class="form-select" required>
+                            <option value="spot">🌲 Prime Holding Pool / Riffle</option>
+                            <option value="sighted_trout">🐟 Sighted Trophy Trout / Rise Form</option>
+                            <option value="snag">🪵 Snag / Logjam / Undercut Structure</option>
+                            <option value="crossing">🦶 Safe River Crossing / Shallow Gravel Bar</option>
+                            <option value="hazard">⚠️ Wading Hazard / Deep Drop-Off / Fast Chute</option>
+                            <option value="parking">🚗 Parking / Trailhead / Bank Access</option>
+                            <option value="campsite">🏕️ Campsite / Backcountry Hut</option>
+                            <option value="saltwater">🌊 Saltwater Flat / Channel Edge</option>
+                        </select>
+                    </div>
+                    <div class="form-group flex-1">
+                        <label for="spot-best-fly">🪰 Best Fly / Depth / Tippet (Optional)</label>
+                        <input type="text" id="spot-best-fly" class="form-input" placeholder="e.g. #14 Kosciuszko Dun, 5X, 1.2m seam">
+                    </div>
                 </div>
 
                 <div class="form-group">
-                    <label for="spot-type">Pin Category &amp; Water Type *</label>
-                    <select id="spot-type" class="form-select" required>
-                        <option value="spot">🌲 Freshwater Secret Spot Pin</option>
-                        <option value="saltwater">🌊 Saltwater Fishing Spot Pin</option>
-                        <option value="parking">🚗 Parking / Trailhead Access Pin</option>
-                        <option value="hazard">⚠️ Wading Hazard Warning Pin</option>
-                        <option value="campsite">🏕️ Campsite / River Shack Pin</option>
-                    </select>
+                    <label for="spot-notes">📝 Tactical Pool Notes (Approach, Current Seam, Shade, Structure)</label>
+                    <textarea id="spot-notes" class="form-input" rows="2" placeholder="e.g. Stay low on left gravel bank; cast upstream past sunken log into foam bubble line..."></textarea>
                 </div>
 
                 <div class="form-row">
@@ -2264,7 +2344,7 @@
 
                 <div class="modal-actions">
                     <button type="button" class="btn btn-glass" onclick="window.hideAddSpotModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Fishing Spot</button>
+                    <button type="submit" class="btn btn-primary">📌 Save Pool / Waypoint Pin</button>
                 </div>
             </form>
         </div>
@@ -2929,17 +3009,17 @@
 
     <!-- Scripts -->
     <script async src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="db.js?v=101650"></script>
-    <script src="regulations.js?v=101650"></script>
-    <script src="weather.js?v=101650"></script>
-    <script src="exif.js?v=101650"></script>
-    <script src="leaflet.js?v=101650"></script>
-    <script src="map.js?v=101650"></script>
-    <script src="tackle_db.js?v=101650"></script>
-    <script src="fish_db.js?v=101650"></script>
-    <script src="fly_box.js?v=101650"></script>
-    <script src="knots.js?v=101650"></script>
-    <script src="auth.js?v=101650"></script>
-    <script src="app.js?v=101650"></script>
+    <script src="db.js?v=101660"></script>
+    <script src="regulations.js?v=101660"></script>
+    <script src="weather.js?v=101660"></script>
+    <script src="exif.js?v=101660"></script>
+    <script src="leaflet.js?v=101660"></script>
+    <script src="map.js?v=101660"></script>
+    <script src="tackle_db.js?v=101660"></script>
+    <script src="fish_db.js?v=101660"></script>
+    <script src="fly_box.js?v=101660"></script>
+    <script src="knots.js?v=101660"></script>
+    <script src="auth.js?v=101660"></script>
+    <script src="app.js?v=101660"></script>
 </body>
 </html>

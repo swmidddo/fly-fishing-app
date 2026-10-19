@@ -1364,66 +1364,113 @@ const AppMap = {
         }
     },
 
-    // Fishing Spots management
-    saveFishingSpot(name, type, lat, lon) {
+    // Helper: Category metadata for tactical river pool & backcountry pins
+    getSpotCategoryMeta(type) {
+        const catalog = {
+            spot: { emoji: '🌲', color: '#2ed573', label: 'Prime Holding Pool / Riffle' },
+            sighted_trout: { emoji: '🐟', color: '#10b981', label: 'Sighted Trophy Trout / Rise' },
+            snag: { emoji: '🪵', color: '#f59e0b', label: 'Snag / Logjam / Structure' },
+            crossing: { emoji: '🦶', color: '#38bdf8', label: 'Safe Wading Crossing' },
+            hazard: { emoji: '⚠️', color: '#ff5252', label: 'Deep Hole / Wading Hazard' },
+            parking: { emoji: '🚗', color: '#ff9f43', label: 'Parking / Bank Access' },
+            campsite: { emoji: '🏕️', color: '#a855f7', label: 'Campsite / River Hut' },
+            saltwater: { emoji: '🌊', color: '#00e5ff', label: 'Saltwater Flat / Channel' }
+        };
+        return catalog[type] || catalog.spot;
+    },
+
+    // Fishing Spots & Tactical River Pool Pins management
+    saveFishingSpot(name, type, lat, lon, notes = '', bestFly = '') {
         const newSpot = {
             id: Date.now(),
             name: name,
-            type: type, // freshwater/saltwater
-            lat: lat,
-            lng: lon
+            type: type || 'spot',
+            lat: parseFloat(lat),
+            lng: parseFloat(lon),
+            notes: (notes || '').trim(),
+            bestFly: (bestFly || '').trim(),
+            createdAt: new Date().toISOString()
         };
         this.fishingSpotsData.push(newSpot);
         localStorage.setItem('fishingSpots', JSON.stringify(this.fishingSpotsData));
         this.renderFishingSpots();
+        this.renderCorridorAndPoolsDrawer();
+        if (window.showSyncToast) {
+            const meta = this.getSpotCategoryMeta(newSpot.type);
+            window.showSyncToast(`${meta.emoji} Saved "${newSpot.name}" to Backcountry Pool Pins!`);
+        }
         return newSpot;
     },
 
     deleteFishingSpot(id) {
-        this.fishingSpotsData = this.fishingSpotsData.filter(s => s.id !== id);
+        this.fishingSpotsData = this.fishingSpotsData.filter(s => String(s.id) !== String(id));
         localStorage.setItem('fishingSpots', JSON.stringify(this.fishingSpotsData));
         this.renderFishingSpots();
+        this.renderCorridorAndPoolsDrawer();
         this.updatePath();
+    },
+
+    panToFishingSpot(id) {
+        const spot = (this.fishingSpotsData || []).find(s => String(s.id) === String(id));
+        if (!spot || !this.map) return;
+        const lat = parseFloat(spot.lat);
+        const lng = parseFloat(spot.lng);
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        if (this.isGoogleMaps) {
+            this.map.setCenter({ lat, lng });
+            this.map.setZoom(Math.max(15, this.map.getZoom() || 15));
+        } else {
+            this.map.setView([lat, lng], Math.max(15, this.map.getZoom() || 15));
+        }
+        this.setActiveSpot(lat, lng, spot.name);
     },
 
     renderFishingSpots() {
         // Clear previous markers
         this.markers.fishingSpots.forEach(m => {
             if (this.isGoogleMaps) m.setMap(null);
-            else this.map.removeLayer(m);
+            else if (this.map) this.map.removeLayer(m);
         });
         this.markers.fishingSpots = [];
 
-        this.fishingSpotsData.forEach(spot => {
-            const pos = this.isGoogleMaps ? new google.maps.LatLng(spot.lat, spot.lng) : [spot.lat, spot.lng];
-            
-            let iconEmoji = '🌲';
-            let pinColor = '#2ed573';
+        (this.fishingSpotsData || []).forEach(spot => {
+            const lat = parseFloat(spot.lat);
+            const lng = parseFloat(spot.lng);
+            if (isNaN(lat) || isNaN(lng)) return;
 
-            if (spot.type === 'parking') {
-                iconEmoji = '🚗';
-                pinColor = '#ff9f43';
-            } else if (spot.type === 'hazard') {
-                iconEmoji = '⚠️';
-                pinColor = '#ff5252';
-            } else if (spot.type === 'campsite') {
-                iconEmoji = '🏕️';
-                pinColor = '#a855f7';
-            } else if (spot.type === 'saltwater') {
-                iconEmoji = '🌊';
-                pinColor = '#00e5ff';
-            }
+            const pos = this.isGoogleMaps ? new google.maps.LatLng(lat, lng) : [lat, lng];
+            const meta = this.getSpotCategoryMeta(spot.type);
+            const iconEmoji = meta.emoji;
+            const pinColor = meta.color;
+            const safeName = String(spot.name || 'Pool Pin').replace(/'/g, "\\'");
+
+            const popupHtml = `
+                <div style="color: #0f172a; font-family: sans-serif; min-width: 195px; padding: 4px;">
+                    <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #0284c7; letter-spacing: 0.4px;">${iconEmoji} ${meta.label}</div>
+                    <h4 style="margin: 2px 0 5px 0; font-size: 14.5px; color: #0f172a;">${spot.name}</h4>
+                    ${spot.bestFly ? `<p style="margin: 2px 0; font-size: 11.5px; color: #047857;"><b>🪰 Best Fly / Rig:</b> ${spot.bestFly}</p>` : ''}
+                    ${spot.notes ? `<p style="margin: 4px 0; font-size: 11.5px; color: #334155; background: #f1f5f9; padding: 5px 7px; border-radius: 5px; line-height: 1.35;">📝 ${spot.notes}</p>` : ''}
+                    <p style="margin: 3px 0; font-size: 10.5px; color: #64748b;">📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}</p>
+                    <div style="display: flex; gap: 5px; margin-top: 7px; border-top: 1px solid #cbd5e1; padding-top: 6px;">
+                        <button onclick="window.handleMapClickAction('catch', ${lat}, ${lng})" style="flex: 1.3; background: #0284c7; color: #fff; border: none; padding: 5px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">🐟 Log Catch</button>
+                        <button onclick="window.AppMap.setActiveSpot(${lat}, ${lng}, '${safeName}')" style="flex: 1; background: #10b981; color: #fff; border: none; padding: 5px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">🧭 Distance</button>
+                        <button onclick="window.deleteFishingSpotUI(${spot.id})" style="background: #ef4444; color: #fff; border: none; padding: 5px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">🗑️</button>
+                    </div>
+                </div>
+            `;
 
             if (this.isGoogleMaps) {
                 const marker = new google.maps.Marker({
                     position: pos,
                     map: this.map,
-                    title: spot.name,
+                    title: `${iconEmoji} ${spot.name}`,
                     label: iconEmoji
                 });
-                
+                const infoWin = new google.maps.InfoWindow({ content: popupHtml });
                 marker.addListener('click', () => {
-                    this.setActiveSpot(spot.lat, spot.lng, spot.name);
+                    this.setActiveSpot(lat, lng, spot.name);
+                    infoWin.open(this.map, marker);
                 });
 
                 this.markers.fishingSpots.push(marker);
@@ -1431,24 +1478,24 @@ const AppMap = {
                 const spotPinIcon = L.divIcon({
                     className: 'spot-pin-marker-wrapper',
                     html: `
-                        <div class="spot-pin-marker" style="position:relative; width:30px; height:30px; display:flex; align-items:center; justify-content:center;">
-                            <svg viewBox="0 0 24 24" width="30" height="30" style="filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));">
+                        <div class="spot-pin-marker" style="position:relative; width:32px; height:32px; display:flex; align-items:center; justify-content:center;">
+                            <svg viewBox="0 0 24 24" width="32" height="32" style="filter: drop-shadow(0 2px 5px rgba(0,0,0,0.55));">
                                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="${pinColor}" stroke="white" stroke-width="2"/>
                             </svg>
-                            <span style="position:absolute; top:4px; font-size:12px;">${iconEmoji}</span>
+                            <span style="position:absolute; top:4px; font-size:13px;">${iconEmoji}</span>
                         </div>
                     `,
-                    iconSize: [30, 30],
-                    iconAnchor: [15, 30],
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 32],
                     popupAnchor: [0, -30]
                 });
 
                 const marker = L.marker(pos, { icon: spotPinIcon })
                     .addTo(this.map)
-                    .bindPopup(`<b>${spot.name}</b><br>Type: ${spot.type}<br><button onclick="window.deleteFishingSpotUI(${spot.id})" style="color: #ff4d4d; border:none; background:none; cursor:pointer; padding:5px 0;">Delete Spot</button>`);
+                    .bindPopup(popupHtml);
                 
                 marker.on('click', () => {
-                    this.setActiveSpot(spot.lat, spot.lng, spot.name);
+                    this.setActiveSpot(lat, lng, spot.name);
                 });
 
                 this.markers.fishingSpots.push(marker);
@@ -1744,6 +1791,7 @@ const AppMap = {
         this.renderCatchSpots();
         this.renderWadingTrail();
         this.updateWadingTrailUI();
+        this.renderCorridorAndPoolsDrawer();
     },
 
     // Drop temporary coordinates pin
@@ -1758,7 +1806,7 @@ const AppMap = {
             <div class="map-context-popup">
                 <p>Location: <b>${lat.toFixed(5)}, ${lng.toFixed(5)}</b></p>
                 <button class="btn btn-primary" onclick="window.handleMapClickAction('catch', ${lat}, ${lng})">🐟 Log Catch Here</button>
-                <button class="btn btn-glass" onclick="window.handleMapClickAction('spot', ${lat}, ${lng})" style="margin-top:4px; border:1px solid rgba(255,255,255,0.2); color: #fff;">🌲 Add Fishing Spot</button>
+                <button class="btn btn-glass" onclick="window.handleMapClickAction('spot', ${lat}, ${lng})" style="margin-top:4px; border:1px solid rgba(255,255,255,0.2); color: #fff;">📌 Pin River Pool / Spot</button>
             </div>
         `;
 
@@ -1843,8 +1891,124 @@ const AppMap = {
         }
     },
 
-    // Pre-cache river map tiles for current map view before heading into the backcountry
-    async preCacheMapArea() {
+    // Curated Backcountry River Corridor Presets
+    getCorridorPresets() {
+        return {
+            goulburn: { name: 'Goulburn River (Thornton – Eildon, VIC)', lat: -37.2528, lng: 145.8442, zoom: 13 },
+            ovens: { name: 'Ovens River (Bright – Porepunkah, VIC)', lat: -36.7283, lng: 146.9598, zoom: 13 },
+            howqua: { name: 'Howqua River Backcountry (Sheepyard Flat, VIC)', lat: -37.2022, lng: 146.3455, zoom: 13 },
+            mitta: { name: 'Mitta Mitta River (Hinnomunjie – Dartmouth, VIC)', lat: -36.9480, lng: 147.6030, zoom: 13 },
+            thredbo: { name: 'Thredbo River (Crackenback – Jindabyne, NSW)', lat: -36.4180, lng: 148.5500, zoom: 13 },
+            eucumbene: { name: 'Eucumbene River (Providence – Kiandra, NSW)', lat: -35.9320, lng: 148.5910, zoom: 13 },
+            greatlake: { name: 'Great Lake & Shannon Rise (Central Highlands, TAS)', lat: -41.8950, lng: 146.7360, zoom: 13 }
+        };
+    },
+
+    getSavedCorridorPacks() {
+        try {
+            return JSON.parse(localStorage.getItem('offlineRiverCorridorPacks_v1') || '[]');
+        } catch (e) {
+            return [];
+        }
+    },
+
+    saveCorridorPackRecord(pack) {
+        try {
+            const list = this.getSavedCorridorPacks().filter(p => p.id !== pack.id && p.name !== pack.name);
+            list.unshift(pack);
+            localStorage.setItem('offlineRiverCorridorPacks_v1', JSON.stringify(list.slice(0, 12)));
+            this.renderCorridorAndPoolsDrawer();
+        } catch (e) {}
+    },
+
+    deleteCorridorPack(id) {
+        try {
+            const list = this.getSavedCorridorPacks().filter(p => String(p.id) !== String(id));
+            localStorage.setItem('offlineRiverCorridorPacks_v1', JSON.stringify(list));
+            this.renderCorridorAndPoolsDrawer();
+            if (window.showSyncToast) window.showSyncToast("🗑️ Offline River Corridor Pack removed.");
+        } catch (e) {}
+    },
+
+    jumpToCorridorPack(id) {
+        const pack = this.getSavedCorridorPacks().find(p => String(p.id) === String(id));
+        if (!pack || !this.map) return;
+        const lat = parseFloat(pack.lat);
+        const lng = parseFloat(pack.lng);
+        const zoom = pack.zoom || 13;
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        if (this.isGoogleMaps) {
+            this.map.setCenter({ lat, lng });
+            this.map.setZoom(zoom);
+        } else {
+            this.map.setView([lat, lng], zoom);
+        }
+        try {
+            localStorage.setItem('cachedRiverBeatCenter', JSON.stringify({ lat, lng, zoom, timestamp: Date.now() }));
+        } catch (e) {}
+        if (window.showSyncToast) {
+            window.showSyncToast(`🗺️ Jumped to "${pack.name}" (${pack.tilesCount || 120} offline tiles • ${pack.flowSnapshot || 'Cached'})`);
+        }
+    },
+
+    renderCorridorAndPoolsDrawer() {
+        const packsEl = document.getElementById('offline-corridor-packs-list');
+        const poolsEl = document.getElementById('saved-pool-pins-list');
+
+        if (packsEl) {
+            const packs = this.getSavedCorridorPacks();
+            if (packs.length === 0) {
+                packsEl.innerHTML = `<div style="font-size: 11px; color: #64748b; padding: 8px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px dashed rgba(255,255,255,0.08);">No offline corridor packs cached yet. Select a river above or tap <b>"📥 Download Offline Pack"</b> before heading out!</div>`;
+            } else {
+                packsEl.innerHTML = packs.map(p => {
+                    const dateStr = p.timestamp ? new Date(p.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+                    return `
+                        <div style="background: rgba(0, 210, 255, 0.06); border: 1px solid rgba(0, 210, 255, 0.25); border-radius: 8px; padding: 7px 9px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                            <div style="min-width: 0; flex: 1;">
+                                <div style="font-size: 11.5px; font-weight: 700; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">📦 ${p.name}</div>
+                                <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">
+                                    🗺️ ${p.tilesCount || 0} tiles • ${p.flowSnapshot || 'Stream Snapshot Saved'} ${dateStr ? `• ${dateStr}` : ''}
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 4px; flex-shrink: 0;">
+                                <button type="button" class="btn btn-glass btn-sm" onclick="window.AppMap.jumpToCorridorPack('${p.id}')" style="font-size: 10px; padding: 3px 7px; color: var(--accent-teal); border-color: rgba(0,210,255,0.4);">🗺️ Jump</button>
+                                <button type="button" class="btn btn-glass btn-danger btn-sm" onclick="window.AppMap.deleteCorridorPack('${p.id}')" style="font-size: 10px; padding: 3px 6px;">✕</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        if (poolsEl) {
+            const spots = this.fishingSpotsData || [];
+            if (spots.length === 0) {
+                poolsEl.innerHTML = `<div style="font-size: 11px; color: #64748b; padding: 8px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px dashed rgba(255,255,255,0.08);">No river pools or tactical pins saved yet. Tap anywhere on the map or click <b>"+ Pin Current Spot"</b>!</div>`;
+            } else {
+                poolsEl.innerHTML = spots.slice().reverse().map(s => {
+                    const meta = this.getSpotCategoryMeta(s.type);
+                    return `
+                        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-left: 3px solid ${meta.color}; border-radius: 8px; padding: 7px 9px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                            <div style="min-width: 0; flex: 1;">
+                                <div style="font-size: 11.5px; font-weight: 700; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${meta.emoji} ${s.name}</div>
+                                <div style="font-size: 10px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                    ${s.bestFly ? `🪰 ${s.bestFly} • ` : ''}${s.notes ? s.notes : meta.label}
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 4px; flex-shrink: 0;">
+                                <button type="button" class="btn btn-glass btn-sm" onclick="window.AppMap.panToFishingSpot('${s.id}')" style="font-size: 10px; padding: 3px 7px; color: #34d399; border-color: rgba(16,185,129,0.4);">🎯 Pan</button>
+                                <button type="button" class="btn btn-glass btn-danger btn-sm" onclick="window.deleteFishingSpotUI(${s.id})" style="font-size: 10px; padding: 3px 6px;">✕</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+    },
+
+    // Pre-cache river map tiles + live stream gauge/weather snapshot before heading into the backcountry
+    async preCacheMapArea(customPackOptions = null) {
         if (!this.map) {
             alert("Please wait for map to load first.");
             return;
@@ -1857,8 +2021,20 @@ const AppMap = {
         let centerLat = -25.2744;
         let centerLng = 133.7751;
         let currentZoom = 13;
+        let packName = '';
 
-        if (this.isGoogleMaps) {
+        if (customPackOptions && Number.isFinite(customPackOptions.lat) && Number.isFinite(customPackOptions.lng)) {
+            centerLat = customPackOptions.lat;
+            centerLng = customPackOptions.lng;
+            currentZoom = customPackOptions.zoom || 13;
+            packName = customPackOptions.name || '';
+            if (this.isGoogleMaps) {
+                this.map.setCenter({ lat: centerLat, lng: centerLng });
+                this.map.setZoom(currentZoom);
+            } else {
+                this.map.setView([centerLat, centerLng], currentZoom);
+            }
+        } else if (this.isGoogleMaps) {
             const c = this.map.getCenter();
             if (c) {
                 centerLat = c.lat();
@@ -1872,6 +2048,11 @@ const AppMap = {
                 centerLng = c.lng;
             }
             currentZoom = this.map.getZoom() || 13;
+        }
+
+        if (!packName) {
+            const locLabel = (window.AppState && window.AppState.locationName) ? window.AppState.locationName.split(',')[0].trim() : '';
+            packName = locLabel ? `${locLabel} River Beat` : `River Corridor (${centerLat.toFixed(2)}, ${centerLng.toFixed(2)})`;
         }
 
         // Save river beat center so offline launches open directly at this cached river beat!
@@ -1927,7 +2108,21 @@ const AppMap = {
             }
         }
 
-        if (window.showSyncToast) window.showSyncToast(`📥 Pre-caching ${urlsToFetch.length} backcountry river map tiles...`);
+        if (window.showSyncToast) window.showSyncToast(`📥 Pre-caching "${packName}" (${urlsToFetch.length} tiles + stream gauge snapshot)...`);
+
+        // Snapshot live stream gauge & weather conditions for this river corridor
+        let flowSnapshot = 'Offline Ready';
+        try {
+            if (window.WEATHER && typeof window.WEATHER.fetchLiveStreamGauge === 'function') {
+                const gauge = await window.WEATHER.fetchLiveStreamGauge(centerLat, centerLng);
+                if (gauge) {
+                    const parts = [];
+                    if (gauge.flowMLD != null) parts.push(`🌊 ${gauge.flowMLD} ML/d`);
+                    if (gauge.waterTemp != null) parts.push(`🌡️ ${gauge.waterTemp}°C`);
+                    if (parts.length > 0) flowSnapshot = parts.join(' • ');
+                }
+            }
+        } catch (e) {}
 
         try {
             const cache = await caches.open('fly-fishing-map-tiles');
@@ -1946,8 +2141,20 @@ const AppMap = {
                     } catch(e){}
                 }));
             }
-            if (window.showSyncToast) window.showSyncToast(`✅ ${completed} River Map Tiles Cached for Offline Use!`);
-            else alert(`Successfully downloaded ${completed} river map tiles for offline backcountry use!`);
+
+            this.saveCorridorPackRecord({
+                id: 'pack_' + Date.now(),
+                name: packName,
+                lat: centerLat,
+                lng: centerLng,
+                zoom: Math.max(12, Math.min(15, currentZoom)),
+                tilesCount: completed,
+                flowSnapshot,
+                timestamp: Date.now()
+            });
+
+            if (window.showSyncToast) window.showSyncToast(`✅ Cached "${packName}" (${completed} tiles • ${flowSnapshot}) for Offline Use!`);
+            else alert(`Successfully downloaded ${completed} river map tiles for "${packName}"!`);
         } catch(err) {
             console.warn("Tile caching error:", err);
             alert("Notice pre-caching tiles: " + err.message);
@@ -1956,9 +2163,40 @@ const AppMap = {
 };
 
 window.AppMap = AppMap;
-window.preCacheMapArea = function() {
+window.preCacheMapArea = function(customPackOptions = null) {
     if (window.AppMap && typeof window.AppMap.preCacheMapArea === 'function') {
+        window.AppMap.preCacheMapArea(customPackOptions);
+    }
+};
+window.toggleCorridorPacksDrawer = function(forceState = null) {
+    const drawer = document.getElementById('map-corridor-packs-drawer');
+    if (!drawer) return;
+    const isVisible = drawer.style.display !== 'none';
+    const nextState = forceState !== null ? forceState : !isVisible;
+    drawer.style.display = nextState ? 'block' : 'none';
+    if (nextState && window.AppMap && typeof window.AppMap.renderCorridorAndPoolsDrawer === 'function') {
+        window.AppMap.renderCorridorAndPoolsDrawer();
+    }
+};
+window.downloadSelectedCorridorPack = function() {
+    const sel = document.getElementById('corridor-preset-select');
+    const key = sel ? sel.value : 'current';
+    if (!window.AppMap) return;
+    if (key === 'current') {
         window.AppMap.preCacheMapArea();
+    } else {
+        const presets = window.AppMap.getCorridorPresets();
+        if (presets[key]) {
+            window.AppMap.preCacheMapArea(presets[key]);
+        }
+    }
+};
+window.applySpotPreset = function(typeKey, defaultName) {
+    const typeEl = document.getElementById('spot-type');
+    const nameEl = document.getElementById('spot-name');
+    if (typeEl) typeEl.value = typeKey;
+    if (nameEl && !nameEl.value.trim()) {
+        nameEl.value = defaultName;
     }
 };
 window.toggleMapEngine = function() {
@@ -1995,4 +2233,5 @@ window.viewWadingTrailOnMap = function() {
         }
     }, 180);
 };
+
 
