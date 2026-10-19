@@ -84,7 +84,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101685';
+window.APP_VERSION = 'v101690';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -12036,6 +12036,23 @@ Respond ONLY in valid JSON format:
             }, 250);
         } catch (e) {
             console.warn('launchOfflineRiverSessionFromPreFlight notice:', e);
+        }
+    };
+
+    window.toggleMapToolsDrawer = function(forceState) {
+        const drawer = document.getElementById('map-tools-drawer');
+        const toggleBtn = document.getElementById('btn-map-tools-toggle');
+        if (!drawer) return;
+        const isOpen = drawer.style.display !== 'none';
+        const nextState = typeof forceState === 'boolean' ? forceState : !isOpen;
+        drawer.style.display = nextState ? 'block' : 'none';
+        if (toggleBtn) {
+            toggleBtn.innerHTML = nextState ? '🛠️ Tools &amp; Layers ▴' : '🛠️ Tools &amp; Layers ▾';
+        }
+        // Close corridor packs drawer if opening tools drawer so they never stack
+        if (nextState) {
+            const corrDrawer = document.getElementById('map-corridor-packs-drawer');
+            if (corrDrawer) corrDrawer.style.display = 'none';
         }
     };
 
