@@ -84,7 +84,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101620';
+window.APP_VERSION = 'v101630';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -4915,6 +4915,13 @@ window.initMainApp = async function() {
         whistleCtx: null,
         whistleInterval: null,
         isWhistling: false,
+        navMode: 'trail', // 'trail' (Retrace Footsteps) or 'direct' (Direct to Car)
+        lastTargetBearing: 0,
+
+        setNavMode(mode) {
+            this.navMode = mode === 'direct' ? 'direct' : 'trail';
+            this.updateHud();
+        },
 
         // NOAA Astronomical Solar Calculation Formula (100% Offline)
         calculateSolarEvents(lat, lon, date = new Date()) {
@@ -5116,15 +5123,14 @@ window.initMainApp = async function() {
             const roseEl = document.getElementById('hud-compass-rose');
             const statusEl = document.getElementById('hud-compass-status');
 
-            if (bearing === undefined) {
-                const user = this.getUserCoordinates();
-                const car = this.getCarCoordinates();
-                if (car) bearing = this.calculateBearing(user.lat, user.lng, car.lat, car.lng);
-                else bearing = 0;
+            if (bearing !== undefined && Number.isFinite(bearing)) {
+                this.lastTargetBearing = bearing;
+            } else {
+                bearing = Number.isFinite(this.lastTargetBearing) ? this.lastTargetBearing : 0;
             }
 
             if (this.deviceHeading !== null && Number.isFinite(this.deviceHeading)) {
-                // Device gyro heading is available: Needle points towards car relative to screen orientation
+                // Device gyro heading is available: Needle points towards target relative to screen orientation
                 const relativeAngle = ((bearing - this.deviceHeading) + 360) % 360;
                 if (needleEl) needleEl.style.transform = `rotate(${relativeAngle}deg)`;
                 if (roseEl) roseEl.style.transform = `rotate(${-this.deviceHeading}deg)`;
@@ -5141,6 +5147,12 @@ window.initMainApp = async function() {
             const now = new Date();
             const user = this.getUserCoordinates();
             const car = this.getCarCoordinates();
+
+            // Ensure saved breadcrumb trail is loaded even if Map tab hasn't been opened yet
+            if (window.AppMap && !window.AppMap._trailRestoredOnce && typeof window.AppMap.loadWadingTrailFromStorage === 'function') {
+                window.AppMap._trailRestoredOnce = true;
+                window.AppMap.loadWadingTrailFromStorage();
+            }
 
             // 1. Solar Events (NOAA calculation cached per date & 0.001° coordinate)
             const solarKey = `${user.lat.toFixed(3)}_${user.lng.toFixed(3)}_${now.toDateString()}`;
@@ -5247,11 +5259,80 @@ window.initMainApp = async function() {
             }
             if (dashDuskSub && dashDuskSub.textContent !== labelText) dashDuskSub.textContent = labelText;
 
-            // 3. Vehicle Distance, Bearing, and Bushwalk ETA
-            let distanceMeters = 0;
-            let bearingDeg = 0;
-            let cardinal = 'N';
-            let walkMins = 0;
+            // 3. Vehicle Distance, Offline GPS Breadcrumb Trail, Bearing, and Bushwalk ETA
+            const fmtDist = (m) => m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(2)} km`;
+
+            const guidance = (window.AppMap && typeof window.AppMap.getRetraceGuidance === 'function')
+                ? window.AppMap.getRetraceGuidance(user.lat, user.lng, car)
+                : null;
+            const isRec = !!(window.AppMap && window.AppMap.isRecordingTrack);
+            const ptCount = (window.AppMap && Array.isArray(window.AppMap.wadingTrackPoints))
+                ? window.AppMap.wadingTrackPoints.length
+                : 0;
+            const walkedMeters = (window.AppMap && Number.isFinite(window.AppMap.wadingTrackDistanceMeters))
+                ? window.AppMap.wadingTrackDistanceMeters
+                : 0;
+
+            // Update HUD Trail Recorder Panel & Navigation Mode Switcher
+            const trailBadgeEl = document.getElementById('hud-trail-status-badge');
+            const trailSummaryEl = document.getElementById('hud-trail-summary-text');
+            const trailToggleBtn = document.getElementById('btn-hud-trail-toggle');
+            const trailDistValEl = document.getElementById('hud-trail-dist-val');
+            const directDistValEl = document.getElementById('hud-direct-dist-val');
+            const modeTrailBtn = document.getElementById('btn-hud-mode-trail');
+            const modeDirectBtn = document.getElementById('btn-hud-mode-direct');
+            const needlePolyEl = document.getElementById('hud-needle-polygon');
+            const carLabelEl = document.getElementById('hud-readout-car-label');
+
+            if (trailBadgeEl) {
+                if (isRec) {
+                    trailBadgeEl.innerHTML = '🔴 Recording Live';
+                    trailBadgeEl.style.cssText = 'background: rgba(239, 68, 68, 0.2); color: #fbbf24; border: 1px solid #ef4444; font-size: 10px;';
+                } else if (ptCount > 0) {
+                    trailBadgeEl.innerHTML = `⏸️ Saved (${ptCount} pts)`;
+                    trailBadgeEl.style.cssText = 'background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; font-size: 10px;';
+                } else {
+                    trailBadgeEl.innerHTML = '⚪ Standby';
+                    trailBadgeEl.style.cssText = 'background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); font-size: 10px;';
+                }
+            }
+
+            if (trailSummaryEl) {
+                if (ptCount > 0 && guidance) {
+                    trailSummaryEl.innerHTML = `Walked <b>${fmtDist(walkedMeters)}</b> (${ptCount} waypoints) &bull; Retrace Return Path: <strong style="color:#fbbf24;">${fmtDist(guidance.trailReturnMeters)}</strong>`;
+                } else {
+                    trailSummaryEl.textContent = 'Records your river footsteps offline so you can retrace every bend back to your vehicle after dark.';
+                }
+            }
+
+            if (trailToggleBtn) {
+                if (isRec) {
+                    trailToggleBtn.innerHTML = '⏸️ Pause Trail Recording';
+                    trailToggleBtn.style.background = 'rgba(239, 68, 68, 0.22)';
+                    trailToggleBtn.style.color = '#fbbf24';
+                    trailToggleBtn.style.border = '1px solid #ef4444';
+                } else if (ptCount > 0) {
+                    trailToggleBtn.innerHTML = '▶️ Resume Trail Recording';
+                    trailToggleBtn.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+                    trailToggleBtn.style.color = '#000';
+                    trailToggleBtn.style.border = 'none';
+                } else {
+                    trailToggleBtn.innerHTML = '▶️ Start Recording Trail';
+                    trailToggleBtn.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+                    trailToggleBtn.style.color = '#000';
+                    trailToggleBtn.style.border = 'none';
+                }
+            }
+
+            if (modeTrailBtn && modeDirectBtn) {
+                const isTrailSelected = this.navMode !== 'direct';
+                modeTrailBtn.style.cssText = isTrailSelected
+                    ? 'background: rgba(245, 158, 11, 0.24); color: #fbbf24; border: 1px solid #f59e0b; border-radius: 6px; padding: 6px 8px; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: all 0.2s;'
+                    : 'background: transparent; color: #94a3b8; border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;';
+                modeDirectBtn.style.cssText = !isTrailSelected
+                    ? 'background: rgba(0, 210, 255, 0.22); color: #00f0ff; border: 1px solid #00d2ff; border-radius: 6px; padding: 6px 8px; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: all 0.2s;'
+                    : 'background: transparent; color: #94a3b8; border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;';
+            }
 
             const distEl = document.getElementById('hud-readout-distance');
             const bearingEl = document.getElementById('hud-readout-bearing');
@@ -5262,27 +5343,77 @@ window.initMainApp = async function() {
             const safetyIconEl = document.getElementById('hud-safety-icon');
             const safetyTextEl = document.getElementById('hud-safety-text');
 
-            if (car) {
-                distanceMeters = this.calculateDistance(user.lat, user.lng, car.lat, car.lng);
-                bearingDeg = this.calculateBearing(user.lat, user.lng, car.lat, car.lng);
-                cardinal = this.getCardinal(bearingDeg);
+            const hasActiveTrail = !!(guidance && guidance.totalPoints >= 1);
+            const useTrailMode = (this.navMode !== 'direct') && (hasActiveTrail && (guidance.totalPoints >= 2 || !car));
 
-                // Backcountry river walking pace ~3.0 km/h = 50m / minute
-                walkMins = Math.max(1, Math.ceil(distanceMeters / 50));
+            if (trailDistValEl) {
+                trailDistValEl.textContent = hasActiveTrail ? fmtDist(guidance.trailReturnMeters) : 'No Trail Yet';
+            }
 
-                const distDisplay = distanceMeters < 1000 
-                    ? `${Math.round(distanceMeters)} m` 
-                    : `${(distanceMeters / 1000).toFixed(2)} km`;
-                const bearingDisplay = `${Math.round(bearingDeg)}° ${cardinal}`;
+            if (car || hasActiveTrail) {
+                const directMeters = car
+                    ? this.calculateDistance(user.lat, user.lng, car.lat, car.lng)
+                    : (guidance ? guidance.trailReturnMeters : 0);
+                const directBearing = car
+                    ? this.calculateBearing(user.lat, user.lng, car.lat, car.lng)
+                    : (guidance ? guidance.bearingToNextDeg : 0);
 
-                if (distEl && distEl.textContent !== distDisplay) distEl.textContent = distDisplay;
-                if (bearingEl && bearingEl.textContent !== bearingDisplay) bearingEl.textContent = bearingDisplay;
+                if (directDistValEl) {
+                    directDistValEl.textContent = car ? fmtDist(directMeters) : '-- m';
+                }
+
+                // Active navigation target: either Next Breadcrumb along River Trail OR Direct Crow-Flies to Car
+                const effectiveReturnMeters = (hasActiveTrail && this.navMode !== 'direct')
+                    ? Math.max(directMeters, guidance.trailReturnMeters)
+                    : directMeters;
+
+                const targetBearingDeg = useTrailMode ? guidance.bearingToNextDeg : directBearing;
+                const targetCardinal = this.getCardinal(targetBearingDeg);
+
+                // Backcountry river walking pace ~3.0 km/h = 50m / minute along the true trail
+                const walkMins = Math.max(1, Math.ceil(effectiveReturnMeters / 50));
+
+                const primaryDistDisplay = useTrailMode
+                    ? fmtDist(guidance.trailReturnMeters)
+                    : fmtDist(directMeters);
+                const bearingDisplay = `${Math.round(targetBearingDeg)}° ${targetCardinal}`;
+
+                if (distEl && distEl.textContent !== primaryDistDisplay) distEl.textContent = primaryDistDisplay;
+                if (bearingEl) {
+                    bearingEl.textContent = bearingDisplay;
+                    bearingEl.style.color = useTrailMode ? '#fbbf24' : 'var(--accent-teal)';
+                }
+                if (needlePolyEl) {
+                    needlePolyEl.setAttribute('fill', useTrailMode ? '#fbbf24' : 'url(#needleGrad)');
+                }
+                if (carLabelEl) {
+                    if (useTrailMode) {
+                        const nextDistStr = fmtDist(guidance.distToNextMeters);
+                        carLabelEl.innerHTML = guidance.isFinalApproach
+                            ? `👣 Final Hop to Start (${nextDistStr})`
+                            : `👣 Next Breadcrumb #${guidance.targetNumber} (${nextDistStr})`;
+                        carLabelEl.style.color = '#fbbf24';
+                    } else {
+                        carLabelEl.textContent = 'Vehicle Waypoint (Direct)';
+                        carLabelEl.style.color = '#94a3b8';
+                    }
+                }
+
                 if (walkEtaEl) walkEtaEl.textContent = `~${walkMins} mins`;
-                if (dashCarDistEl) dashCarDistEl.textContent = `🚗 Car: ${distDisplay} ${cardinal}`;
-                if (dashCarBearingEl) dashCarBearingEl.textContent = `Bearing: ${bearingDisplay} • Tap for HUD →`;
+                if (dashCarDistEl) {
+                    dashCarDistEl.textContent = hasActiveTrail
+                        ? `👣 Trail: ${fmtDist(guidance.trailReturnMeters)} (${targetCardinal})`
+                        : `🚗 Car: ${fmtDist(directMeters)} ${this.getCardinal(directBearing)}`;
+                }
+                if (dashCarBearingEl) {
+                    dashCarBearingEl.textContent = hasActiveTrail
+                        ? `Next WP: ${bearingDisplay} • ~${walkMins}m walk →`
+                        : `Bearing: ${bearingDisplay} • Tap for HUD →`;
+                }
 
-                // Bushwhack Advisor Alert logic
+                // Bushwhack Advisor Alert logic (uses true river trail walk time when trail is recorded!)
                 const lightMinsRemaining = remainingMs !== null ? Math.floor(remainingMs / 60000) : 999;
+                const modeNote = hasActiveTrail ? 'river trail walk' : 'bushwalk';
 
                 if (safetyAlertEl && safetyTextEl) {
                     const isUrgent = lightMinsRemaining > 0 && lightMinsRemaining < walkMins;
@@ -5290,36 +5421,41 @@ window.initMainApp = async function() {
                     if (lightMinsRemaining <= 0) {
                         safetyAlertEl.style = "margin-top: 12px; padding: 10px 14px; border-radius: 8px; font-size: 11.5px; text-align: left; display: flex; align-items: center; gap: 8px; background: rgba(239, 68, 68, 0.2); border: 1.5px solid #ef4444; color: #ff5252;";
                         if (safetyIconEl) safetyIconEl.textContent = '🚨';
-                        safetyTextEl.innerHTML = `<strong>PITCH BLACK:</strong> Estimated ~${walkMins} min bushwalk back to vehicle. Turn on headlamp, watch for river snags, and use whistle if separated!`;
+                        safetyTextEl.innerHTML = `<strong>PITCH BLACK:</strong> Estimated ~${walkMins} min ${modeNote} back to vehicle. Follow the compass breadcrumb bearings and use your headlamp!`;
                     } else if (lightMinsRemaining < walkMins) {
                         safetyAlertEl.style = "margin-top: 12px; padding: 10px 14px; border-radius: 8px; font-size: 11.5px; text-align: left; display: flex; align-items: center; gap: 8px; background: rgba(239, 68, 68, 0.2); border: 2px solid #ef4444; color: #ff5252;";
                         if (safetyIconEl) safetyIconEl.textContent = '🚨';
-                        safetyTextEl.innerHTML = `<strong>TURN BACK NOW!</strong> Your ~${walkMins} min walk exceeds the ${lightMinsRemaining} mins of legal daylight remaining. Reel in immediately!`;
+                        safetyTextEl.innerHTML = `<strong>TURN BACK NOW!</strong> Your ~${walkMins} min ${modeNote} (${fmtDist(effectiveReturnMeters)}) exceeds the ${lightMinsRemaining} mins of legal daylight remaining. Reel in immediately!`;
                     } else if (lightMinsRemaining <= walkMins + 15) {
                         safetyAlertEl.style = "margin-top: 12px; padding: 8px 12px; border-radius: 8px; font-size: 11.5px; text-align: left; display: flex; align-items: center; gap: 8px; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #fbbf24;";
                         if (safetyIconEl) safetyIconEl.textContent = '⚠️';
-                        safetyTextEl.innerHTML = `<strong>TIGHT WINDOW:</strong> ~${walkMins} min walk with ${lightMinsRemaining} mins of light remaining. Begin working your way back downstream.`;
+                        safetyTextEl.innerHTML = `<strong>TIGHT WINDOW:</strong> ~${walkMins} min ${modeNote} (${fmtDist(effectiveReturnMeters)}) with ${lightMinsRemaining} mins of light remaining. Begin retracing your footsteps now.`;
                     } else {
                         safetyAlertEl.style = "margin-top: 12px; padding: 8px 12px; border-radius: 8px; font-size: 11.5px; text-align: left; display: flex; align-items: center; gap: 8px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); color: #34d399;";
                         if (safetyIconEl) safetyIconEl.textContent = '🟢';
-                        safetyTextEl.innerHTML = `<strong>SAFE WINDOW:</strong> ~${walkMins} min walk back. You have ~${lightMinsRemaining - walkMins} mins of fishing before you need to start hiking.`;
+                        safetyTextEl.innerHTML = `<strong>SAFE WINDOW:</strong> ~${walkMins} min ${modeNote} back (${fmtDist(effectiveReturnMeters)}). You have ~${lightMinsRemaining - walkMins} mins of fishing before hiking back.`;
                     }
                 }
 
                 // Update needle visual
-                this.updateCompassVisuals(bearingDeg);
+                this.updateCompassVisuals(targetBearingDeg);
             } else {
                 if (distEl) distEl.textContent = '-- m';
                 if (bearingEl) bearingEl.textContent = 'Not Set';
+                if (directDistValEl) directDistValEl.textContent = '-- m';
+                if (carLabelEl) {
+                    carLabelEl.textContent = 'Vehicle Waypoint';
+                    carLabelEl.style.color = '#94a3b8';
+                }
                 if (walkEtaEl) walkEtaEl.textContent = '--';
                 if (dashCarDistEl) dashCarDistEl.textContent = '🚗 Car: Not Set';
-                if (dashCarBearingEl) dashCarBearingEl.textContent = 'Tap to mark vehicle & view HUD →';
+                if (dashCarBearingEl) dashCarBearingEl.textContent = 'Tap to mark vehicle & start trail →';
 
                 if (safetyAlertEl && safetyTextEl) {
                     safetyAlertEl.classList.remove('hud-pulse-urgent');
                     safetyAlertEl.style = "margin-top: 12px; padding: 8px 12px; border-radius: 8px; font-size: 11.5px; text-align: left; display: flex; align-items: center; gap: 8px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); color: #fbbf24;";
                     if (safetyIconEl) safetyIconEl.textContent = '📍';
-                    safetyTextEl.innerHTML = `<strong>VEHICLE NOT MARKED:</strong> Tap <b>'Mark Vehicle Here'</b> below to save your vehicle coordinates before dusk!`;
+                    safetyTextEl.innerHTML = `<strong>VEHICLE NOT MARKED:</strong> Tap <b>'Mark Vehicle Here'</b> below to save your car location and automatically start your offline GPS breadcrumb trail!`;
                 }
 
                 this.updateCompassVisuals(0);
@@ -5513,6 +5649,7 @@ window.initMainApp = async function() {
         if (ReturnCarHud.isWhistling) ReturnCarHud.stopWhistle();
     };
 
+    window.setHudNavMode = function(mode) { ReturnCarHud.setNavMode(mode); };
     window.toggleHudNightVision = function() { ReturnCarHud.toggleNightVision(); };
     window.markCarAtCurrentLocationFromHud = function() { ReturnCarHud.markCarAtCurrentLocation(); };
     window.clearCarLocationFromHud = function() { ReturnCarHud.clearCarLocation(); };

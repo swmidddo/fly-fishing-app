@@ -17,47 +17,526 @@ const AppMap = {
     activeSpotCoords: null,
     onMapClickCallback: null,
 
-    // Wading GPS Track Recorder
+    // Offline GPS Breadcrumb Trail & "Retrace Footsteps" Wading Track Engine
     isRecordingTrack: false,
     wadingTrackPoints: [],
+    wadingTrackDistanceMeters: 0,
+    wadingTrackStartedAt: null,
+    trackWatchId: null,
     trackPolyline: null,
+    trackGlowPolyline: null,
+    trackRetraceLine: null,
+    trackWaypointMarkers: [],
 
-    startWadingTrack() {
-        this.isRecordingTrack = true;
-        this.wadingTrackPoints = [];
-        if (this.userCoords) {
-            this.wadingTrackPoints.push([this.userCoords.lat, this.userCoords.lng]);
+    getHaversineMeters(lat1, lng1, lat2, lng2) {
+        if (!Number.isFinite(lat1) || !Number.isFinite(lng1) || !Number.isFinite(lat2) || !Number.isFinite(lng2)) return 0;
+        const R = 6371e3;
+        const p1 = lat1 * Math.PI / 180;
+        const p2 = lat2 * Math.PI / 180;
+        const dp = (lat2 - lat1) * Math.PI / 180;
+        const dl = (lng2 - lng1) * Math.PI / 180;
+        const a = Math.sin(dp / 2) * Math.sin(dp / 2) +
+                  Math.cos(p1) * Math.cos(p2) *
+                  Math.sin(dl / 2) * Math.sin(dl / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    },
+
+    getBearingDeg(lat1, lng1, lat2, lng2) {
+        const p1 = lat1 * Math.PI / 180;
+        const p2 = lat2 * Math.PI / 180;
+        const dl = (lng2 - lng1) * Math.PI / 180;
+        const y = Math.sin(dl) * Math.cos(p2);
+        const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
+        return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    },
+
+    normalizeTrackPoint(pt) {
+        if (!pt) return null;
+        if (Array.isArray(pt) && pt.length >= 2) {
+            return { lat: Number(pt[0]), lng: Number(pt[1]), ts: pt[2] || Date.now() };
         }
-        console.log("Wading GPS track recording started.");
+        if (Number.isFinite(pt.lat) && Number.isFinite(pt.lng)) {
+            return { lat: Number(pt.lat), lng: Number(pt.lng), ts: pt.ts || Date.now() };
+        }
+        return null;
+    },
+
+    loadWadingTrailFromStorage() {
+        this._trailRestoredOnce = true;
+        try {
+            const raw = localStorage.getItem('wadingBreadcrumbTrail_v1');
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            if (parsed && Array.isArray(parsed.points)) {
+                this.wadingTrackPoints = parsed.points.map(p => this.normalizeTrackPoint(p)).filter(Boolean);
+                this.isRecordingTrack = !!parsed.isRecording;
+                this.wadingTrackStartedAt = parsed.startedAt || (this.wadingTrackPoints[0] ? this.wadingTrackPoints[0].ts : null);
+                this.recalculateTrackDistance();
+                if (this.isRecordingTrack) {
+                    this.ensureTrackGpsWatch();
+                }
+            }
+        } catch (e) {
+            console.warn("Failed to restore wading breadcrumb trail:", e);
+        }
+    },
+
+    saveWadingTrailToStorage() {
+        try {
+            const payload = {
+                isRecording: this.isRecordingTrack,
+                startedAt: this.wadingTrackStartedAt,
+                totalDistanceMeters: Math.round(this.wadingTrackDistanceMeters),
+                points: this.wadingTrackPoints
+            };
+            localStorage.setItem('wadingBreadcrumbTrail_v1', JSON.stringify(payload));
+        } catch (e) {
+            console.warn("Failed to save wading breadcrumb trail:", e);
+        }
+    },
+
+    recalculateTrackDistance() {
+        let total = 0;
+        for (let i = 1; i < this.wadingTrackPoints.length; i++) {
+            const prev = this.wadingTrackPoints[i - 1];
+            const curr = this.wadingTrackPoints[i];
+            total += this.getHaversineMeters(prev.lat, prev.lng, curr.lat, curr.lng);
+        }
+        this.wadingTrackDistanceMeters = total;
+        return total;
+    },
+
+    ensureTrackGpsWatch() {
+        if (!navigator.geolocation || this.trackWatchId) return;
+        this.trackWatchId = navigator.geolocation.watchPosition(
+            (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                if (window.AppState) window.AppState.userCoords = { lat, lng };
+                try {
+                    localStorage.setItem('user_last_coords', JSON.stringify({ lat, lng, timestamp: Date.now() }));
+                } catch(e){}
+                this.updateUserLocation(lat, lng);
+            },
+            (err) => console.log("Breadcrumb GPS watch notice:", err),
+            { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+        );
+    },
+
+    stopTrackGpsWatch() {
+        if (this.trackWatchId && navigator.geolocation) {
+            navigator.geolocation.clearWatch(this.trackWatchId);
+            this.trackWatchId = null;
+        }
+    },
+
+    startWadingTrack(options = {}) {
+        const { reset = false, startLat = null, startLng = null, silent = false } = options;
+        if (reset) {
+            this.wadingTrackPoints = [];
+            this.wadingTrackDistanceMeters = 0;
+            this.wadingTrackStartedAt = Date.now();
+        } else if (!this.wadingTrackStartedAt) {
+            this.wadingTrackStartedAt = Date.now();
+        }
+
+        this.isRecordingTrack = true;
+
+        // Seed initial point from provided coords, carCoords, or userCoords if trail is empty
+        if (this.wadingTrackPoints.length === 0) {
+            if (Number.isFinite(startLat) && Number.isFinite(startLng)) {
+                this.wadingTrackPoints.push({ lat: startLat, lng: startLng, ts: Date.now(), label: 'Start / Vehicle' });
+            } else if (this.userCoords && Number.isFinite(this.userCoords.lat) && Number.isFinite(this.userCoords.lng)) {
+                this.wadingTrackPoints.push({ lat: this.userCoords.lat, lng: this.userCoords.lng, ts: Date.now() });
+            } else if (this.carCoords && Number.isFinite(this.carCoords.lat) && Number.isFinite(this.carCoords.lng)) {
+                this.wadingTrackPoints.push({ lat: this.carCoords.lat, lng: this.carCoords.lng, ts: Date.now(), label: 'Vehicle' });
+            }
+        } else if (Number.isFinite(startLat) && Number.isFinite(startLng)) {
+            this.addWadingPoint(startLat, startLng, true);
+        }
+
+        this.ensureTrackGpsWatch();
+        this.saveWadingTrailToStorage();
+        this.renderWadingTrail();
+        this.updateWadingTrailUI();
+        if (window.ReturnCarHud && typeof window.ReturnCarHud.updateHud === 'function') {
+            window.ReturnCarHud.updateHud();
+        }
+        if (!silent && typeof window.showSyncToast === 'function') {
+            window.showSyncToast("👣 Offline GPS Breadcrumb Trail recording active!");
+        }
+    },
+
+    pauseWadingTrack(silent = false) {
+        this.isRecordingTrack = false;
+        this.stopTrackGpsWatch();
+        this.saveWadingTrailToStorage();
+        this.renderWadingTrail();
+        this.updateWadingTrailUI();
+        if (window.ReturnCarHud && typeof window.ReturnCarHud.updateHud === 'function') {
+            window.ReturnCarHud.updateHud();
+        }
+        if (!silent && typeof window.showSyncToast === 'function') {
+            window.showSyncToast(`⏸️ Wading Trail paused (${this.wadingTrackPoints.length} waypoints saved for return).`);
+        }
     },
 
     stopWadingTrack() {
-        this.isRecordingTrack = false;
-        console.log(`Wading GPS track recording finished. Points logged: ${this.wadingTrackPoints.length}`);
+        this.pauseWadingTrack(true);
         return this.wadingTrackPoints;
     },
 
-    addWadingPoint(lat, lng) {
-        if (!this.isRecordingTrack) return;
-        this.wadingTrackPoints.push([lat, lng]);
-        
+    toggleWadingTrack() {
+        if (this.isRecordingTrack) {
+            this.pauseWadingTrack(false);
+        } else {
+            this.startWadingTrack({ reset: false, silent: false });
+        }
+    },
+
+    clearWadingTrack(confirmPrompt = true) {
+        if (confirmPrompt && this.wadingTrackPoints.length > 0) {
+            if (!confirm("Clear your recorded GPS breadcrumb trail?")) return;
+        }
+        this.isRecordingTrack = false;
+        this.stopTrackGpsWatch();
+        this.wadingTrackPoints = [];
+        this.wadingTrackDistanceMeters = 0;
+        this.wadingTrackStartedAt = null;
+        try { localStorage.removeItem('wadingBreadcrumbTrail_v1'); } catch(e){}
+        this.clearWadingTrailLayers();
+        this.updateWadingTrailUI();
+        if (window.ReturnCarHud && typeof window.ReturnCarHud.updateHud === 'function') {
+            window.ReturnCarHud.updateHud();
+        }
+        if (typeof window.showSyncToast === 'function') {
+            window.showSyncToast("🗑️ Wading breadcrumb trail cleared.");
+        }
+    },
+
+    addWadingPoint(lat, lng, force = false) {
+        if (!this.isRecordingTrack && !force) return;
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+        const now = Date.now();
+        const pts = this.wadingTrackPoints;
+        if (pts.length > 0) {
+            const last = pts[pts.length - 1];
+            const dist = this.getHaversineMeters(last.lat, last.lng, lat, lng);
+            // Ignore stationary GPS drift (< 8m) unless forced
+            if (!force && dist < 8) return;
+            // Ignore wild single-tick GPS glitches (> 5 km jump in < 15s)
+            if (!force && dist > 5000 && Math.abs(now - (last.ts || now)) < 15000) return;
+            this.wadingTrackDistanceMeters += dist;
+        }
+
+        pts.push({ lat, lng, ts: now });
+
+        // Keep trail compact (thin oldest middle points if exceeding 1500 points on multi-day trips)
+        if (pts.length > 1500) {
+            const thinned = [pts[0]];
+            for (let i = 1; i < pts.length - 1; i += 2) {
+                thinned.push(pts[i]);
+            }
+            thinned.push(pts[pts.length - 1]);
+            this.wadingTrackPoints = thinned;
+            this.recalculateTrackDistance();
+        }
+
+        this.saveWadingTrailToStorage();
+        this.renderWadingTrail();
+        this.updateWadingTrailUI();
+    },
+
+    // Calculate "Retrace Footsteps" return guidance along recorded river trail back to start/car
+    getRetraceGuidance(userLat, userLng, carCoords = null) {
+        const pts = this.wadingTrackPoints || [];
+        if (pts.length === 0 || !Number.isFinite(userLat) || !Number.isFinite(userLng)) {
+            return null;
+        }
+
+        // 1. Find closest breadcrumb point to angler's current position
+        let nearestIdx = pts.length - 1;
+        let minDist = Infinity;
+        for (let i = 0; i < pts.length; i++) {
+            const d = this.getHaversineMeters(userLat, userLng, pts[i].lat, pts[i].lng);
+            if (d < minDist) {
+                minDist = d;
+                nearestIdx = i;
+            }
+        }
+
+        // 2. If angler is already within 18m of nearestIdx and there is an earlier point closer to the car, advance target backward toward index 0
+        let targetIdx = nearestIdx;
+        while (targetIdx > 0) {
+            const dToTarget = this.getHaversineMeters(userLat, userLng, pts[targetIdx].lat, pts[targetIdx].lng);
+            if (dToTarget <= 18) {
+                targetIdx--;
+            } else {
+                break;
+            }
+        }
+
+        const targetPt = pts[targetIdx];
+        const distToTarget = this.getHaversineMeters(userLat, userLng, targetPt.lat, targetPt.lng);
+        const bearingToTarget = this.getBearingDeg(userLat, userLng, targetPt.lat, targetPt.lng);
+
+        // 3. Calculate remaining trail distance from targetIdx back to pts[0] (and to carCoords if distinct)
+        let remainingTrailMeters = distToTarget;
+        for (let i = targetIdx; i > 0; i--) {
+            remainingTrailMeters += this.getHaversineMeters(pts[i].lat, pts[i].lng, pts[i - 1].lat, pts[i - 1].lng);
+        }
+
+        const effectiveCar = carCoords || this.carCoords;
+        if (effectiveCar && Number.isFinite(effectiveCar.lat) && Number.isFinite(effectiveCar.lng)) {
+            const startToCar = this.getHaversineMeters(pts[0].lat, pts[0].lng, effectiveCar.lat, effectiveCar.lng);
+            // If trail started within 500m of car, include the final hop from pts[0] to car
+            if (startToCar > 5 && startToCar < 1500) {
+                remainingTrailMeters += startToCar;
+            }
+        }
+
+        return {
+            hasTrail: pts.length >= 1,
+            isRecording: this.isRecordingTrack,
+            totalPoints: pts.length,
+            totalWalkedMeters: this.wadingTrackDistanceMeters,
+            trailReturnMeters: remainingTrailMeters,
+            targetIndex: targetIdx,
+            targetNumber: targetIdx + 1,
+            targetPoint: targetPt,
+            distToNextMeters: distToTarget,
+            bearingToNextDeg: bearingToTarget,
+            isFinalApproach: targetIdx === 0
+        };
+    },
+
+    clearWadingTrailLayers() {
+        if (this.trackPolyline) {
+            try {
+                if (this.isGoogleMaps) this.trackPolyline.setMap(null);
+                else if (this.map) this.map.removeLayer(this.trackPolyline);
+            } catch(e){}
+            this.trackPolyline = null;
+        }
+        if (this.trackGlowPolyline) {
+            try {
+                if (this.isGoogleMaps) this.trackGlowPolyline.setMap(null);
+                else if (this.map) this.map.removeLayer(this.trackGlowPolyline);
+            } catch(e){}
+            this.trackGlowPolyline = null;
+        }
+        if (this.trackRetraceLine) {
+            try {
+                if (this.isGoogleMaps) this.trackRetraceLine.setMap(null);
+                else if (this.map) this.map.removeLayer(this.trackRetraceLine);
+            } catch(e){}
+            this.trackRetraceLine = null;
+        }
+        if (Array.isArray(this.trackWaypointMarkers)) {
+            this.trackWaypointMarkers.forEach(m => {
+                try {
+                    if (this.isGoogleMaps) m.setMap(null);
+                    else if (this.map) this.map.removeLayer(m);
+                } catch(e){}
+            });
+        }
+        this.trackWaypointMarkers = [];
+    },
+
+    renderWadingTrail() {
+        if (!this.map) return;
+        this.clearWadingTrailLayers();
+
+        const pts = this.wadingTrackPoints || [];
+        if (pts.length === 0) return;
+
+        const user = this.userCoords || (window.AppState && window.AppState.userCoords) || null;
+        const guidance = (user && Number.isFinite(user.lat)) ? this.getRetraceGuidance(user.lat, user.lng, this.carCoords) : null;
+
         if (this.isGoogleMaps && window.google) {
-            if (!this.trackPolyline) {
-                this.trackPolyline = new google.maps.Polyline({
-                    path: [],
-                    strokeColor: '#00d2ff',
-                    strokeOpacity: 0.9,
-                    strokeWeight: 4,
+            const gPath = pts.map(p => ({ lat: p.lat, lng: p.lng }));
+            this.trackGlowPolyline = new google.maps.Polyline({
+                path: gPath,
+                geodesic: true,
+                strokeColor: '#f59e0b',
+                strokeOpacity: 0.35,
+                strokeWeight: 9,
+                map: this.map
+            });
+            this.trackPolyline = new google.maps.Polyline({
+                path: gPath,
+                geodesic: true,
+                strokeColor: '#00f0ff',
+                strokeOpacity: 0.95,
+                strokeWeight: 4,
+                map: this.map
+            });
+
+            // Render periodic breadcrumb dots (start, target waypoint, and every ~5th point)
+            const step = Math.max(1, Math.floor(pts.length / 18));
+            pts.forEach((p, idx) => {
+                const isStart = idx === 0;
+                const isTarget = guidance && guidance.targetIndex === idx;
+                if (!isStart && !isTarget && idx % step !== 0 && idx !== pts.length - 1) return;
+
+                const timeStr = p.ts ? new Date(p.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                const m = new google.maps.Marker({
+                    position: { lat: p.lat, lng: p.lng },
+                    map: this.map,
+                    title: `👣 Breadcrumb #${idx + 1}${timeStr ? ' (' + timeStr + ')' : ''}`,
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: isTarget ? 6.5 : (isStart ? 6 : 4),
+                        fillColor: isTarget ? '#fbbf24' : (isStart ? '#10b981' : '#00f0ff'),
+                        fillOpacity: 1,
+                        strokeColor: '#0a192f',
+                        strokeWeight: 2
+                    }
+                });
+                this.trackWaypointMarkers.push(m);
+            });
+
+            // Dashed retrace vector from angler to next return breadcrumb
+            if (user && guidance && guidance.targetPoint) {
+                this.trackRetraceLine = new google.maps.Polyline({
+                    path: [
+                        { lat: user.lat, lng: user.lng },
+                        { lat: guidance.targetPoint.lat, lng: guidance.targetPoint.lng }
+                    ],
+                    strokeOpacity: 0,
+                    icons: [{
+                        icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, strokeColor: '#fbbf24', scale: 3 },
+                        offset: '0',
+                        repeat: '14px'
+                    }],
                     map: this.map
                 });
             }
-            const path = this.trackPolyline.getPath();
-            path.push(new google.maps.LatLng(lat, lng));
-        } else if (this.map && window.L) {
-            if (!this.trackPolyline) {
-                this.trackPolyline = L.polyline([], { color: '#00d2ff', weight: 4, opacity: 0.9 }).addTo(this.map);
+        } else if (window.L) {
+            const latlngs = pts.map(p => [p.lat, p.lng]);
+            this.trackGlowPolyline = L.polyline(latlngs, {
+                color: '#f59e0b',
+                weight: 9,
+                opacity: 0.32,
+                lineCap: 'round',
+                lineJoin: 'round'
+            }).addTo(this.map);
+
+            this.trackPolyline = L.polyline(latlngs, {
+                color: '#00f0ff',
+                weight: 4,
+                opacity: 0.95,
+                lineCap: 'round',
+                lineJoin: 'round'
+            }).addTo(this.map);
+
+            const step = Math.max(1, Math.floor(pts.length / 18));
+            pts.forEach((p, idx) => {
+                const isStart = idx === 0;
+                const isTarget = guidance && guidance.targetIndex === idx;
+                if (!isStart && !isTarget && idx % step !== 0 && idx !== pts.length - 1) return;
+
+                const timeStr = p.ts ? new Date(p.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                const dot = L.circleMarker([p.lat, p.lng], {
+                    radius: isTarget ? 6.5 : (isStart ? 6 : 4),
+                    fillColor: isTarget ? '#fbbf24' : (isStart ? '#10b981' : '#00f0ff'),
+                    color: '#0a192f',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 1
+                }).addTo(this.map);
+
+                dot.bindPopup(`<b>👣 Breadcrumb #${idx + 1}</b><br><span style="font-size:11px;">Logged: ${timeStr || 'Start'}</span>`);
+                this.trackWaypointMarkers.push(dot);
+            });
+
+            if (user && guidance && guidance.targetPoint) {
+                this.trackRetraceLine = L.polyline(
+                    [[user.lat, user.lng], [guidance.targetPoint.lat, guidance.targetPoint.lng]],
+                    { color: '#fbbf24', weight: 3, dashArray: '6, 6', opacity: 0.95 }
+                ).addTo(this.map);
             }
-            this.trackPolyline.addLatLng([lat, lng]);
+        }
+    },
+
+    fitWadingTrailBounds() {
+        if (!this.map) return;
+        const pts = [...(this.wadingTrackPoints || [])];
+        if (this.carCoords && Number.isFinite(this.carCoords.lat)) {
+            pts.push({ lat: this.carCoords.lat, lng: this.carCoords.lng });
+        }
+        if (this.userCoords && Number.isFinite(this.userCoords.lat)) {
+            pts.push({ lat: this.userCoords.lat, lng: this.userCoords.lng });
+        }
+        if (pts.length === 0) {
+            this.reCenter();
+            return;
+        }
+        if (pts.length === 1) {
+            if (this.isGoogleMaps) {
+                this.map.setCenter({ lat: pts[0].lat, lng: pts[0].lng });
+                this.map.setZoom(15);
+            } else {
+                this.map.setView([pts[0].lat, pts[0].lng], 15);
+            }
+            return;
+        }
+        try {
+            if (this.isGoogleMaps && window.google) {
+                const bounds = new google.maps.LatLngBounds();
+                pts.forEach(p => bounds.extend({ lat: p.lat, lng: p.lng }));
+                this.map.fitBounds(bounds, 45);
+            } else if (window.L) {
+                const bounds = L.latLngBounds(pts.map(p => [p.lat, p.lng]));
+                this.map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+            }
+        } catch(e){}
+    },
+
+    updateWadingTrailUI() {
+        const fmtDist = (m) => m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(2)} km`;
+        const walkedStr = fmtDist(this.wadingTrackDistanceMeters || 0);
+        const ptCount = (this.wadingTrackPoints || []).length;
+
+        const mapBtn = document.getElementById('btn-map-trail');
+        if (mapBtn) {
+            if (this.isRecordingTrack) {
+                mapBtn.innerHTML = `🔴 Trail: ${walkedStr}`;
+                mapBtn.style.borderColor = '#ef4444';
+                mapBtn.style.color = '#fbbf24';
+                mapBtn.style.background = 'rgba(239, 68, 68, 0.16)';
+            } else if (ptCount > 0) {
+                mapBtn.innerHTML = `👣 Trail: ${walkedStr} (Paused)`;
+                mapBtn.style.borderColor = 'rgba(245, 158, 11, 0.5)';
+                mapBtn.style.color = '#fbbf24';
+                mapBtn.style.background = 'rgba(245, 158, 11, 0.1)';
+            } else {
+                mapBtn.innerHTML = `👣 Start Wading Trail`;
+                mapBtn.style.borderColor = 'rgba(0, 210, 255, 0.35)';
+                mapBtn.style.color = 'var(--text-primary)';
+                mapBtn.style.background = '';
+            }
+        }
+
+        const bar = document.getElementById('map-trail-status-bar');
+        if (bar) {
+            if (this.isRecordingTrack || ptCount > 0) {
+                bar.style.display = 'flex';
+                const user = this.userCoords || (window.AppState && window.AppState.userCoords) || null;
+                const guidance = (user && Number.isFinite(user.lat)) ? this.getRetraceGuidance(user.lat, user.lng, this.carCoords) : null;
+                const returnDistStr = guidance ? fmtDist(guidance.trailReturnMeters) : walkedStr;
+                const statusLabel = document.getElementById('map-trail-status-text');
+                const toggleBtn = document.getElementById('btn-map-trail-toggle-bar');
+                if (statusLabel) {
+                    statusLabel.innerHTML = `${this.isRecordingTrack ? '<span class="pulse-dot green" style="background:#ef4444;box-shadow:0 0 8px #ef4444;display:inline-block;margin-right:6px;"></span><b>Recording Trail:</b>' : '⏸️ <b>Saved Trail:</b>'} Walked <b>${walkedStr}</b> (${ptCount} pts) &bull; Return Path: <b style="color:#fbbf24;">${returnDistStr}</b>`;
+                }
+                if (toggleBtn) {
+                    toggleBtn.textContent = this.isRecordingTrack ? '⏸️ Pause' : '▶️ Resume';
+                }
+            } else {
+                bar.style.display = 'none';
+            }
         }
     },
 
@@ -71,13 +550,13 @@ const AppMap = {
             clearTimeout(this._gmapsWatchdogTimer);
             this._gmapsWatchdogTimer = null;
         }
+        this.clearWadingTrailLayers();
         if (this.map && !this.isGoogleMaps && typeof this.map.remove === 'function') {
             try { this.map.remove(); } catch(e){}
         }
         this.map = null;
         this.markers = { user: null, car: null, fishingSpots: [], catches: [], tempDroppedPin: null };
         this.paths = { carToSpot: null };
-        this.trackPolyline = null;
         const container = document.getElementById(containerId);
         if (container) {
             container.innerHTML = '';
@@ -185,6 +664,7 @@ const AppMap = {
         this.onMapMoveCallback = onMapMove;
         try { this.fishingSpotsData = JSON.parse(localStorage.getItem('fishingSpots') || '[]'); } catch(e) { this.fishingSpotsData = []; }
         try { this.carCoords = JSON.parse(localStorage.getItem('carCoords') || 'null'); } catch(e) { this.carCoords = null; }
+        this.loadWadingTrailFromStorage();
         
         // Bind automatic network connectivity listeners once
         if (!this._networkListenersBound) {
@@ -592,6 +1072,13 @@ const AppMap = {
             }
         }
 
+        if (this.isRecordingTrack) {
+            this.addWadingPoint(lat, lon);
+        } else if (this.wadingTrackPoints && this.wadingTrackPoints.length > 0) {
+            this.renderWadingTrail();
+            this.updateWadingTrailUI();
+        }
+
         this.updatePath();
     },
 
@@ -818,6 +1305,17 @@ const AppMap = {
         localStorage.setItem('carCoords', JSON.stringify(this.carCoords));
         this.renderCarMarker();
         this.updatePath();
+        // Automatically start recording breadcrumb trail from car if not already recording
+        if (!this.isRecordingTrack) {
+            this.startWadingTrack({
+                reset: this.wadingTrackPoints.length === 0,
+                startLat: lat,
+                startLng: lon,
+                silent: true
+            });
+        } else if (this.wadingTrackPoints.length === 0) {
+            this.addWadingPoint(lat, lon, true);
+        }
     },
 
     clearCarLocation() {
@@ -1228,6 +1726,8 @@ const AppMap = {
             this.updateUserLocation(this.userCoords.lat, this.userCoords.lng);
         }
         this.renderCatchSpots();
+        this.renderWadingTrail();
+        this.updateWadingTrailUI();
     },
 
     // Drop temporary coordinates pin
@@ -1450,3 +1950,33 @@ window.toggleMapEngine = function() {
         window.AppMap.toggleMapEngine();
     }
 };
+window.toggleWadingTrail = function() {
+    if (window.AppMap && typeof window.AppMap.toggleWadingTrack === 'function') {
+        window.AppMap.toggleWadingTrack();
+    }
+};
+window.clearWadingTrail = function() {
+    if (window.AppMap && typeof window.AppMap.clearWadingTrack === 'function') {
+        window.AppMap.clearWadingTrack(true);
+    }
+};
+window.fitWadingTrailBounds = function() {
+    if (window.AppMap && typeof window.AppMap.fitWadingTrailBounds === 'function') {
+        window.AppMap.fitWadingTrailBounds();
+    }
+};
+window.viewWadingTrailOnMap = function() {
+    if (typeof window.closeReturnCarHud === 'function') {
+        window.closeReturnCarHud();
+    }
+    if (typeof window.switchTab === 'function') {
+        window.switchTab('map');
+    }
+    setTimeout(() => {
+        if (window.AppMap) {
+            window.AppMap.renderWadingTrail();
+            window.AppMap.fitWadingTrailBounds();
+        }
+    }, 180);
+};
+

@@ -28,8 +28,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style & Offline Leaflet -->
-    <link rel="stylesheet" href="leaflet.css?v=101620">
-    <link rel="stylesheet" href="styles.css?v=101620">
+    <link rel="stylesheet" href="leaflet.css?v=101630">
+    <link rel="stylesheet" href="styles.css?v=101630">
     <script>
         // Backcountry Offline PWA Service Worker Registration & Live Auto-Update Engine
         if ('serviceWorker' in navigator) {
@@ -675,6 +675,7 @@
                     <div class="map-actions">
                         <button class="btn btn-primary" onclick="window.quickDropCatchPin()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #000; font-weight: 700; border: none; box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);">⚡ Quick-Drop Pin</button>
                         <button class="btn btn-glass" onclick="window.openReturnCarHud()" style="border-color: rgba(245, 158, 11, 0.4); color: #fbbf24; font-weight: 600;">🧭 Return HUD</button>
+                        <button class="btn btn-glass" id="btn-map-trail" onclick="window.toggleWadingTrail()" style="border-color: rgba(0, 210, 255, 0.35); font-weight: 600;" title="Record offline GPS breadcrumb footsteps along the river so you can retrace your path back to your car at dusk">👣 Start Wading Trail</button>
                         <button class="btn btn-glass" id="btn-map-type">Type: Default</button>
                         <button class="btn btn-glass" id="btn-map-radar">🌧️ Radar: Off</button>
                         <button class="btn btn-glass" id="btn-map-weather">🌤️ Weather info</button>
@@ -683,6 +684,15 @@
                         <button class="btn btn-glass" id="btn-add-spot-here">🌲 Add Spot Here</button>
                         <button class="btn btn-primary" id="btn-map-recenter">🎯 Move Map to My Location</button>
                         <button class="btn btn-glass" onclick="window.preCacheMapArea()" style="border-color: rgba(0, 210, 255, 0.4); color: var(--accent-teal);" title="Download and save map tiles for current view to use offline on the river">📥 Cache River Beat</button>
+                    </div>
+                    <div id="map-trail-status-bar" style="display: none; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 6px 12px; background: rgba(10, 25, 47, 0.92); border: 1px solid rgba(245, 158, 11, 0.45); border-radius: 10px; font-size: 11.5px; color: var(--text-primary); margin: 6px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.4);">
+                        <span id="map-trail-status-text">👣 <b>Wading Trail Active</b></span>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <button type="button" class="btn btn-glass btn-sm" id="btn-map-trail-toggle-bar" onclick="window.toggleWadingTrail()" style="padding: 3px 8px; font-size: 11px;">⏸️ Pause</button>
+                            <button type="button" class="btn btn-glass btn-sm" onclick="window.fitWadingTrailBounds()" style="padding: 3px 8px; font-size: 11px; color: var(--accent-teal); border-color: rgba(0,210,255,0.35);">🔍 Fit Trail</button>
+                            <button type="button" class="btn btn-glass btn-sm" onclick="window.openReturnCarHud()" style="padding: 3px 8px; font-size: 11px; color: #fbbf24; border-color: rgba(245,158,11,0.4);">🧭 Retrace HUD</button>
+                            <button type="button" class="btn btn-glass btn-danger btn-sm" onclick="window.clearWadingTrail()" style="padding: 3px 8px; font-size: 11px;">🗑️</button>
+                        </div>
                     </div>
                     <div id="map-offline-badge" style="display: none; align-items: center; gap: 8px; padding: 6px 12px; background: rgba(10, 25, 47, 0.9); border: 1.5px solid var(--accent-teal); border-radius: 20px; font-size: 11.5px; color: var(--text-primary); margin: 6px 0; width: fit-content; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
                         <span class="pulse-dot green" style="width: 8px; height: 8px;"></span>
@@ -2688,11 +2698,21 @@
                 </div>
             </div>
 
-            <!-- 2. Compass Rose & Direction to Vehicle Section -->
+            <!-- 2. Compass Rose & Direction to Vehicle / Retrace Trail Section -->
             <div class="hud-panel hud-compass-panel" style="background: rgba(0,0,0,0.35); border: 1.5px solid rgba(0, 210, 255, 0.35); border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: center;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <span style="font-size: 12px; font-weight: 600; color: var(--accent-teal); text-transform: uppercase; letter-spacing: 0.5px;">🧭 Vehicle Bearing &amp; Heading</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="font-size: 12px; font-weight: 600; color: var(--accent-teal); text-transform: uppercase; letter-spacing: 0.5px;">🧭 Return Navigation &amp; Heading</span>
                     <span id="hud-compass-status" style="font-size: 10.5px; color: #94a3b8;">Bearing to Car</span>
+                </div>
+
+                <!-- Navigation Mode Switcher: Retrace Footsteps vs Direct Crow-Flies -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 4px; margin-bottom: 12px;">
+                    <button type="button" id="btn-hud-mode-trail" onclick="window.setHudNavMode('trail')" style="background: rgba(245, 158, 11, 0.22); color: #fbbf24; border: 1px solid #f59e0b; border-radius: 6px; padding: 6px 8px; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: all 0.2s;">
+                        👣 Retrace Trail
+                    </button>
+                    <button type="button" id="btn-hud-mode-direct" onclick="window.setHudNavMode('direct')" style="background: transparent; color: #94a3b8; border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                        🎯 Direct to Car
+                    </button>
                 </div>
 
                 <!-- Compass Instrument Container -->
@@ -2713,7 +2733,7 @@
                             </svg>
                         </div>
 
-                        <!-- Rotating Needle pointing towards Car -->
+                        <!-- Rotating Needle pointing towards Next Breadcrumb or Car -->
                         <div id="hud-car-needle-wrap" style="position: absolute; width: 100%; height: 100%; pointer-events: none; transition: transform 0.2s cubic-bezier(0.1, 0.9, 0.2, 1);">
                             <svg width="220" height="220" viewBox="0 0 220 220" style="position: absolute; top: 0; left: 0;">
                                 <defs>
@@ -2726,7 +2746,7 @@
                                         <feComposite in="SourceGraphic" in2="blur" operator="over"/>
                                     </filter>
                                 </defs>
-                                <polygon points="110,16 124,52 110,43 96,52" fill="url(#needleGrad)" filter="url(#needleGlow)" stroke="#ffffff" stroke-width="1.5"/>
+                                <polygon id="hud-needle-polygon" points="110,16 124,52 110,43 96,52" fill="url(#needleGrad)" filter="url(#needleGlow)" stroke="#ffffff" stroke-width="1.5"/>
                                 <circle cx="110" cy="28" r="2.5" fill="#ffffff"/>
                             </svg>
                         </div>
@@ -2740,6 +2760,18 @@
                     </div>
                 </div>
 
+                <!-- Trail Return vs Direct Distance Comparison Strip -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 8px 10px; margin-top: 10px; font-size: 11px;">
+                    <div>
+                        <div style="color: var(--text-secondary); font-size: 10px;">👣 RIVER TRAIL BACK</div>
+                        <strong id="hud-trail-dist-val" style="color: #fbbf24; font-size: 12.5px;">No Trail Yet</strong>
+                    </div>
+                    <div>
+                        <div style="color: var(--text-secondary); font-size: 10px;">🎯 DIRECT LINE (CROW)</div>
+                        <strong id="hud-direct-dist-val" style="color: var(--accent-teal); font-size: 12.5px;">-- m</strong>
+                    </div>
+                </div>
+
                 <!-- Waypoint info & Mark Location buttons -->
                 <div style="display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap;">
                     <button type="button" class="btn btn-primary btn-sm" onclick="window.markCarAtCurrentLocationFromHud()" style="background: linear-gradient(135deg, #00d2ff 0%, #0077b6 100%); color: #000; font-weight: 700; border: none; font-size: 11.5px; padding: 6px 12px;">
@@ -2750,6 +2782,30 @@
                     </button>
                     <button type="button" class="btn btn-glass btn-danger btn-sm" id="btn-hud-clear-car" onclick="window.clearCarLocationFromHud()" style="font-size: 11.5px; padding: 6px 10px;">
                         🗑️ Clear
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2.5 Offline GPS Breadcrumb Wading Trail Recorder Panel -->
+            <div class="hud-panel hud-trail-panel" style="background: rgba(0,0,0,0.35); border: 1.5px solid rgba(245, 158, 11, 0.35); border-radius: 12px; padding: 14px; margin-bottom: 16px; text-align: center;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 12px; font-weight: 600; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.5px;">👣 Offline GPS Breadcrumb Trail</span>
+                    <span id="hud-trail-status-badge" class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); font-size: 10px;">
+                        ⚪ Standby
+                    </span>
+                </div>
+                <div style="font-size: 11.5px; color: var(--text-secondary); margin-bottom: 10px;" id="hud-trail-summary-text">
+                    Records your river footsteps offline so you can retrace every bend back to your vehicle after dark.
+                </div>
+                <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
+                    <button type="button" class="btn btn-primary btn-sm" id="btn-hud-trail-toggle" onclick="window.toggleWadingTrail()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #000; font-weight: 700; border: none; font-size: 11.5px; padding: 6px 12px;">
+                        ▶️ Start Recording Trail
+                    </button>
+                    <button type="button" class="btn btn-glass btn-sm" onclick="window.viewWadingTrailOnMap()" style="font-size: 11.5px; padding: 6px 12px; color: var(--accent-teal); border-color: rgba(0, 210, 255, 0.35);">
+                        🗺️ View Trail on Map
+                    </button>
+                    <button type="button" class="btn btn-glass btn-danger btn-sm" onclick="window.clearWadingTrail()" style="font-size: 11.5px; padding: 6px 10px;">
+                        🗑️ Reset
                     </button>
                 </div>
             </div>
@@ -2781,17 +2837,17 @@
 
     <!-- Scripts -->
     <script async src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="db.js?v=101620"></script>
-    <script src="regulations.js?v=101620"></script>
-    <script src="weather.js?v=101620"></script>
-    <script src="exif.js?v=101620"></script>
-    <script src="leaflet.js?v=101620"></script>
-    <script src="map.js?v=101620"></script>
-    <script src="tackle_db.js?v=101620"></script>
-    <script src="fish_db.js?v=101620"></script>
-    <script src="fly_box.js?v=101620"></script>
-    <script src="knots.js?v=101620"></script>
-    <script src="auth.js?v=101620"></script>
-    <script src="app.js?v=101620"></script>
+    <script src="db.js?v=101630"></script>
+    <script src="regulations.js?v=101630"></script>
+    <script src="weather.js?v=101630"></script>
+    <script src="exif.js?v=101630"></script>
+    <script src="leaflet.js?v=101630"></script>
+    <script src="map.js?v=101630"></script>
+    <script src="tackle_db.js?v=101630"></script>
+    <script src="fish_db.js?v=101630"></script>
+    <script src="fly_box.js?v=101630"></script>
+    <script src="knots.js?v=101630"></script>
+    <script src="auth.js?v=101630"></script>
+    <script src="app.js?v=101630"></script>
 </body>
 </html>
