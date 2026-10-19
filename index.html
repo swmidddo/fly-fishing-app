@@ -28,8 +28,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style & Offline Leaflet -->
-    <link rel="stylesheet" href="leaflet.css?v=101675">
-    <link rel="stylesheet" href="styles.css?v=101675">
+    <link rel="stylesheet" href="leaflet.css?v=101680">
+    <link rel="stylesheet" href="styles.css?v=101680">
     <script>
         // Backcountry Offline PWA Service Worker Registration & Live Auto-Update Engine
         if ('serviceWorker' in navigator) {
@@ -1342,11 +1342,17 @@
                         <p class="subtitle">Seasonal Australian &amp; global entomology guide, water temperature hatch triggers, and your personal fly box compartments.</p>
                     </div>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn btn-glass btn-sm" onclick="FlyBoxApp.toggleTyingShopPanel()" style="border-color: rgba(245, 158, 11, 0.5); color: #fbbf24; font-weight: 700;" title="Open Low Stock, Fly Tying Bench &amp; Tackle Shop Restock List">🪶 Tying &amp; Shop List</button>
                         <button class="btn btn-glass btn-sm" onclick="window.backfillAllFliesToFlyBox({ silent: false })" title="Scan tackle, catches, and rigs to backfill missing flies into Fly Box">🔄 Sync &amp; Backfill Flies</button>
-                        <button class="btn btn-glass btn-sm" onclick="FlyBoxApp.autoSyncCurrentRiverConditions()">🌊 Auto-Sync Stream Conditions</button>
+                        <button class="btn btn-glass btn-sm" onclick="FlyBoxApp.autoSyncCurrentRiverConditions(true)" style="border-color: rgba(56, 189, 248, 0.5); color: #38bdf8; font-weight: 700;">🌡️ Live Stream Temp Sync</button>
                         <button class="btn btn-primary btn-sm" onclick="window.showAddFlyModal()">+ Add New Fly</button>
                     </div>
                 </header>
+
+                <!-- 🌡️ Live Stream Gauge Temperature & Hatch Sync Banner -->
+                <div id="flybox-live-stream-banner" class="card glass mb-20" style="padding: 14px 18px; border-left: 4px solid #38bdf8; background: linear-gradient(135deg, rgba(14, 116, 144, 0.22), rgba(15, 23, 42, 0.92));">
+                    <!-- Dynamically populated by FlyBoxApp.renderLiveStreamTempSyncBanner() -->
+                </div>
 
                 <!-- 📸 Gemini AI "Match the Hatch" & Entomology Lens Card -->
                 <div class="card glass mb-20" style="border-left: 4px solid var(--accent-teal); border-top: 1px solid rgba(0, 210, 255, 0.4); padding: 20px; position: relative; background: linear-gradient(135deg, rgba(15, 28, 48, 0.85), rgba(10, 18, 32, 0.95));">
@@ -1513,17 +1519,24 @@
                 </div>
 
                 <!-- My Fly Box Inventory Section -->
-                <div class="flybox-inventory-header">
+                <div class="flybox-inventory-header" style="flex-wrap: wrap; gap: 10px;">
                     <h3 style="margin: 0; font-size: 17px; display: flex; align-items: center; gap: 8px;">
                         <span>📦</span> My Stocked Fly Box Compartments
                     </h3>
-                    <div class="flybox-compartment-tabs" id="flybox-category-filters">
+                    <div class="flybox-compartment-tabs" id="flybox-category-filters" style="display: flex; flex-wrap: wrap; gap: 6px;">
                         <button type="button" class="btn btn-glass btn-sm flybox-tab-btn active" data-category="all" onclick="FlyBoxApp.renderFlyBoxUI('all')">All</button>
                         <button type="button" class="btn btn-glass btn-sm flybox-tab-btn" data-category="dry fly" onclick="FlyBoxApp.renderFlyBoxUI('dry fly')">Dry</button>
                         <button type="button" class="btn btn-glass btn-sm flybox-tab-btn" data-category="nymph" onclick="FlyBoxApp.renderFlyBoxUI('nymph')">Nymph</button>
                         <button type="button" class="btn btn-glass btn-sm flybox-tab-btn" data-category="streamer" onclick="FlyBoxApp.renderFlyBoxUI('streamer')">Streamer</button>
                         <button type="button" class="btn btn-glass btn-sm flybox-tab-btn" data-category="saltwater" onclick="FlyBoxApp.renderFlyBoxUI('saltwater')">Saltwater</button>
+                        <button type="button" class="btn btn-glass btn-sm flybox-tab-btn" data-category="low-stock" onclick="FlyBoxApp.renderFlyBoxUI('low-stock')" style="border-color: rgba(245, 158, 11, 0.45); color: #fbbf24;">⚠️ Low Stock <span id="flybox-low-stock-count" style="font-weight: 800;"></span></button>
+                        <button type="button" class="btn btn-glass btn-sm flybox-tab-btn" data-category="tying-list" onclick="FlyBoxApp.renderFlyBoxUI('tying-list')" style="border-color: rgba(56, 189, 248, 0.45); color: #38bdf8;">🪶 Tying &amp; Shop List <span id="flybox-tying-list-count" style="font-weight: 800;"></span></button>
                     </div>
+                </div>
+
+                <!-- 🪶 Low Stock / Fly Tying Bench & Tackle Shop Restock Card -->
+                <div id="flybox-tying-shop-card" class="card glass mb-20" style="padding: 16px 18px; border-left: 4px solid #f59e0b; background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(15, 23, 42, 0.92)); margin-bottom: 16px;">
+                    <!-- Dynamically populated by FlyBoxApp.renderTyingAndShopListCard() -->
                 </div>
 
                 <!-- Fly Box Compartments Grid -->
@@ -3144,17 +3157,17 @@
 
     <!-- Scripts -->
     <script async src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="db.js?v=101675"></script>
-    <script src="regulations.js?v=101675"></script>
-    <script src="weather.js?v=101675"></script>
-    <script src="exif.js?v=101675"></script>
-    <script src="leaflet.js?v=101675"></script>
-    <script src="map.js?v=101675"></script>
-    <script src="tackle_db.js?v=101675"></script>
-    <script src="fish_db.js?v=101675"></script>
-    <script src="fly_box.js?v=101675"></script>
-    <script src="knots.js?v=101675"></script>
-    <script src="auth.js?v=101675"></script>
-    <script src="app.js?v=101675"></script>
+    <script src="db.js?v=101680"></script>
+    <script src="regulations.js?v=101680"></script>
+    <script src="weather.js?v=101680"></script>
+    <script src="exif.js?v=101680"></script>
+    <script src="leaflet.js?v=101680"></script>
+    <script src="map.js?v=101680"></script>
+    <script src="tackle_db.js?v=101680"></script>
+    <script src="fish_db.js?v=101680"></script>
+    <script src="fly_box.js?v=101680"></script>
+    <script src="knots.js?v=101680"></script>
+    <script src="auth.js?v=101680"></script>
+    <script src="app.js?v=101680"></script>
 </body>
 </html>

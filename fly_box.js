@@ -338,6 +338,9 @@ window.getFlyNameForTackleItem = getFlyNameForTackleItem;
 const FlyBoxApp = {
     flies: [],
     pendingPhotoFlyId: null,
+    activeCategory: 'all',
+    tyingPanelExpanded: true,
+    liveStreamSnapshot: null,
     hatchFilters: {
         region: 'all',
         month: new Date().getMonth() + 1,
@@ -347,8 +350,10 @@ const FlyBoxApp = {
 
     async init() {
         this.loadFliesFromStorage();
-        this.renderFlyBoxUI();
+        this.renderFlyBoxUI(this.activeCategory || 'all');
         this.renderHatchGuideUI();
+        this.renderLiveStreamTempSyncBanner();
+        this.renderTyingAndShopListCard();
         if (window.populateComboTackleDropdowns) window.populateComboTackleDropdowns();
     },
 
@@ -371,11 +376,35 @@ const FlyBoxApp = {
             this.flies = [...DEFAULT_FLY_PATTERNS];
             this.saveFliesToStorage();
         }
+
+        // Ensure every fly has a numeric qty and boolean onTyingList
+        let seededLowStockDemo = false;
+        const hasAnyLow = this.flies.some(f => typeof f.qty === 'number' && f.qty <= 2);
+        this.flies.forEach((f, idx) => {
+            if (typeof f.qty !== 'number' || isNaN(f.qty)) {
+                // Seed a couple of classic patterns at qty 1-2 if first time upgrading so Low Stock / Tying List is immediately visible
+                if (!hasAnyLow && idx === 0) { f.qty = 1; seededLowStockDemo = true; }
+                else if (!hasAnyLow && idx === 1) { f.qty = 2; seededLowStockDemo = true; }
+                else { f.qty = 4; }
+            }
+            if (typeof f.onTyingList !== 'boolean') {
+                f.onTyingList = f.qty <= 1;
+            }
+        });
+        if (seededLowStockDemo) {
+            this.saveFliesToStorage();
+        }
     },
 
     saveFliesToStorage() {
         try {
             localStorage.setItem('user_fly_box', JSON.stringify(this.flies));
+            // Also keep virtualFlyBox_v1 summary map updated for Offline Pre-Flight Wizard
+            const summaryMap = {};
+            this.flies.forEach(f => {
+                if (f && f.name) summaryMap[f.name] = typeof f.qty === 'number' ? f.qty : 3;
+            });
+            localStorage.setItem('virtualFlyBox_v1', JSON.stringify(summaryMap));
         } catch (e) {
             console.warn("[FlyBoxApp] localStorage quota notice, applying photo compression fallback:", e);
             try {
@@ -395,10 +424,13 @@ const FlyBoxApp = {
 
     addFly(flyObj) {
         flyObj.id = 'fly_' + Date.now();
+        if (typeof flyObj.qty !== 'number') flyObj.qty = 4;
+        flyObj.onTyingList = false;
         this.flies.unshift(flyObj);
         this.saveFliesToStorage();
-        this.renderFlyBoxUI();
-        if (window.showSyncToast) window.showSyncToast(`🪰 Added "${flyObj.name}" to your Virtual Fly Box!`);
+        this.renderFlyBoxUI(this.activeCategory || 'all');
+        this.renderLiveStreamTempSyncBanner();
+        if (window.showSyncToast) window.showSyncToast(`🪰 Added "${flyObj.name}" (Qty: ${flyObj.qty}) to your Virtual Fly Box!`);
         else alert(`Added "${flyObj.name}" to your Virtual Fly Box!`);
         if (window.populateFlyDropdowns) window.populateFlyDropdowns();
         if (window.populateComboTackleDropdowns) window.populateComboTackleDropdowns();
@@ -572,9 +604,281 @@ const FlyBoxApp = {
         }
     },
 
+    adjustFlyStock(flyId, delta) {
+        const fly = this.flies.find(f => f.id === flyId);
+        if (!fly) return;
+        const curQty = typeof fly.qty === 'number' ? fly.qty : 3;
+        fly.qty = Math.max(0, curQty + delta);
+        if (fly.qty === 0) {
+            fly.onTyingList = true;
+        } else if (fly.qty >= 4 && delta > 0) {
+            fly.onTyingList = false;
+        }
+        this.saveFliesToStorage();
+        this.renderFlyBoxUI(this.activeCategory || 'all');
+        this.renderTyingAndShopListCard();
+        this.renderLiveStreamTempSyncBanner();
+        if (window.showSyncToast) {
+            if (fly.qty === 0) {
+                window.showSyncToast(`🚨 "${fly.name}" is Out of Stock (0) — added to Tying & Shop List!`);
+            } else if (fly.qty <= 2 && delta < 0) {
+                window.showSyncToast(`⚠️ "${fly.name}" Low Stock (${fly.qty} left in box)`);
+            }
+        }
+    },
+
+    toggleFlyTyingList(flyId) {
+        const fly = this.flies.find(f => f.id === flyId);
+        if (!fly) return;
+        fly.onTyingList = !fly.onTyingList;
+        this.saveFliesToStorage();
+        this.renderFlyBoxUI(this.activeCategory || 'all');
+        this.renderTyingAndShopListCard();
+        if (window.showSyncToast) {
+            window.showSyncToast(fly.onTyingList
+                ? `🪶 Added "${fly.name}" to your Tying Bench & Tackle Shop List`
+                : `✅ Removed "${fly.name}" from Tying & Shop List`);
+        }
+    },
+
+    restockFly(flyId, addQty = 3) {
+        const fly = this.flies.find(f => f.id === flyId);
+        if (!fly) return;
+        fly.qty = (typeof fly.qty === 'number' ? fly.qty : 0) + addQty;
+        fly.onTyingList = false;
+        this.saveFliesToStorage();
+        this.renderFlyBoxUI(this.activeCategory || 'all');
+        this.renderTyingAndShopListCard();
+        this.renderLiveStreamTempSyncBanner();
+        if (window.showSyncToast) {
+            window.showSyncToast(`📦 Restocked "${fly.name}" (+${addQty} → ${fly.qty} in Fly Box)!`);
+        }
+    },
+
+    restockAllLowFlies() {
+        let count = 0;
+        this.flies.forEach(f => {
+            const q = typeof f.qty === 'number' ? f.qty : 3;
+            if (q <= 2 || f.onTyingList) {
+                f.qty = Math.max(4, q + 3);
+                f.onTyingList = false;
+                count++;
+            }
+        });
+        if (count > 0) {
+            this.saveFliesToStorage();
+            this.renderFlyBoxUI(this.activeCategory || 'all');
+            this.renderTyingAndShopListCard();
+            this.renderLiveStreamTempSyncBanner();
+            if (window.showSyncToast) {
+                window.showSyncToast(`✅ Restocked ${count} low/tying-list patterns in your Virtual Fly Box!`);
+            }
+        } else {
+            if (window.showSyncToast) window.showSyncToast(`✅ All Fly Box compartments are already fully stocked!`);
+        }
+    },
+
+    toggleTyingShopPanel() {
+        const card = document.getElementById('flybox-tying-shop-card');
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        this.renderFlyBoxUI('tying-list');
+    },
+
+    getMissingActiveHatchPatterns() {
+        const activeHatches = this.getFilteredHatches(false);
+        const missing = [];
+        const seen = new Set();
+        activeHatches.forEach(hatch => {
+            (hatch.stages || []).forEach(st => {
+                const patName = st.pattern.split('/')[0].trim();
+                const key = patName.toLowerCase();
+                if (seen.has(key)) return;
+                const match = this.flies.find(f => (f.name || '').toLowerCase() === key || (f.name || '').toLowerCase().includes(key));
+                if (!match) {
+                    seen.add(key);
+                    const cat = (st.stage.includes('Nymph') || st.stage.includes('Larva') || st.stage.includes('Pupa'))
+                        ? 'Nymph'
+                        : (st.stage.includes('Dun') || st.stage.includes('Adult') || st.stage.includes('Spinner') || st.stage.includes('Beetle'))
+                            ? 'Dry Fly'
+                            : 'Streamer';
+                    missing.push({
+                        name: patName,
+                        category: cat,
+                        hookSize: (st.sizes || '#14').split('-')[0].trim(),
+                        hatchName: hatch.name.split('/')[0].trim(),
+                        stage: st.stage,
+                        tip: st.tip || '',
+                        icon: hatch.icon || '🪰'
+                    });
+                }
+            });
+        });
+        return missing;
+    },
+
+    copyTyingAndShopList() {
+        const lowOrPinned = this.flies.filter(f => (typeof f.qty === 'number' ? f.qty : 3) <= 2 || f.onTyingList);
+        const missingHatch = this.getMissingActiveHatchPatterns();
+        if (lowOrPinned.length === 0 && missingHatch.length === 0) {
+            if (window.showSyncToast) window.showSyncToast("✅ Your Fly Box is 100% stocked — no low or missing patterns!");
+            return;
+        }
+        const lines = [
+            `🪶 MIDDO'S FLY FISHING — TYING BENCH & TACKLE SHOP LIST (${new Date().toLocaleDateString()})`,
+            `------------------------------------------------------------`
+        ];
+        if (lowOrPinned.length > 0) {
+            lines.push(`\n📦 LOW STOCK / PINNED PATTERNS TO TIE OR BUY (${lowOrPinned.length}):`);
+            lowOrPinned.forEach(f => {
+                const q = typeof f.qty === 'number' ? f.qty : 3;
+                const need = Math.max(2, 4 - q);
+                const hooks = Array.isArray(f.hookSizes) ? f.hookSizes.join(', ') : (f.hookSizes || '#14');
+                lines.push(`• [ ] ${f.name} (${f.category} • Hook ${hooks}) — In Box: ${q} | Tie/Buy: +${need}`);
+            });
+        }
+        if (missingHatch.length > 0) {
+            lines.push(`\n🦟 ACTIVE HATCH PATTERNS MISSING FROM BOX (${missingHatch.length}):`);
+            missingHatch.slice(0, 8).forEach(m => {
+                lines.push(`• [ ] ${m.name} (${m.category} • Hook ${m.hookSize}) — For ${m.hatchName} (${m.stage})`);
+            });
+        }
+        const text = lines.join('\n');
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                if (window.showSyncToast) window.showSyncToast(`📋 Copied ${lowOrPinned.length + Math.min(8, missingHatch.length)} patterns to clipboard for your tying bench / tackle shop!`);
+            }).catch(() => alert(text));
+        } else {
+            alert(text);
+        }
+    },
+
+    renderTyingAndShopListCard() {
+        const card = document.getElementById('flybox-tying-shop-card');
+        if (!card) return;
+
+        const lowFlies = this.flies.filter(f => (typeof f.qty === 'number' ? f.qty : 3) <= 2);
+        const tyingFlies = this.flies.filter(f => (typeof f.qty === 'number' ? f.qty : 3) <= 2 || f.onTyingList);
+        const missingHatches = this.getMissingActiveHatchPatterns();
+
+        const lowBadge = document.getElementById('flybox-low-stock-count');
+        if (lowBadge) lowBadge.textContent = lowFlies.length > 0 ? `(${lowFlies.length})` : '';
+        const tyingBadge = document.getElementById('flybox-tying-list-count');
+        if (tyingBadge) tyingBadge.textContent = (tyingFlies.length + missingHatches.length) > 0 ? `(${tyingFlies.length + missingHatches.length})` : '';
+
+        if (tyingFlies.length === 0 && missingHatches.length === 0) {
+            card.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 22px;">✅</span>
+                        <div>
+                            <strong style="font-size: 14px; color: #34d399;">All Fly Box Compartments &amp; Active River Hatches Fully Stocked!</strong>
+                            <div style="font-size: 11.5px; color: var(--text-secondary);">Use the <b>[ - ] / [ + ]</b> counters on any fly card below when you lose a fly in a snag or tree to automatically queue it on your Tying &amp; Shop List.</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const restockRows = tyingFlies.map(f => {
+            const q = typeof f.qty === 'number' ? f.qty : 3;
+            const hooks = Array.isArray(f.hookSizes) ? f.hookSizes.join(', ') : (f.hookSizes || '#14');
+            const isOut = q === 0;
+            const statusPill = isOut
+                ? `<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); font-size: 10px;">🚨 Out (0)</span>`
+                : (q <= 2
+                    ? `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-size: 10px;">⚠️ Low (${q} left)</span>`
+                    : `<span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); font-size: 10px;">🪶 Pinned (${q})</span>`);
+
+            return `
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.78); border: 1px solid ${isOut ? 'rgba(239, 68, 68, 0.4)' : 'rgba(245, 158, 11, 0.3)'}; border-radius: 8px; padding: 8px 11px;">
+                    <div style="min-width: 0;">
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span style="font-size: 15px;">${f.icon || '🪰'}</span>
+                            <strong style="font-size: 12.5px; color: #f8fafc;">${f.name}</strong>
+                            ${statusPill}
+                        </div>
+                        <div style="font-size: 10.5px; color: #94a3b8; margin-top: 2px;">
+                            ${f.category} • Hook: <strong style="color: #cbd5e1;">${hooks}</strong> ${f.catchCount ? `• 🎣 ${f.catchCount} caught` : ''}
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 5px; align-items: center; flex-shrink: 0;">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="FlyBoxApp.restockFly('${f.id}', 3)" style="font-size: 10.5px; padding: 4px 9px; background: linear-gradient(135deg, #10b981, #059669); border: none; font-weight: 700;" title="Add 3 tied or purchased flies to box">
+                            +3 Restock
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const missingHatchRows = missingHatches.slice(0, 6).map(m => {
+            const safeName = m.name.replace(/'/g, "\\'");
+            const safeTip = (m.tip || '').replace(/'/g, "\\'");
+            return `
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; background: rgba(14, 116, 144, 0.14); border: 1px dashed rgba(56, 189, 248, 0.4); border-radius: 8px; padding: 8px 11px;">
+                    <div style="min-width: 0;">
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span style="font-size: 15px;">${m.icon}</span>
+                            <strong style="font-size: 12.5px; color: #38bdf8;">${m.name}</strong>
+                            <span class="badge" style="background: rgba(56, 189, 248, 0.16); color: #38bdf8; font-size: 9.5px;">Missing Hatch Gap</span>
+                        </div>
+                        <div style="font-size: 10.5px; color: #94a3b8; margin-top: 2px;">
+                            ${m.hatchName} (${m.stage}) • Hook <strong style="color: #cbd5e1;">${m.hookSize}</strong>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-glass btn-sm" onclick="FlyBoxApp.quickAddFromHatch('${safeName}', '${m.category}', '${m.hookSize}', '${safeTip}')" style="font-size: 10.5px; padding: 4px 9px; border-color: rgba(56, 189, 248, 0.45); color: #38bdf8; font-weight: 700; flex-shrink: 0;">
+                        ➕ Stock (4)
+                    </button>
+                </div>
+            `;
+        }).join('');
+
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <h4 style="margin: 0; font-size: 15px; color: #fbbf24; display: flex; align-items: center; gap: 6px;">
+                            🪶 Fly Box Low Stock, Tying Bench &amp; Tackle Shop Restock List
+                        </h4>
+                        ${lowFlies.length > 0 ? `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-size: 10.5px;">⚠️ ${lowFlies.length} Low/Out</span>` : ''}
+                        ${missingHatches.length > 0 ? `<span class="badge" style="background: rgba(56, 189, 248, 0.18); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); font-size: 10.5px;">🦟 ${missingHatches.length} Active Hatch Gaps</span>` : ''}
+                    </div>
+                    <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 3px;">
+                        Automatically tracks depleted flies (<b>≤ 2 left</b>) and missing patterns for today's active river water-temperature hatches.
+                    </div>
+                </div>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    <button type="button" class="btn btn-glass btn-sm" onclick="FlyBoxApp.copyTyingAndShopList()" style="font-size: 11px; padding: 5px 10px; border-color: rgba(56, 189, 248, 0.45); color: #38bdf8; font-weight: 700;">
+                        📋 Copy Shop / Tying List
+                    </button>
+                    ${missingHatches.length > 0 ? `
+                        <button type="button" class="btn btn-glass btn-sm" onclick="FlyBoxApp.loadActiveHatchPackToFlyBox()" style="font-size: 11px; padding: 5px 10px; border-color: rgba(16, 185, 129, 0.45); color: #34d399; font-weight: 700;">
+                            📦 Fill ${missingHatches.length} Hatch Gaps
+                        </button>
+                    ` : ''}
+                    ${tyingFlies.length > 0 ? `
+                        <button type="button" class="btn btn-primary btn-sm" onclick="FlyBoxApp.restockAllLowFlies()" style="font-size: 11px; padding: 5px 10px; background: linear-gradient(135deg, #f59e0b, #d97706); color: #000; border: none; font-weight: 800;">
+                            ✅ Restock All Low (+3)
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); gap: 8px;">
+                ${restockRows}
+                ${missingHatchRows}
+            </div>
+        `;
+    },
+
     renderFlyBoxUI(filterCategory = 'all') {
+        this.activeCategory = filterCategory;
         const container = document.getElementById('flybox-grid-container');
         if (!container) return;
+
+        // Keep Tying & Shop List card badges synced
+        this.renderTyingAndShopListCard();
 
         // Update active styling on compartment buttons
         const tabBtns = document.querySelectorAll('.flybox-compartment-tabs .flybox-tab-btn');
@@ -588,12 +892,21 @@ const FlyBoxApp = {
         });
 
         let displayFlies = this.flies;
-        if (filterCategory !== 'all') {
-            displayFlies = displayFlies.filter(f => f.category.toLowerCase() === filterCategory.toLowerCase());
+        if (filterCategory === 'low-stock') {
+            displayFlies = displayFlies.filter(f => (typeof f.qty === 'number' ? f.qty : 3) <= 2);
+        } else if (filterCategory === 'tying-list') {
+            displayFlies = displayFlies.filter(f => (typeof f.qty === 'number' ? f.qty : 3) <= 2 || f.onTyingList);
+        } else if (filterCategory !== 'all') {
+            displayFlies = displayFlies.filter(f => (f.category || '').toLowerCase() === filterCategory.toLowerCase());
         }
 
         if (displayFlies.length === 0) {
-            container.innerHTML = `<p class="placeholder-text" style="grid-column: 1/-1;">No flies found in this compartment. Click "+ Add New Fly" to stock your fly box!</p>`;
+            const emptyMsg = filterCategory === 'low-stock'
+                ? `🎉 Zero low-stock flies! All patterns in your Fly Box have 3+ stocked.`
+                : (filterCategory === 'tying-list'
+                    ? `🪶 Your Tying & Shop List is clear! Tap "🪶 +Tie List" or "-" on any fly card to queue patterns.`
+                    : `No flies found in this compartment. Click "+ Add New Fly" to stock your fly box!`);
+            container.innerHTML = `<p class="placeholder-text" style="grid-column: 1/-1;">${emptyMsg}</p>`;
             return;
         }
 
@@ -615,6 +928,16 @@ const FlyBoxApp = {
                 catchCount = Math.max(liveMatches, catchCount);
             }
 
+            const qty = typeof fly.qty === 'number' ? fly.qty : 3;
+            const isOut = qty === 0;
+            const isLow = qty > 0 && qty <= 2;
+            const borderTopColor = isOut ? '#ef4444' : (isLow ? '#f59e0b' : 'var(--accent-teal)');
+            const stockBadgeHtml = isOut
+                ? `<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.45); font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">🚨 Out of Stock (0)</span>`
+                : (isLow
+                    ? `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.45); font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">⚠️ Low Stock (${qty})</span>`
+                    : `<span class="badge" style="background: rgba(16, 185, 129, 0.14); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">📦 ${qty} in Box</span>`);
+
             const photoEl = fly.photo ? `
                 <div style="position: relative; width: 56px; height: 56px; flex-shrink: 0; cursor: pointer;" onclick="window.previewFlyPhoto('${fly.id}')" title="Tap to inspect fly photo">
                     <img src="${fly.photo}" alt="${fly.name}" class="fly-card-img" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1.5px solid var(--accent-teal); box-shadow: 0 2px 8px rgba(0, 210, 255, 0.25);">
@@ -626,7 +949,7 @@ const FlyBoxApp = {
             `;
 
             return `
-                <div class="card glass fly-card" style="border-top: 3px solid var(--accent-teal); position: relative; padding: 16px;">
+                <div class="card glass fly-card" style="border-top: 3px solid ${borderTopColor}; position: relative; padding: 16px;">
                     <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
                             ${photoEl}
@@ -634,6 +957,7 @@ const FlyBoxApp = {
                                 <h4 style="margin: 0; font-size: 15px; color: var(--text-primary);">${fly.name}</h4>
                                 <span class="badge" style="background: rgba(100, 255, 218, 0.12); color: var(--accent-teal); font-size: 10px; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px;">${fly.category}</span>
                                 ${fly.region ? `<span class="badge" style="background: rgba(0, 210, 255, 0.12); color: var(--accent-blue); font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">${fly.region}</span>` : ''}
+                                ${stockBadgeHtml}
                                 ${catchCount > 0 ? `<span class="badge" style="background: rgba(46, 213, 115, 0.15); color: #2ed573; border: 1px solid rgba(46, 213, 115, 0.3); font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">🎣 ${catchCount} Catch${catchCount === 1 ? '' : 'es'}</span>` : ''}
                             </div>
                         </div>
@@ -648,6 +972,17 @@ const FlyBoxApp = {
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.06); padding-top: 8px; font-size: 11px; color: var(--text-secondary);">
                         <div>🎣 Hook Sizes: <strong style="color: var(--text-primary);">${Array.isArray(fly.hookSizes) ? fly.hookSizes.join(', ') : fly.hookSizes}</strong></div>
                         <div>⭐ Rating: <strong style="color: var(--accent-orange);">${'★'.repeat(fly.rating || 5)}</strong></div>
+                    </div>
+                    <!-- Stock Quantity Stepper & Tying Bench Pin Controls -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06);">
+                        <div style="display: flex; align-items: center; gap: 6px; background: rgba(15, 23, 42, 0.7); padding: 3px 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08);">
+                            <button type="button" class="btn btn-glass btn-sm" onclick="FlyBoxApp.adjustFlyStock('${fly.id}', -1)" style="padding: 1px 7px; font-size: 12px; font-weight: 800; line-height: 1.2;" title="Lost a fly on the river (-1)">−</button>
+                            <span style="font-size: 11.5px; font-weight: 700; color: ${isOut ? '#f87171' : (isLow ? '#fbbf24' : '#e2e8f0')}; min-width: 52px; text-align: center;">Qty: ${qty}</span>
+                            <button type="button" class="btn btn-glass btn-sm" onclick="FlyBoxApp.adjustFlyStock('${fly.id}', 1)" style="padding: 1px 7px; font-size: 12px; font-weight: 800; line-height: 1.2; color: #34d399;" title="Tied or bought a fly (+1)">+</button>
+                        </div>
+                        <button type="button" class="btn btn-glass btn-sm" onclick="FlyBoxApp.toggleFlyTyingList('${fly.id}')" style="font-size: 10.5px; padding: 4px 8px; border-color: ${fly.onTyingList ? 'rgba(56, 189, 248, 0.6)' : 'rgba(255,255,255,0.12)'}; color: ${fly.onTyingList ? '#38bdf8' : '#94a3b8'}; background: ${fly.onTyingList ? 'rgba(56, 189, 248, 0.14)' : 'transparent'}; font-weight: 600;">
+                            ${fly.onTyingList ? '🪶 On Tying List ✓' : '🪶 +Tie/Shop List'}
+                        </button>
                     </div>
                 </div>
             `;
@@ -773,14 +1108,17 @@ const FlyBoxApp = {
                     hookSizes: [hookSz],
                     icon: hatch.icon || '🪰',
                     description: `${st.stage}: ${st.tip}`,
-                    rating: 5
+                    rating: 5,
+                    qty: 4,
+                    onTyingList: false
                 });
                 addedCount++;
             }
         });
         if (addedCount > 0) {
             this.saveFliesToStorage();
-            this.renderFlyBoxUI();
+            this.renderFlyBoxUI(this.activeCategory || 'all');
+            this.renderLiveStreamTempSyncBanner();
             if (window.populateFlyDropdowns) window.populateFlyDropdowns();
             if (window.populateComboTackleDropdowns) window.populateComboTackleDropdowns();
             if (window.showSyncToast) window.showSyncToast(`📦 Loaded ${addedCount} "${hatch.name}" stage pattern${addedCount > 1 ? 's' : ''} into your Fly Box!`);
@@ -816,7 +1154,9 @@ const FlyBoxApp = {
                         hookSizes: [hookSz],
                         icon: hatch.icon || '🪰',
                         description: `${hatch.name} (${st.stage}): ${st.tip}`,
-                        rating: 5
+                        rating: 5,
+                        qty: 4,
+                        onTyingList: false
                     });
                     addedCount++;
                 }
@@ -825,7 +1165,8 @@ const FlyBoxApp = {
 
         if (addedCount > 0) {
             this.saveFliesToStorage();
-            this.renderFlyBoxUI();
+            this.renderFlyBoxUI(this.activeCategory || 'all');
+            this.renderLiveStreamTempSyncBanner();
             if (window.populateFlyDropdowns) window.populateFlyDropdowns();
             if (window.populateComboTackleDropdowns) window.populateComboTackleDropdowns();
             if (window.showSyncToast) window.showSyncToast(`📦 Stocked ${addedCount} new hatch patterns from ${activeHatches.length} active hatches into your Virtual Fly Box!`);
@@ -915,17 +1256,61 @@ const FlyBoxApp = {
     updateHatchFilters(key, val) {
         this.hatchFilters[key] = val;
         this.renderHatchGuideUI();
+        this.renderTyingAndShopListCard();
+        this.renderLiveStreamTempSyncBanner();
     },
 
-    autoSyncCurrentRiverConditions() {
+    async autoSyncCurrentRiverConditions(fetchLiveGauge = false) {
         const now = new Date();
         const currentMonth = now.getMonth() + 1;
 
-        let streamCond = { waterTemp: 14.0, riverFlow: 'Steady / Ideal', isManual: false };
+        let streamCond = { waterTemp: 14.0, riverFlow: 'Steady / Ideal', isManual: false, stationName: 'Active River Corridor', flowMld: null, levelM: null };
         if (window.WEATHER && typeof window.WEATHER.getStreamConditions === 'function') {
-            streamCond = window.WEATHER.getStreamConditions();
+            streamCond = Object.assign(streamCond, window.WEATHER.getStreamConditions());
         } else if (window.AppState && window.AppState.weatherData && window.AppState.weatherData.current && window.AppState.weatherData.current.temp) {
             streamCond.waterTemp = Math.round((window.AppState.weatherData.current.temp * 0.72) * 10) / 10;
+        }
+
+        // Determine active coordinates
+        let lat = -37.2528, lng = 145.7875;
+        if (window.currentWeatherLocation && typeof window.currentWeatherLocation.lat === 'number') {
+            lat = window.currentWeatherLocation.lat;
+            lng = window.currentWeatherLocation.lng;
+        } else if (window.AppMap && window.AppMap.currentLocation && typeof window.AppMap.currentLocation.lat === 'number') {
+            lat = window.AppMap.currentLocation.lat;
+            lng = window.AppMap.currentLocation.lng;
+        }
+
+        // Poll Live BOM / State Hydro Stream Gauge if available
+        if (fetchLiveGauge && window.WEATHER && typeof window.WEATHER.fetchLiveStreamGauge === 'function') {
+            try {
+                const liveGauge = await window.WEATHER.fetchLiveStreamGauge(lat, lng);
+                if (liveGauge) {
+                    if (typeof liveGauge.waterTemp === 'number') streamCond.waterTemp = liveGauge.waterTemp;
+                    if (liveGauge.stationName) streamCond.stationName = liveGauge.stationName;
+                    if (liveGauge.flowMld || liveGauge.flow) streamCond.flowMld = liveGauge.flowMld || liveGauge.flow;
+                    if (liveGauge.levelM || liveGauge.level) streamCond.levelM = liveGauge.levelM || liveGauge.level;
+                    if (liveGauge.flowStatus) streamCond.riverFlow = liveGauge.flowStatus;
+                    streamCond.isLiveGauge = true;
+                }
+            } catch (e) {
+                console.warn('Live stream gauge sync fallback:', e);
+            }
+        } else {
+            // Check cached offline gauge snapshot if present
+            try {
+                const rawGauge = localStorage.getItem('offlineCachedStreamGauge_v1');
+                if (rawGauge) {
+                    const parsed = JSON.parse(rawGauge);
+                    if (parsed && parsed.gauge) {
+                        const g = parsed.gauge;
+                        if (g.stationName) streamCond.stationName = g.stationName;
+                        if (g.flowMld || g.flow) streamCond.flowMld = g.flowMld || g.flow;
+                        if (g.levelM || g.level) streamCond.levelM = g.levelM || g.level;
+                        if (!streamCond.isManual && typeof g.waterTemp === 'number') streamCond.waterTemp = g.waterTemp;
+                    }
+                }
+            } catch (e) {}
         }
 
         const temp = streamCond.waterTemp != null ? streamCond.waterTemp : 14.0;
@@ -936,22 +1321,102 @@ const FlyBoxApp = {
         else if (temp <= 19) tempBracket = 'prime';
         else tempBracket = 'summer';
 
+        // Auto-infer fishery region from coordinates
+        let detectedRegion = this.hatchFilters.region || 'all';
+        if (lat < -40.0) detectedRegion = 'tas_lakes';
+        else if (lat > -36.55 && lng > 147.9) detectedRegion = 'nsw_snowy';
+        else if (lat <= -36.4 && lat >= -38.0 && lng >= 145.2 && lng <= 148.0) detectedRegion = 'vic_high';
+
+        this.hatchFilters.region = detectedRegion;
         this.hatchFilters.month = currentMonth;
         this.hatchFilters.order = 'all';
         this.hatchFilters.tempBracket = tempBracket;
+        this.liveStreamSnapshot = {
+            ...streamCond,
+            waterTemp: temp,
+            tempBracket,
+            region: detectedRegion,
+            syncedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
 
+        const regionSelect = document.getElementById('hatch-filter-region');
         const monthSelect = document.getElementById('hatch-filter-month');
         const orderSelect = document.getElementById('hatch-filter-order');
         const tempSelect = document.getElementById('hatch-filter-temp');
 
+        if (regionSelect) regionSelect.value = detectedRegion;
         if (monthSelect) monthSelect.value = String(currentMonth);
         if (orderSelect) orderSelect.value = 'all';
         if (tempSelect) tempSelect.value = tempBracket;
 
         this.renderHatchGuideUI();
-        const srcTag = streamCond.isManual ? 'Thermometer' : 'Thermal Est';
-        if (window.showSyncToast) window.showSyncToast(`🌡️ Synced to Stream Water Temp: ${temp}°C (${srcTag}) • Flow: ${streamCond.riverFlow}!`);
-        else alert(`Synced to Stream Water Temp: ${temp}°C (${srcTag}) • Flow: ${streamCond.riverFlow}!`);
+        this.renderTyingAndShopListCard();
+        this.renderLiveStreamTempSyncBanner();
+
+        const srcTag = streamCond.isLiveGauge ? `Live Gauge (${streamCond.stationName})` : (streamCond.isManual ? 'Thermometer' : 'Thermal Est');
+        if (window.showSyncToast) {
+            window.showSyncToast(`🌡️ Synced Hatch Matrix & Fly Box to ${temp}°C (${srcTag}) • Flow: ${streamCond.riverFlow}!`);
+        }
+    },
+
+    renderLiveStreamTempSyncBanner() {
+        const banner = document.getElementById('flybox-live-stream-banner');
+        if (!banner) return;
+
+        let streamCond = this.liveStreamSnapshot;
+        if (!streamCond) {
+            const base = (window.WEATHER && typeof window.WEATHER.getStreamConditions === 'function')
+                ? window.WEATHER.getStreamConditions()
+                : { waterTemp: 14.0, riverFlow: 'Steady / Ideal', isManual: false };
+            streamCond = {
+                ...base,
+                stationName: (window.currentWeatherLocation && window.currentWeatherLocation.name) || 'Goulburn / High Country Stream',
+                syncedAt: 'Auto-Ready'
+            };
+        }
+
+        const temp = streamCond.waterTemp != null ? streamCond.waterTemp : 14.0;
+        const bio = (window.WEATHER && typeof window.WEATHER.getThermalBioZone === 'function')
+            ? window.WEATHER.getThermalBioZone(temp, streamCond.riverFlow)
+            : { zoneIcon: '🔥', zoneShort: 'Prime Feeding Zone (13–18°C)', zoneColor: '#34d399' };
+
+        const activeHatches = this.getFilteredHatches(false);
+        const missingPatterns = this.getMissingActiveHatchPatterns();
+        let totalActiveStagePatterns = 0;
+        activeHatches.forEach(h => { totalActiveStagePatterns += (h.stages ? h.stages.length : 0); });
+        const stockedActiveCount = Math.max(0, totalActiveStagePatterns - missingPatterns.length);
+
+        banner.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(56, 189, 248, 0.16); border: 1px solid rgba(56, 189, 248, 0.4); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">
+                        🌡️
+                    </div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <strong style="font-size: 14px; color: #f8fafc;">Live Stream Temp &amp; Hatch Readiness: <span style="color: #38bdf8;">${temp}°C</span></strong>
+                            <span class="badge" style="background: rgba(16, 185, 129, 0.16); color: ${bio.zoneColor || '#34d399'}; border: 1px solid ${bio.zoneColor || '#34d399'}; font-size: 10.5px;">
+                                ${bio.zoneIcon || '🔥'} ${bio.zoneShort || 'Prime Trout Window'}
+                            </span>
+                            ${streamCond.flowMld ? `<span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 10.5px;">🌊 ${streamCond.flowMld} ML/d ${streamCond.levelM ? `(${streamCond.levelM}m)` : ''}</span>` : `<span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 10.5px;">🌊 ${streamCond.riverFlow || 'Steady Flow'}</span>`}
+                        </div>
+                        <div style="font-size: 11.5px; color: #cbd5e1; margin-top: 3px;">
+                            📍 <b>${streamCond.stationName || 'Active River Corridor'}</b> • 🦟 <b>${activeHatches.length} Active Hatches</b> emerging at ${temp}°C • 📦 Box Readiness: <strong style="color: ${missingPatterns.length === 0 ? '#34d399' : '#fbbf24'};">${stockedActiveCount}/${totalActiveStagePatterns} Active Patterns Stocked</strong>
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="FlyBoxApp.autoSyncCurrentRiverConditions(true)" style="background: linear-gradient(135deg, #0284c7, #10b981); border: none; font-size: 11.5px; font-weight: 700; padding: 6px 12px;">
+                        📡 Poll Live Stream Gauge &amp; Sync Hatches
+                    </button>
+                    ${missingPatterns.length > 0 ? `
+                        <button type="button" class="btn btn-glass btn-sm" onclick="FlyBoxApp.loadActiveHatchPackToFlyBox()" style="border-color: rgba(245, 158, 11, 0.5); color: #fbbf24; font-size: 11.5px; font-weight: 700; padding: 6px 10px;">
+                            📦 +Stock ${missingPatterns.length} Missing Hatch Flies
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
     },
 
     renderHatchMatcherUI() {
