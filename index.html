@@ -28,8 +28,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style & Offline Leaflet -->
-    <link rel="stylesheet" href="leaflet.css?v=101640">
-    <link rel="stylesheet" href="styles.css?v=101640">
+    <link rel="stylesheet" href="leaflet.css?v=101650">
+    <link rel="stylesheet" href="styles.css?v=101650">
     <script>
         // Backcountry Offline PWA Service Worker Registration & Live Auto-Update Engine
         if ('serviceWorker' in navigator) {
@@ -627,6 +627,13 @@
                             </div>
                         </div>
 
+                        <!-- Smart "What's Working Right Now" Personal Pattern Intelligence Banner -->
+                        <div id="dash-whats-working-box" style="margin-bottom: 12px; padding: 11px 13px; border-radius: 8px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(0, 210, 255, 0.06) 100%); border: 1px solid rgba(16, 185, 129, 0.28); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div style="font-size: 11.5px; color: var(--text-secondary);">
+                                🧠 <strong style="color: #34d399;">"What's Working" Pattern Intelligence:</strong> Log catches to unlock personalized fly, rig &amp; barometer recommendations matched to live river conditions.
+                            </div>
+                        </div>
+
                         <!-- Interactive Insights Breakdown Grid -->
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 10px; width: 100%; box-sizing: border-box;">
                             <!-- 1. Top Producing Flies Chart -->
@@ -858,27 +865,53 @@
 
                 <!-- Comprehensive Fly Success Leaderboard & Angler Analytics Card -->
                 <div class="card glass mb-20" style="padding: 20px; border-left: 4px solid var(--accent-teal);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
                         <div>
                             <h3 style="margin: 0; font-size: 17px; display: flex; align-items: center; gap: 8px;">
-                                <span>📊</span> Fly Success &amp; Angler Intelligence Leaderboard
+                                <span>📊</span> Personal Catch Analytics &amp; "What's Working" Pattern Intelligence
                             </h3>
                             <p style="font-size: 12px; color: var(--text-secondary); margin: 2px 0 0 0;">
-                                Empirical success rates, top-producing fly patterns, and lunar phase correlations from your catch log.
+                                Empirical fly &amp; rig leaderboards, barometer × time-of-day bite heatmap, and seasonal strike correlations.
                             </p>
                         </div>
-                        <div style="display: flex; gap: 6px; background: rgba(255,255,255,0.05); padding: 3px; border-radius: 8px; flex-wrap: wrap;">
-                            <button type="button" class="btn btn-sm btn-glass active" id="btn-analytics-tab-flies" onclick="window.switchAnalyticsSubTab('flies')" style="padding: 5px 10px; font-size: 11.5px;">🪰 Fly Leaderboard</button>
-                            <button type="button" class="btn btn-sm btn-glass" id="btn-analytics-tab-stream" onclick="window.switchAnalyticsSubTab('stream')" style="padding: 5px 10px; font-size: 11.5px;">🌡️ Water Temp &amp; Flow</button>
-                            <button type="button" class="btn btn-sm btn-glass" id="btn-analytics-tab-moon" onclick="window.switchAnalyticsSubTab('moon')" style="padding: 5px 10px; font-size: 11.5px;">🌙 Moon Phases</button>
-                            <button type="button" class="btn btn-sm btn-glass" id="btn-analytics-tab-time" onclick="window.switchAnalyticsSubTab('time')" style="padding: 5px 10px; font-size: 11.5px;">⏰ Time of Day</button>
-                            <button type="button" class="btn btn-sm btn-glass" id="btn-analytics-tab-species" onclick="window.switchAnalyticsSubTab('species')" style="padding: 5px 10px; font-size: 11.5px;">🐟 Species Records</button>
+                        <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                            <select id="analytics-filter-water" class="form-select" onchange="window.updateCatchAnalytics()" style="height: 30px; padding: 2px 8px; font-size: 11.5px; background: rgba(0,0,0,0.45); border: 1px solid rgba(0,210,255,0.3); border-radius: 6px; color: #fff;">
+                                <option value="all">💧 All Water Types</option>
+                                <option value="freshwater">🏞️ Freshwater Only</option>
+                                <option value="saltwater">🌊 Saltwater Only</option>
+                            </select>
+                            <select id="analytics-filter-season" class="form-select" onchange="window.updateCatchAnalytics()" style="height: 30px; padding: 2px 8px; font-size: 11.5px; background: rgba(0,0,0,0.45); border: 1px solid rgba(0,210,255,0.3); border-radius: 6px; color: #fff;">
+                                <option value="all">🗓️ All Seasons</option>
+                                <option value="Summer">☀️ Summer (Dec–Feb)</option>
+                                <option value="Autumn">🍂 Autumn (Mar–May)</option>
+                                <option value="Winter">❄️ Winter (Jun–Aug)</option>
+                                <option value="Spring">🌱 Spring (Sep–Nov)</option>
+                            </select>
                         </div>
+                    </div>
+
+                    <!-- Live "What's Working Now" Personal Pattern Intelligence Strip inside Catch Logs -->
+                    <div id="analytics-whats-working-box" style="margin-bottom: 14px; padding: 12px 14px; border-radius: 8px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(0, 210, 255, 0.08) 100%); border: 1px solid rgba(16, 185, 129, 0.35);">
+                        <div style="font-size: 12px; color: var(--text-secondary);">
+                            🧠 <strong style="color: #34d399;">"What's Working Now" Engine:</strong> Analyzing your personal catch history against current barometer, water temperature &amp; time of day...
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 6px; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+                        <button type="button" class="btn btn-sm btn-glass active" id="btn-analytics-tab-flies" onclick="window.switchAnalyticsSubTab('flies')" style="padding: 5px 10px; font-size: 11.5px;">🪰 Fly Leaderboard</button>
+                        <button type="button" class="btn btn-sm btn-glass" id="btn-analytics-tab-rigs" onclick="window.switchAnalyticsSubTab('rigs')" style="padding: 5px 10px; font-size: 11.5px;">🎣 Rigs &amp; Seasons</button>
+                        <button type="button" class="btn btn-sm btn-glass" id="btn-analytics-tab-time" onclick="window.switchAnalyticsSubTab('time')" style="padding: 5px 10px; font-size: 11.5px;">🎈 Barometer &amp; Bite Heatmap</button>
+                        <button type="button" class="btn btn-sm btn-glass" id="btn-analytics-tab-stream" onclick="window.switchAnalyticsSubTab('stream')" style="padding: 5px 10px; font-size: 11.5px;">🌡️ Water Temp &amp; Flow</button>
+                        <button type="button" class="btn btn-sm btn-glass" id="btn-analytics-tab-moon" onclick="window.switchAnalyticsSubTab('moon')" style="padding: 5px 10px; font-size: 11.5px;">🌙 Moon Phases</button>
+                        <button type="button" class="btn btn-sm btn-glass" id="btn-analytics-tab-species" onclick="window.switchAnalyticsSubTab('species')" style="padding: 5px 10px; font-size: 11.5px;">🐟 Species Records</button>
                     </div>
 
                     <!-- Analytics Sub-Tab Content Panes -->
                     <div id="analytics-pane-flies">
                         <!-- Populated dynamically: Ranked Fly Podium & Performance Table -->
+                    </div>
+                    <div id="analytics-pane-rigs" style="display: none;">
+                        <!-- Populated dynamically: Top Producing Rigs/Combos & Seasonal Breakdown -->
                     </div>
                     <div id="analytics-pane-stream" style="display: none;">
                         <!-- Populated dynamically: Water Temperature Band & River Flow Level Breakdown -->
@@ -887,7 +920,7 @@
                         <!-- Populated dynamically: Moon Phase Success Breakdown -->
                     </div>
                     <div id="analytics-pane-time" style="display: none;">
-                        <!-- Populated dynamically: Time of Day & Hourly Activity Chart -->
+                        <!-- Populated dynamically: Barometric Pressure & Time-of-Day 2D Bite Heatmap -->
                     </div>
                     <div id="analytics-pane-species" style="display: none;">
                         <!-- Populated dynamically: Species Personal Bests & Catch Tallies -->
@@ -2896,17 +2929,17 @@
 
     <!-- Scripts -->
     <script async src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="db.js?v=101640"></script>
-    <script src="regulations.js?v=101640"></script>
-    <script src="weather.js?v=101640"></script>
-    <script src="exif.js?v=101640"></script>
-    <script src="leaflet.js?v=101640"></script>
-    <script src="map.js?v=101640"></script>
-    <script src="tackle_db.js?v=101640"></script>
-    <script src="fish_db.js?v=101640"></script>
-    <script src="fly_box.js?v=101640"></script>
-    <script src="knots.js?v=101640"></script>
-    <script src="auth.js?v=101640"></script>
-    <script src="app.js?v=101640"></script>
+    <script src="db.js?v=101650"></script>
+    <script src="regulations.js?v=101650"></script>
+    <script src="weather.js?v=101650"></script>
+    <script src="exif.js?v=101650"></script>
+    <script src="leaflet.js?v=101650"></script>
+    <script src="map.js?v=101650"></script>
+    <script src="tackle_db.js?v=101650"></script>
+    <script src="fish_db.js?v=101650"></script>
+    <script src="fly_box.js?v=101650"></script>
+    <script src="knots.js?v=101650"></script>
+    <script src="auth.js?v=101650"></script>
+    <script src="app.js?v=101650"></script>
 </body>
 </html>

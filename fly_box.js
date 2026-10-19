@@ -1060,6 +1060,35 @@ window.recommendFlyPattern = function() {
         icon = "🦐";
     }
 
+    // Check Personal Catch History Intelligence Boost
+    let personalBoostHtml = '';
+    if (typeof window.computePersonalPatternIntelligence === 'function') {
+        const waterFilter = target === 'saltwater' ? 'saltwater' : 'freshwater';
+        const intel = window.computePersonalPatternIntelligence(null, { waterType: waterFilter, targetKeyword: target });
+        if (intel && intel.topFly) {
+            const safePersonalFly = String(intel.topFly.name).replace(/'/g, "\\'");
+            const safePersonalRig = intel.topRig ? String(intel.topRig.name).replace(/'/g, "\\'") : '';
+            personalBoostHtml = `
+                <div style="margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(0, 210, 255, 0.08) 100%); border: 1px solid rgba(16, 185, 129, 0.35); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <div>
+                        <div style="font-size: 10.5px; color: #34d399; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">
+                            🏆 Your Proven Personal Match (${intel.topFly.confidence}% Confidence • ${intel.topFly.catches} Landed)
+                        </div>
+                        <div style="font-size: 13.5px; font-weight: 700; color: #fff; margin-top: 2px;">
+                            🪶 ${intel.topFly.name} ${intel.topRig ? `<span style="color: #94a3b8; font-weight: 500; font-size: 12px;">on 🎣 ${intel.topRig.name}</span>` : ''}
+                        </div>
+                        <div style="font-size: 11px; color: #cbd5e1; margin-top: 2px;">
+                            Matched on: ${intel.topFly.reasons.join(' • ')}
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="window.openCatchWithRecommendedRig('${safePersonalFly}', '${safePersonalRig}')" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; font-size: 11px; font-weight: 700; padding: 6px 10px;">
+                        🎣 Rig &amp; Log Catch
+                    </button>
+                </div>
+            `;
+        }
+    }
+
     resultEl.innerHTML = `
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
             <div style="display: flex; align-items: center; gap: 12px;">
@@ -1084,6 +1113,7 @@ window.recommendFlyPattern = function() {
         <p style="font-size: 12.5px; color: var(--text-secondary); margin: 10px 0 0 0; line-height: 1.4;">
             🎯 <b>Presentation Technique:</b> ${tech}
         </p>
+        ${personalBoostHtml}
     `;
 };
 

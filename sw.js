@@ -1,5 +1,5 @@
 // sw.js - Middo's Fly Fishing Backcountry Offline Service Worker
-const CACHE_NAME = 'fly-fishing-v101640';
+const CACHE_NAME = 'fly-fishing-v101650';
 
 // Message Event: Allow web app clients to force immediate skipWaiting & activation
 self.addEventListener('message', (event) => {

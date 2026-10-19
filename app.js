@@ -84,7 +84,7 @@ window.toggleMobileMoreDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101640';
+window.APP_VERSION = 'v101650';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -9820,9 +9820,9 @@ window.initMainApp = async function() {
         document.body.classList.add('high-contrast-mode');
     }
 
-    // --- 2. Comprehensive Fly Success & Angler Analytics Calculation ---
+    // --- 2. Comprehensive Fly Success & Angler Analytics Calculation + "What's Working" Pattern Intelligence ---
     window.switchAnalyticsSubTab = function(tabKey) {
-        const tabs = ['flies', 'moon', 'time', 'species', 'stream'];
+        const tabs = ['flies', 'rigs', 'moon', 'time', 'species', 'stream'];
         tabs.forEach(t => {
             const btn = document.getElementById(`btn-analytics-tab-${t}`);
             const pane = document.getElementById(`analytics-pane-${t}`);
@@ -9836,6 +9836,248 @@ window.initMainApp = async function() {
         });
     };
 
+    // Helper: Southern Hemisphere Season from month index (0-11)
+    function getSouthernHemisphereSeason(monthIndex) {
+        if (monthIndex === 11 || monthIndex === 0 || monthIndex === 1) return { key: 'summer', label: '☀️ Summer (Dec–Feb)', short: 'Summer' };
+        if (monthIndex >= 2 && monthIndex <= 4) return { key: 'autumn', label: '🍂 Autumn (Mar–May)', short: 'Autumn' };
+        if (monthIndex >= 5 && monthIndex <= 7) return { key: 'winter', label: '❄️ Winter (Jun–Aug)', short: 'Winter' };
+        return { key: 'spring', label: '🌱 Spring (Sep–Nov)', short: 'Spring' };
+    }
+
+    // Helper: Time-of-Day Window from hour (0-23)
+    function getTimeWindowInfo(hr) {
+        if (hr >= 5 && hr <= 9) return { key: 'dawn', label: '🌅 Dawn (5–9 AM)', short: '🌅 Dawn' };
+        if (hr >= 10 && hr <= 14) return { key: 'midday', label: '☀️ Midday (10 AM–2 PM)', short: '☀️ Midday' };
+        if (hr >= 15 && hr <= 19) return { key: 'evening', label: '🌇 Evening Rise (3–7 PM)', short: '🌇 Evening' };
+        return { key: 'night', label: '🌙 Night / Twilight (8 PM–4 AM)', short: '🌙 Night' };
+    }
+
+    // Helper: Barometric Pressure Zone from hPa value
+    function getPressureZoneInfo(pVal) {
+        const p = parseFloat(pVal);
+        if (isNaN(p) || p <= 0) return null;
+        if (p < 1010) return { key: 'low', label: '📉 Low / Pre-Front (<1010 hPa)', short: '<1010 hPa (Low)', color: '#38bdf8' };
+        if (p <= 1018) return { key: 'prime', label: '🎯 Prime Feeding (1010–1018 hPa)', short: '1010–1018 hPa (Prime)', color: '#34d399' };
+        if (p <= 1024) return { key: 'high', label: '☀️ High / Stable (1019–1024 hPa)', short: '1019–1024 hPa (High)', color: '#fbbf24' };
+        return { key: 'lockjaw', label: '🔒 Very High / Clear (>1024 hPa)', short: '>1024 hPa (Lockjaw)', color: '#f87171' };
+    }
+
+    // Helper: 1-tap Rig & Log Catch from "What's Working" Recommendation
+    window.openCatchWithRecommendedRig = function(flyName, comboName) {
+        if (typeof window.openQuickCatchModal === 'function') {
+            window.openQuickCatchModal();
+        } else {
+            const modal = document.getElementById('modal-catch');
+            if (modal) modal.classList.add('active');
+        }
+        setTimeout(() => {
+            const flyInput = document.getElementById('catch-fly');
+            if (flyInput && flyName) flyInput.value = flyName;
+            if (comboName) {
+                const comboSelect = document.getElementById('catch-combo-select');
+                if (comboSelect && AppState.tackle && Array.isArray(AppState.tackle.combos)) {
+                    const matchedCombo = AppState.tackle.combos.find(cb => cb.name === comboName || String(cb.id) === String(comboName));
+                    if (matchedCombo) {
+                        comboSelect.value = matchedCombo.id;
+                        if (typeof window.onCatchComboSelectChange === 'function') {
+                            window.onCatchComboSelectChange(matchedCombo.id);
+                        }
+                    }
+                }
+            }
+            if (typeof showToast === 'function') {
+                showToast(`🪰 Pre-loaded "${flyName}"${comboName ? ` + "${comboName}"` : ''} into Log Catch!`);
+            }
+        }, 120);
+    };
+
+    // Smart "What's Working Right Now" Pattern Intelligence Engine
+    window.computePersonalPatternIntelligence = function(catchesInput = null, options = {}) {
+        const rawList = Array.isArray(catchesInput)
+            ? catchesInput
+            : ((AppState && Array.isArray(AppState.catches)) ? AppState.catches : []);
+        const validCatches = rawList.filter(c => c && !c.isNoCatchTrip && !c.isDraft);
+        if (validCatches.length === 0) return null;
+
+        const now = new Date();
+        const curHr = now.getHours();
+        const curTimeWin = getTimeWindowInfo(curHr);
+        const curSeason = getSouthernHemisphereSeason(now.getMonth());
+
+        // Live conditions from AppState.weather / stream gauge / GPS
+        const curLat = (AppState && AppState.coords) ? parseFloat(AppState.coords.lat) : NaN;
+        const curLon = (AppState && AppState.coords) ? parseFloat(AppState.coords.lon) : NaN;
+        const curPressure = (AppState && AppState.weather && AppState.weather.pressure) ? parseFloat(AppState.weather.pressure) : NaN;
+        const curPressureZone = getPressureZoneInfo(curPressure);
+
+        let curWaterTemp = NaN;
+        if (window._lastNearestStreamGauge && window._lastNearestStreamGauge.waterTemp != null) {
+            curWaterTemp = parseFloat(window._lastNearestStreamGauge.waterTemp);
+        } else if (AppState && AppState.weather && AppState.weather.temp != null && window.WEATHER && typeof window.WEATHER.estimateWaterTempFromAir === 'function') {
+            curWaterTemp = window.WEATHER.estimateWaterTempFromAir(parseFloat(AppState.weather.temp), now, !isNaN(curLat) ? curLat : -36.4);
+        }
+
+        const patternMap = {};
+        let conditionMatchedCatches = 0;
+
+        validCatches.forEach(c => {
+            const flyName = (c.fly || c.lure || c.pattern || 'Standard Pattern').trim();
+            if (!flyName) return;
+
+            // Optional keyword or water filter from Fly Box recommender
+            if (options.waterFilter && options.waterFilter !== 'all') {
+                const cWater = (c.locationName || c.river || c.waterbody || '').trim().toLowerCase();
+                if (!cWater.includes(options.waterFilter.toLowerCase())) return;
+            }
+            if (options.seasonFilter && options.seasonFilter !== 'all') {
+                const cDate = c.date ? new Date(c.date) : now;
+                const cSeas = getSouthernHemisphereSeason(isNaN(cDate.getTime()) ? now.getMonth() : cDate.getMonth());
+                if (cSeas.key !== options.seasonFilter) return;
+            }
+
+            let matchScore = 10; // Base empirical catch weight
+            const reasons = [];
+
+            // 1. River / GPS Proximity Match (+35 pts within 25km)
+            if (!isNaN(curLat) && !isNaN(curLon) && c.lat != null && c.lon != null && typeof getDistanceFromLatLonInKm === 'function') {
+                const distKm = getDistanceFromLatLonInKm(curLat, curLon, parseFloat(c.lat), parseFloat(c.lon));
+                if (!isNaN(distKm) && distKm <= 25) {
+                    matchScore += 35;
+                    const locLabel = (c.locationName || c.river || 'Nearby Water').split(',')[0].trim();
+                    reasons.push(`📍 Proven on ${locLabel} (${distKm < 1 ? '<1' : distKm.toFixed(0)}km)`);
+                }
+            }
+
+            // 2. Water Temperature Match (+20 pts within ±3°C)
+            let cWaterTemp = (c.waterTemp !== undefined && c.waterTemp !== null && c.waterTemp !== '') ? parseFloat(c.waterTemp) : NaN;
+            if (isNaN(cWaterTemp) && c.weatherTemp !== undefined && c.weatherTemp !== null && window.WEATHER && typeof window.WEATHER.estimateWaterTempFromAir === 'function') {
+                cWaterTemp = window.WEATHER.estimateWaterTempFromAir(parseFloat(c.weatherTemp), c.date ? new Date(c.date) : now, c.lat || -36.4);
+            }
+            if (!isNaN(curWaterTemp) && !isNaN(cWaterTemp)) {
+                const diff = Math.abs(curWaterTemp - cWaterTemp);
+                if (diff <= 3.0) {
+                    matchScore += 20;
+                    reasons.push(`🌡️ ~${cWaterTemp.toFixed(1)}°C water match`);
+                }
+            }
+
+            // 3. Barometric Pressure Band Match (+15 pts)
+            const cPress = parseFloat(c.weatherPressure || c.pressure);
+            const cPressZone = getPressureZoneInfo(cPress);
+            if (curPressureZone && cPressZone && curPressureZone.key === cPressZone.key) {
+                matchScore += 15;
+                reasons.push(`🎈 ${curPressureZone.short} barometer match`);
+            }
+
+            // 4. Time-of-Day Window Match (+15 pts)
+            if (c.date || c.time) {
+                const dObj = c.time ? new Date(`${c.date || '2026-01-01'}T${c.time}`) : new Date(c.date);
+                if (!isNaN(dObj.getTime())) {
+                    const cTimeWin = getTimeWindowInfo(dObj.getHours());
+                    if (cTimeWin.key === curTimeWin.key) {
+                        matchScore += 15;
+                        reasons.push(`${curTimeWin.short} bite window`);
+                    }
+                    // 5. Southern Hemisphere Season Match (+15 pts)
+                    const cSeas = getSouthernHemisphereSeason(dObj.getMonth());
+                    if (cSeas.key === curSeason.key) {
+                        matchScore += 15;
+                        reasons.push(`${curSeason.short} seasonal match`);
+                    }
+                }
+            }
+
+            // 6. Trophy Size Bonus (+10 pts for >= 45cm)
+            const lenVal = parseFloat(c.length || c.size || 0);
+            if (!isNaN(lenVal) && lenVal >= 45) {
+                matchScore += 10;
+            }
+
+            if (reasons.length > 0) conditionMatchedCatches++;
+
+            if (!patternMap[flyName]) {
+                patternMap[flyName] = {
+                    name: flyName,
+                    catches: 0,
+                    totalScore: 0,
+                    maxSingleScore: 0,
+                    maxLen: 0,
+                    totalLen: 0,
+                    lenCount: 0,
+                    reasonsSet: new Set(),
+                    combos: {},
+                    rods: {},
+                    waters: {},
+                    species: {}
+                };
+            }
+
+            const entry = patternMap[flyName];
+            entry.catches += 1;
+            entry.totalScore += matchScore;
+            if (matchScore > entry.maxSingleScore) entry.maxSingleScore = matchScore;
+            if (!isNaN(lenVal) && lenVal > 0) {
+                entry.totalLen += lenVal;
+                entry.lenCount += 1;
+                if (lenVal > entry.maxLen) entry.maxLen = lenVal;
+            }
+            reasons.forEach(r => entry.reasonsSet.add(r));
+
+            const tk = typeof resolveCatchTackle === 'function' ? resolveCatchTackle(c) : { comboName: c.comboName || '', rodName: c.rod || '' };
+            if (tk.comboName) entry.combos[tk.comboName] = (entry.combos[tk.comboName] || 0) + 1;
+            if (tk.rodName) entry.rods[tk.rodName] = (entry.rods[tk.rodName] || 0) + 1;
+
+            const wName = (c.locationName || c.river || '').split(',')[0].trim();
+            if (wName) entry.waters[wName] = (entry.waters[wName] || 0) + 1;
+
+            const spName = (c.species || 'Trout').trim();
+            entry.species[spName] = (entry.species[spName] || 0) + 1;
+        });
+
+        const ranked = Object.values(patternMap).map(p => {
+            const topCombo = Object.keys(p.combos).sort((a, b) => p.combos[b] - p.combos[a])[0] || '';
+            const topRod = Object.keys(p.rods).sort((a, b) => p.rods[b] - p.rods[a])[0] || '';
+            const topWater = Object.keys(p.waters).sort((a, b) => p.waters[b] - p.waters[a])[0] || '';
+            const topSpecies = Object.keys(p.species).sort((a, b) => p.species[b] - p.species[a])[0] || 'Trout';
+            const avgLen = p.lenCount > 0 ? (p.totalLen / p.lenCount).toFixed(1) : null;
+            // Confidence % blends single-catch condition similarity and historical volume
+            const rawConfidence = Math.min(98, Math.round(p.maxSingleScore + Math.min(18, (p.catches - 1) * 4)));
+            const reasonsList = Array.from(p.reasonsSet).slice(0, 3);
+            if (reasonsList.length === 0) {
+                reasonsList.push(`🏆 Top empirical producer (${p.catches} logged catch${p.catches > 1 ? 'es' : ''})`);
+            }
+            return {
+                name: p.name,
+                catches: p.catches,
+                totalScore: p.totalScore,
+                confidencePct: rawConfidence,
+                maxLen: p.maxLen,
+                avgLen,
+                topCombo,
+                topRod,
+                topWater,
+                topSpecies,
+                reasons: reasonsList
+            };
+        }).sort((a, b) => b.totalScore - a.totalScore || b.catches - a.catches);
+
+        if (ranked.length === 0) return null;
+
+        return {
+            topPattern: ranked[0],
+            runnerUps: ranked.slice(1, 3),
+            allRanked: ranked,
+            totalAnalyzed: validCatches.length,
+            conditionMatchedCatches,
+            contextSummary: {
+                season: curSeason.short,
+                timeWindow: curTimeWin.short,
+                waterTemp: !isNaN(curWaterTemp) ? `${curWaterTemp.toFixed(1)}°C` : null,
+                pressureZone: curPressureZone ? curPressureZone.short : null
+            }
+        };
+    };
+
     window.updateCatchAnalytics = async function(customCatches = null) {
         try {
             const elTrophy = document.getElementById('analytics-trophy');
@@ -9846,17 +10088,122 @@ window.initMainApp = async function() {
             const elPeakSub = document.getElementById('analytics-peak-hour-sub');
 
             const paneFlies = document.getElementById('analytics-pane-flies');
+            const paneRigs = document.getElementById('analytics-pane-rigs');
             const paneMoon = document.getElementById('analytics-pane-moon');
             const paneTime = document.getElementById('analytics-pane-time');
             const paneSpecies = document.getElementById('analytics-pane-species');
             const paneStream = document.getElementById('analytics-pane-stream');
 
+            const dashWhatsWorking = document.getElementById('dash-whats-working-box');
+            const analyticsWhatsWorking = document.getElementById('analytics-whats-working-box');
+            const filterWaterEl = document.getElementById('analytics-filter-water');
+            const filterSeasonEl = document.getElementById('analytics-filter-season');
+
             // Fetch catches list from argument, AppState, or IndexedDB
-            let catchesList = customCatches;
-            if (!catchesList || !Array.isArray(catchesList)) {
-                catchesList = (AppState.catches && AppState.catches.length > 0) 
+            let rawCatchesList = customCatches;
+            if (!rawCatchesList || !Array.isArray(rawCatchesList)) {
+                rawCatchesList = (AppState.catches && AppState.catches.length > 0) 
                     ? AppState.catches 
                     : await window.DB.getAllCatches();
+            }
+
+            // Exclude skunked/no-catch trips and drafts from fish analytics
+            const allFishCatches = (rawCatchesList || []).filter(c => c && !c.isNoCatchTrip && !c.isDraft);
+
+            // Populate Waterbody Filter Dropdown options dynamically while preserving current selection
+            if (filterWaterEl) {
+                const prevWater = filterWaterEl.value || 'all';
+                const waterCounts = {};
+                allFishCatches.forEach(c => {
+                    const w = (c.locationName || c.river || '').split(',')[0].trim();
+                    if (w && w !== 'Unknown Water') waterCounts[w] = (waterCounts[w] || 0) + 1;
+                });
+                const sortedWaters = Object.keys(waterCounts).sort((a, b) => waterCounts[b] - waterCounts[a]);
+                filterWaterEl.innerHTML = `<option value="all">🌊 All Waters (${allFishCatches.length})</option>` +
+                    sortedWaters.map(w => `<option value="${w.replace(/"/g, '&quot;')}">📍 ${w} (${waterCounts[w]})</option>`).join('');
+                if (sortedWaters.includes(prevWater)) filterWaterEl.value = prevWater;
+                else filterWaterEl.value = 'all';
+            }
+
+            const selectedWater = filterWaterEl ? (filterWaterEl.value || 'all') : 'all';
+            const selectedSeason = filterSeasonEl ? (filterSeasonEl.value || 'all') : 'all';
+
+            // Apply interactive slicers
+            const catchesList = allFishCatches.filter(c => {
+                if (selectedWater !== 'all') {
+                    const w = (c.locationName || c.river || '').split(',')[0].trim();
+                    if (w !== selectedWater) return false;
+                }
+                if (selectedSeason !== 'all') {
+                    const d = c.date ? new Date(c.date) : new Date();
+                    const s = getSouthernHemisphereSeason(isNaN(d.getTime()) ? new Date().getMonth() : d.getMonth());
+                    if (s.key !== selectedSeason) return false;
+                }
+                return true;
+            });
+
+            // Render "What's Working Right Now" Pattern Intelligence Banner (Dashboard + Catch Logs)
+            const intel = window.computePersonalPatternIntelligence(allFishCatches, {
+                waterFilter: selectedWater,
+                seasonFilter: selectedSeason
+            });
+
+            if (intel && intel.topPattern) {
+                const top = intel.topPattern;
+                const ctxPills = [
+                    intel.contextSummary.timeWindow,
+                    intel.contextSummary.season,
+                    intel.contextSummary.waterTemp ? `🌡️ ${intel.contextSummary.waterTemp}` : null,
+                    intel.contextSummary.pressureZone ? `🎈 ${intel.contextSummary.pressureZone}` : null
+                ].filter(Boolean).join(' • ');
+
+                const safeFlyArg = top.name.replace(/'/g, "\\'");
+                const safeComboArg = (top.topCombo || '').replace(/'/g, "\\'");
+
+                const runnerUpHtml = intel.runnerUps.length > 0
+                    ? `<div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.1); font-size: 10.5px; color: #94a3b8; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+                        <span>🥈 <b>Backup Patterns:</b></span>
+                        ${intel.runnerUps.map(r => `<span style="background: rgba(255,255,255,0.05); padding: 2px 7px; border-radius: 999px; color: #e2e8f0;">🪰 ${r.name} <span style="color: var(--accent-teal);">(${r.catches})</span></span>`).join('')}
+                       </div>`
+                    : '';
+
+                const bannerHtml = `
+                    <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.14), rgba(0, 210, 255, 0.08)); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 10px; padding: 11px 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                    <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; background: rgba(16, 185, 129, 0.22); color: #34d399; padding: 2px 7px; border-radius: 999px;">🧠 What's Working Right Now</span>
+                                    <span style="font-size: 10px; color: #94a3b8;">${ctxPills}</span>
+                                </div>
+                                <div style="font-size: 15px; font-weight: 800; color: #f8fafc; margin-top: 5px;">
+                                    🪰 ${top.name}
+                                    <span style="font-size: 11px; font-weight: 700; color: #34d399; margin-left: 6px;">${top.confidencePct}% Match (${top.catches} logged)</span>
+                                </div>
+                                <div style="font-size: 11px; color: #cbd5e1; margin-top: 3px;">
+                                    ${top.reasons.join(' • ')}
+                                    ${top.topCombo ? ` • 🎣 Best Rig: <strong style="color: #38bdf8;">${top.topCombo}</strong>` : (top.topRod ? ` • 🎣 Rod: <strong style="color: #38bdf8;">${top.topRod}</strong>` : '')}
+                                    ${top.maxLen > 0 ? ` • 🏆 PB: <strong>${top.maxLen}cm</strong>` : ''}
+                                </div>
+                            </div>
+                            <button type="button" onclick="window.openCatchWithRecommendedRig('${safeFlyArg}', '${safeComboArg}')" style="background: rgba(16, 185, 129, 0.22); border: 1px solid rgba(16, 185, 129, 0.5); color: #ecfdf5; border-radius: 7px; padding: 6px 10px; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;">
+                                🎣 Rig & Log Catch
+                            </button>
+                        </div>
+                        ${runnerUpHtml}
+                    </div>
+                `;
+
+                if (dashWhatsWorking) {
+                    dashWhatsWorking.style.display = 'block';
+                    dashWhatsWorking.innerHTML = bannerHtml;
+                }
+                if (analyticsWhatsWorking) {
+                    analyticsWhatsWorking.style.display = 'block';
+                    analyticsWhatsWorking.innerHTML = bannerHtml;
+                }
+            } else {
+                if (dashWhatsWorking) dashWhatsWorking.style.display = 'none';
+                if (analyticsWhatsWorking) analyticsWhatsWorking.style.display = 'none';
             }
 
             if (!catchesList || catchesList.length === 0) {
@@ -9867,8 +10214,9 @@ window.initMainApp = async function() {
                 if (elPeak) elPeak.textContent = "--";
                 if (elPeakSub) elPeakSub.textContent = "Based on catch timestamps";
 
-                const emptyHtml = `<p class="placeholder-text" style="text-align: center; padding: 20px; font-size: 12px; color: var(--text-secondary);">No catches logged yet. Log your first catch to populate empirical analytics!</p>`;
+                const emptyHtml = `<p class="placeholder-text" style="text-align: center; padding: 20px; font-size: 12px; color: var(--text-secondary);">No catches match the selected filter (or none logged yet). Log a catch or reset the water/season filter above!</p>`;
                 if (paneFlies) paneFlies.innerHTML = emptyHtml;
+                if (paneRigs) paneRigs.innerHTML = emptyHtml;
                 if (paneMoon) paneMoon.innerHTML = emptyHtml;
                 if (paneTime) paneTime.innerHTML = emptyHtml;
                 if (paneSpecies) paneSpecies.innerHTML = emptyHtml;
@@ -10031,6 +10379,120 @@ window.initMainApp = async function() {
                 paneFlies.innerHTML = podiumHtml + tableHtml;
             }
 
+            // Render Pane 1B: Top-Producing Rigs, Rods & Seasonal Breakdown (Option 3)
+            if (paneRigs) {
+                const rigMap = {};
+                const seasonMap = {
+                    summer: { label: '☀️ Summer (Dec–Feb)', count: 0, maxLen: 0, flies: {}, color: '#f59e0b' },
+                    autumn: { label: '🍂 Autumn (Mar–May)', count: 0, maxLen: 0, flies: {}, color: '#fb7185' },
+                    winter: { label: '❄️ Winter (Jun–Aug)', count: 0, maxLen: 0, flies: {}, color: '#38bdf8' },
+                    spring: { label: '🌱 Spring (Sep–Nov)', count: 0, maxLen: 0, flies: {}, color: '#34d399' }
+                };
+
+                catchesList.forEach(c => {
+                    const len = parseLen(c);
+                    const fly = (c.fly || 'Standard Fly').trim();
+                    const tk = typeof resolveCatchTackle === 'function'
+                        ? resolveCatchTackle(c)
+                        : { comboName: c.comboName || '', rodName: c.rod || '', lineName: c.line || '', leaderSetup: c.leader || '' };
+
+                    const rigLabel = tk.comboName
+                        ? `🎣 ${tk.comboName}`
+                        : (tk.rodName ? `🥢 ${tk.rodName}${tk.lineName ? ' + ' + tk.lineName : ''}` : '🎣 Unassigned / Standard Rig');
+
+                    if (!rigMap[rigLabel]) {
+                        rigMap[rigLabel] = {
+                            label: rigLabel,
+                            rod: tk.rodName || '--',
+                            line: tk.lineName || '--',
+                            leader: tk.leaderSetup || '--',
+                            count: 0,
+                            totalLen: 0,
+                            lenCount: 0,
+                            maxLen: 0,
+                            flies: {},
+                            waters: {}
+                        };
+                    }
+                    rigMap[rigLabel].count += 1;
+                    if (len > 0) {
+                        rigMap[rigLabel].totalLen += len;
+                        rigMap[rigLabel].lenCount += 1;
+                        if (len > rigMap[rigLabel].maxLen) rigMap[rigLabel].maxLen = len;
+                    }
+                    rigMap[rigLabel].flies[fly] = (rigMap[rigLabel].flies[fly] || 0) + 1;
+                    const wName = (c.locationName || c.river || '').split(',')[0].trim();
+                    if (wName) rigMap[rigLabel].waters[wName] = (rigMap[rigLabel].waters[wName] || 0) + 1;
+
+                    // Seasonal tally
+                    const dObj = c.date ? new Date(c.date) : new Date();
+                    const sInfo = getSouthernHemisphereSeason(isNaN(dObj.getTime()) ? new Date().getMonth() : dObj.getMonth());
+                    const sBucket = seasonMap[sInfo.key];
+                    if (sBucket) {
+                        sBucket.count += 1;
+                        if (len > sBucket.maxLen) sBucket.maxLen = len;
+                        sBucket.flies[fly] = (sBucket.flies[fly] || 0) + 1;
+                    }
+                });
+
+                const sortedRigs = Object.values(rigMap).sort((a, b) => b.count - a.count);
+
+                const rigCardsHtml = sortedRigs.map((rg, idx) => {
+                    const pct = totalCatchesCount > 0 ? Math.round((rg.count / totalCatchesCount) * 100) : 0;
+                    const avgLen = rg.lenCount > 0 ? (rg.totalLen / rg.lenCount).toFixed(1) + ' cm' : '--';
+                    const topFly = Object.keys(rg.flies).sort((a, b) => rg.flies[b] - rg.flies[a])[0] || '--';
+                    const topWater = Object.keys(rg.waters).sort((a, b) => rg.waters[b] - rg.waters[a])[0] || 'All Waters';
+                    const borderColor = idx === 0 ? 'var(--accent-teal)' : 'rgba(255,255,255,0.08)';
+                    return `
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid ${borderColor}; border-radius: 8px; padding: 11px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 4px;">
+                                <strong style="font-size: 12.5px; color: var(--text-primary);">${idx === 0 ? '🏆 ' : ''}${rg.label}</strong>
+                                <span class="badge" style="background: rgba(0, 210, 255, 0.12); color: var(--accent-teal); font-size: 10px;">${rg.count} Fish (${pct}%)</span>
+                            </div>
+                            <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.45;">
+                                ${rg.rod !== '--' ? `🥢 Rod: <b style="color:#e2e8f0;">${rg.rod}</b>` : ''}
+                                ${rg.line !== '--' ? ` • 🧵 Line: <b style="color:#e2e8f0;">${rg.line}</b>` : ''}
+                                ${rg.leader !== '--' ? ` • 🪢 Tippet: <b style="color:#38bdf8;">${rg.leader}</b>` : ''}<br>
+                                🪰 Top Fly: <b style="color: var(--accent-orange);">${topFly}</b> • 📏 Avg: <b>${avgLen}</b> • PB: <b>${rg.maxLen ? rg.maxLen + ' cm' : '--'}</b> • 📍 ${topWater}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                const seasonCardsHtml = Object.values(seasonMap).map(s => {
+                    const pct = totalCatchesCount > 0 ? Math.round((s.count / totalCatchesCount) * 100) : 0;
+                    const topFly = Object.keys(s.flies).sort((a, b) => s.flies[b] - s.flies[a])[0] || '--';
+                    return `
+                        <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-top: 3px solid ${s.color}; border-radius: 8px; padding: 10px;">
+                            <div style="font-size: 11.5px; font-weight: 700; color: ${s.color}; margin-bottom: 4px;">${s.label}</div>
+                            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                <strong style="font-size: 16px; color: var(--text-primary);">${s.count} Fish</strong>
+                                <span style="font-size: 10.5px; color: var(--text-secondary);">${pct}%</span>
+                            </div>
+                            <div style="font-size: 10.5px; color: var(--text-secondary); margin-top: 5px;">
+                                🪰 Top Pattern: <b style="color: #e2e8f0;">${topFly}</b><br>
+                                🏆 Season PB: <b style="color: var(--accent-teal);">${s.maxLen > 0 ? s.maxLen + ' cm' : '--'}</b>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                paneRigs.innerHTML = `
+                    <div style="margin-bottom: 14px;">
+                        <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px;">🎣 Top-Producing Rigs, Rods & Line Setups</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px;">
+                            ${rigCardsHtml}
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px;">🍂 Southern Hemisphere Seasonal Catch & Pattern Breakdown</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px;">
+                            ${seasonCardsHtml}
+                        </div>
+                    </div>
+                `;
+            }
+
             // Render Pane 2: Moon Phase Success Breakdown
             if (paneMoon) {
                 const moonCounts = {
@@ -10069,28 +10531,65 @@ window.initMainApp = async function() {
                 `;
             }
 
-            // Render Pane 3: Time-of-Day & Peak Bite Hours
+            // Render Pane 3: Barometric Pressure Sweet-Spot & 2D Time-of-Day Bite Heatmap (Option 3)
             if (paneTime) {
                 const timeBlocks = {
-                    '🌅 Morning Dawn (5AM - 9AM)': { count: 0, hours: [5,6,7,8,9] },
-                    '☀️ Midday Sun (10AM - 2PM)': { count: 0, hours: [10,11,12,13,14] },
-                    '🌇 Evening Rise (3PM - 7PM)': { count: 0, hours: [15,16,17,18,19] },
-                    '🌙 Night / Twilight (8PM - 4AM)': { count: 0, hours: [20,21,22,23,0,1,2,3,4] }
+                    dawn: { title: '🌅 Morning Dawn (5AM - 9AM)', short: '🌅 Dawn', count: 0, hours: [5,6,7,8,9], flies: {} },
+                    midday: { title: '☀️ Midday Sun (10AM - 2PM)', short: '☀️ Midday', count: 0, hours: [10,11,12,13,14], flies: {} },
+                    evening: { title: '🌇 Evening Rise (3PM - 7PM)', short: '🌇 Evening', count: 0, hours: [15,16,17,18,19], flies: {} },
+                    night: { title: '🌙 Night / Twilight (8PM - 4AM)', short: '🌙 Night', count: 0, hours: [20,21,22,23,0,1,2,3,4], flies: {} }
                 };
 
+                const pressureBands = {
+                    low: { label: '📉 Low / Pre-Front (<1010 hPa)', short: '<1010 hPa', count: 0, color: '#38bdf8', flies: {} },
+                    prime: { label: '🎯 Prime (1010–1018 hPa)', short: '1010–1018 hPa', count: 0, color: '#34d399', flies: {} },
+                    high: { label: '☀️ High / Stable (1019–1024 hPa)', short: '1019–1024 hPa', count: 0, color: '#fbbf24', flies: {} },
+                    lockjaw: { label: '🔒 Very High (>1024 hPa)', short: '>1024 hPa', count: 0, color: '#f87171', flies: {} }
+                };
+
+                // 2D Matrix: [pressureKey][timeKey] = { count, flies }
+                const matrix2D = {};
+                Object.keys(pressureBands).forEach(pk => {
+                    matrix2D[pk] = {};
+                    Object.keys(timeBlocks).forEach(tk => {
+                        matrix2D[pk][tk] = { count: 0, flies: {} };
+                    });
+                });
+
                 const hourCounts = {};
+                let pressureSum = 0;
+                let pressureCount = 0;
+
                 catchesList.forEach(c => {
+                    const fly = (c.fly || 'Standard Fly').trim();
+                    let matchedTimeKey = null;
+
                     if (c.date || c.time) {
                         const dateObj = c.time ? new Date(`${c.date || '2026-01-01'}T${c.time}`) : new Date(c.date);
                         if (!isNaN(dateObj.getTime())) {
                             const hr = dateObj.getHours();
                             hourCounts[hr] = (hourCounts[hr] || 0) + 1;
-                            for (let b in timeBlocks) {
-                                if (timeBlocks[b].hours.includes(hr)) {
-                                    timeBlocks[b].count += 1;
+                            for (let tk in timeBlocks) {
+                                if (timeBlocks[tk].hours.includes(hr)) {
+                                    timeBlocks[tk].count += 1;
+                                    timeBlocks[tk].flies[fly] = (timeBlocks[tk].flies[fly] || 0) + 1;
+                                    matchedTimeKey = tk;
                                     break;
                                 }
                             }
+                        }
+                    }
+
+                    const pVal = parseFloat(c.weatherPressure || c.pressure);
+                    const pInfo = getPressureZoneInfo(pVal);
+                    if (pInfo && pressureBands[pInfo.key]) {
+                        pressureBands[pInfo.key].count += 1;
+                        pressureBands[pInfo.key].flies[fly] = (pressureBands[pInfo.key].flies[fly] || 0) + 1;
+                        pressureSum += pVal;
+                        pressureCount += 1;
+                        if (matchedTimeKey && matrix2D[pInfo.key][matchedTimeKey]) {
+                            matrix2D[pInfo.key][matchedTimeKey].count += 1;
+                            matrix2D[pInfo.key][matchedTimeKey].flies[fly] = (matrix2D[pInfo.key][matchedTimeKey].flies[fly] || 0) + 1;
                         }
                     }
                 });
@@ -10105,23 +10604,104 @@ window.initMainApp = async function() {
                     if (elPeakSub) elPeakSub.textContent = `${hourCounts[peakHr]} catches recorded`;
                 }
 
+                // Compute max cell count for heatmap color intensity
+                let maxCellCount = 1;
+                Object.keys(matrix2D).forEach(pk => {
+                    Object.keys(matrix2D[pk]).forEach(tk => {
+                        if (matrix2D[pk][tk].count > maxCellCount) maxCellCount = matrix2D[pk][tk].count;
+                    });
+                });
+
+                const avgPressureStr = pressureCount > 0 ? `${Math.round(pressureSum / pressureCount)} hPa` : '--';
+                const topPressBand = Object.values(pressureBands).sort((a, b) => b.count - a.count)[0];
+
+                const timeBlocksHtml = Object.values(timeBlocks).map(data => {
+                    const pct = totalCatchesCount > 0 ? Math.round((data.count / totalCatchesCount) * 100) : 0;
+                    const topFly = Object.keys(data.flies).sort((a, b) => data.flies[b] - data.flies[a])[0] || '--';
+                    return `
+                        <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 11px;">
+                            <div style="font-size: 11.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 5px;">${data.title}</div>
+                            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px;">
+                                <strong style="font-size: 17px; color: var(--accent-orange);">${data.count} Fish</strong>
+                                <span style="font-size: 11px; color: var(--text-secondary);">${pct}%</span>
+                            </div>
+                            <div style="height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-bottom: 5px;">
+                                <div style="height: 100%; width: ${pct}%; background: var(--accent-orange); border-radius: 3px;"></div>
+                            </div>
+                            <div style="font-size: 10.5px; color: var(--text-secondary);">🪰 Top: <b style="color: #e2e8f0;">${topFly}</b></div>
+                        </div>
+                    `;
+                }).join('');
+
+                const pressureCardsHtml = Object.values(pressureBands).map(pb => {
+                    const pct = pressureCount > 0 ? Math.round((pb.count / pressureCount) * 100) : 0;
+                    const topFly = Object.keys(pb.flies).sort((a, b) => pb.flies[b] - pb.flies[a])[0] || '--';
+                    return `
+                        <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-top: 3px solid ${pb.color}; border-radius: 8px; padding: 10px;">
+                            <div style="font-size: 11px; font-weight: 700; color: ${pb.color}; margin-bottom: 4px;">${pb.label}</div>
+                            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                <strong style="font-size: 15px; color: var(--text-primary);">${pb.count} Fish</strong>
+                                <span style="font-size: 10.5px; color: var(--text-secondary);">${pct}%</span>
+                            </div>
+                            <div style="font-size: 10.5px; color: var(--text-secondary); margin-top: 4px;">🪰 Best: <b style="color: #e2e8f0;">${topFly}</b></div>
+                        </div>
+                    `;
+                }).join('');
+
+                const heatmapRowsHtml = Object.entries(pressureBands).map(([pk, pb]) => {
+                    const cellsHtml = Object.keys(timeBlocks).map(tk => {
+                        const cell = matrix2D[pk][tk];
+                        const intensity = cell.count > 0 ? Math.max(0.16, (cell.count / maxCellCount) * 0.65) : 0.02;
+                        const topCellFly = Object.keys(cell.flies).sort((a, b) => cell.flies[b] - cell.flies[a])[0] || '';
+                        const bg = cell.count > 0 ? `rgba(16, 185, 129, ${intensity.toFixed(2)})` : 'rgba(255,255,255,0.02)';
+                        const border = cell.count > 0 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(255,255,255,0.05)';
+                        return `
+                            <td style="padding: 7px 6px; text-align: center; background: ${bg}; border: 1px solid ${border}; border-radius: 6px;">
+                                <div style="font-size: 12px; font-weight: 800; color: ${cell.count > 0 ? '#ecfdf5' : '#64748b'};">${cell.count}</div>
+                                ${topCellFly ? `<div style="font-size: 9.5px; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; margin: 0 auto;">${topCellFly}</div>` : ''}
+                            </td>
+                        `;
+                    }).join('');
+                    return `
+                        <tr>
+                            <td style="padding: 7px 8px; font-size: 11px; font-weight: 700; color: ${pb.color}; white-space: nowrap;">${pb.short}</td>
+                            ${cellsHtml}
+                        </tr>
+                    `;
+                }).join('');
+
                 paneTime.innerHTML = `
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
-                        ${Object.entries(timeBlocks).map(([blockTitle, data]) => {
-                            const pct = totalCatchesCount > 0 ? Math.round((data.count / totalCatchesCount) * 100) : 0;
-                            return `
-                                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px;">
-                                    <div style="font-size: 11.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">${blockTitle}</div>
-                                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
-                                        <strong style="font-size: 18px; color: var(--accent-orange);">${data.count} Fish</strong>
-                                        <span style="font-size: 11px; color: var(--text-secondary);">${pct}% Success</span>
-                                    </div>
-                                    <div style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
-                                        <div style="height: 100%; width: ${pct}%; background: var(--accent-orange); border-radius: 3px;"></div>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
+                    <div style="margin-bottom: 14px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
+                            <span style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px;">🎈 Personal Barometric Pressure Sweet-Spot</span>
+                            <span style="font-size: 11px; color: #34d399; font-weight: 700;">Avg Catch Pressure: ${avgPressureStr}${topPressBand && topPressBand.count > 0 ? ` • Sweet-Spot: ${topPressBand.short}` : ''}</span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px;">
+                            ${pressureCardsHtml}
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 14px; overflow-x: auto;">
+                        <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px;">🔥 2D Barometer × Time-of-Day Bite Matrix (Catches & Top Fly)</div>
+                        <table style="width: 100%; border-collapse: separate; border-spacing: 4px; font-size: 11px;">
+                            <thead>
+                                <tr style="color: var(--text-secondary);">
+                                    <th style="text-align: left; padding: 4px 6px;">Pressure \\ Time</th>
+                                    <th style="text-align: center; padding: 4px 6px;">🌅 Dawn</th>
+                                    <th style="text-align: center; padding: 4px 6px;">☀️ Midday</th>
+                                    <th style="text-align: center; padding: 4px 6px;">🌇 Evening</th>
+                                    <th style="text-align: center; padding: 4px 6px;">🌙 Night</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${heatmapRowsHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px;">⏰ Time-of-Day Feeding Windows</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px;">
+                            ${timeBlocksHtml}
+                        </div>
                     </div>
                 `;
             }
