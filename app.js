@@ -117,7 +117,7 @@ window.toggleMapToolsDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101705';
+window.APP_VERSION = 'v101710';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -989,6 +989,10 @@ window.initMainApp = async function() {
                     try { window.refreshSolunarAndAstroUI(); } catch(e){}
                 }
                 if (typeof drawTideChart === 'function') drawTideChart();
+                setTimeout(() => {
+                    if (typeof drawTideChart === 'function') drawTideChart();
+                    if (typeof window.drawPressureChart === 'function') window.drawPressureChart();
+                }, 60);
             }
         } catch (tabHookErr) {
             console.warn(`Tab hook notice for "${tabId}":`, tabHookErr);
@@ -6726,6 +6730,7 @@ window.initMainApp = async function() {
             AppState.tideData = tides;
 
             displayAstroData(moon, tides, astroLat, astroLon);
+            drawTideChart();
         } catch (e) {
             console.error("Astro display error:", e);
         }
@@ -6767,15 +6772,17 @@ window.initMainApp = async function() {
                 lastWeatherFetchLat = lat;
                 lastWeatherFetchLon = lon;
                 AppState.weatherData = weather;
+                if (weather.tides && Array.isArray(weather.tides.nextEvents) && weather.tides.nextEvents.length > 0) {
+                    AppState.tideData = weather.tides;
+                }
                 displayWeatherData(weather);
+                if (AppState.moonData && AppState.tideData) {
+                    displayAstroData(AppState.moonData, AppState.tideData, lat, lon);
+                }
                 drawTideChart();
                 if (typeof window.drawPressureChart === 'function') {
                     const curP = (weather && weather.current) ? weather.current.pressure : 1016;
                     window.drawPressureChart(null, curP);
-                }
-                // Refresh solunar with updated live barometric pressure from BOM observation
-                if (AppState.moonData && AppState.tideData) {
-                    displayAstroData(AppState.moonData, AppState.tideData, lat, lon);
                 }
             } else {
                 console.warn("[Weather Engine] Weather forecast returned null");
@@ -6991,10 +6998,18 @@ window.initMainApp = async function() {
         if (elements.tideCurrentHeight) elements.tideCurrentHeight.textContent = tides.currentHeight;
         
         const tideStationEl = document.getElementById('tide-station-info');
-        if (tideStationEl && AppState.userCoords) {
-            tideStationEl.innerHTML = `📍 <b>Tide Reference Location:</b> Estuary Model at Lat: ${AppState.userCoords.lat.toFixed(4)}, Lng: ${AppState.userCoords.lng.toFixed(4)}`;
-        } else if (tideStationEl) {
-            tideStationEl.innerHTML = `📍 <b>Tide Reference Location:</b> Australia Center [Lat: -25.2744, Lng: 133.7751]`;
+        if (tideStationEl) {
+            if (tides && tides.stationName) {
+                const distBadge = (tides.distanceKm !== undefined && !tides.isOfficialPort)
+                    ? ` (${tides.distanceKm < 1 ? '<1' : Math.round(tides.distanceKm)} km)`
+                    : '';
+                const datumBadge = tides.datum || 'LAT (Chart Datum)';
+                tideStationEl.innerHTML = `📍 <b>Tide Reference Port:</b> ${tides.stationName}${distBadge} • <span style="color:var(--accent-teal); font-weight:600;">Datum: ${datumBadge}</span>`;
+            } else if (AppState.userCoords) {
+                tideStationEl.innerHTML = `📍 <b>Tide Reference Location:</b> Estuary Model at Lat: ${AppState.userCoords.lat.toFixed(4)}, Lng: ${AppState.userCoords.lng.toFixed(4)}`;
+            } else {
+                tideStationEl.innerHTML = `📍 <b>Tide Reference Location:</b> Sydney (Fort Denison), NSW • Datum: LAT`;
+            }
         }
 
         if (elements.tideCurrentDir) {
@@ -7008,12 +7023,25 @@ window.initMainApp = async function() {
 
         if (elements.tideEventsList && Array.isArray(tides.nextEvents)) {
             elements.tideEventsList.innerHTML = '';
+            // Identify Higher vs Lower High/Low for clearer coastal diurnal display
+            const highHeights = tides.nextEvents.filter(e => e.type === 'High').map(e => parseFloat(e.height));
+            const lowHeights = tides.nextEvents.filter(e => e.type === 'Low').map(e => parseFloat(e.height));
+            const maxHigh = highHeights.length > 1 ? Math.max(...highHeights) : null;
+            const minLow = lowHeights.length > 1 ? Math.min(...lowHeights) : null;
+
             tides.nextEvents.forEach(e => {
                 const cls = e.type === 'High' ? 'high-tide' : 'low-tide';
+                const numH = parseFloat(e.height);
+                let tideLabel = `${e.type} Tide`;
+                if (e.type === 'High' && maxHigh !== null && highHeights[0] !== highHeights[1]) {
+                    tideLabel = numH >= maxHigh ? 'Higher High Tide' : 'Lower High Tide';
+                } else if (e.type === 'Low' && minLow !== null && lowHeights[0] !== lowHeights[1]) {
+                    tideLabel = numH <= minLow ? 'Lower Low Tide' : 'Higher Low Tide';
+                }
                 elements.tideEventsList.insertAdjacentHTML('beforeend', `
                     <li class="${cls}">
-                        <span><b>${e.type} Tide</b></span>
-                        <span>Time: ${e.timeLabel} (${e.height})</span>
+                        <span><b>${tideLabel}</b></span>
+                        <span>${e.timeLabel} • <b>${e.height}</b> <small style="opacity:0.75;">LAT</small></span>
                     </li>
                 `);
             });
@@ -7423,81 +7451,103 @@ window.initMainApp = async function() {
         }
     }
 
-    // Drawing the Visual Tide Chart Canvas
+    // Drawing the Visual Tide Chart Canvas (LAT Chart Datum in Metres)
     window.drawTideChart = drawTideChart;
     function drawTideChart() {
-        const canvas = elements.tideCanvas;
+        const canvas = elements.tideCanvas || document.getElementById('tide-chart-canvas');
         if (!canvas || !AppState.tideData) return;
 
-        if (canvas.clientWidth && canvas.clientWidth > 0) {
-            canvas.width = canvas.clientWidth;
-        }
-        if (canvas.clientHeight && canvas.clientHeight > 0) {
-            canvas.height = canvas.clientHeight;
-        }
+        const cw = canvas.clientWidth || 320;
+        const ch = canvas.clientHeight || 110;
+        if (cw > 0) canvas.width = cw;
+        if (ch > 0) canvas.height = ch;
 
         const ctx = canvas.getContext('2d');
         const width = canvas.width;
         const height = canvas.height;
         ctx.clearRect(0, 0, width, height);
 
-        const points = AppState.tideData.graphPoints; // 25 points
+        const points = AppState.tideData.graphPoints; // 25 points (0..24h)
         if (!points || points.length === 0) return;
 
-        // Draw graph grid background lines
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= 4; i++) {
-            const y = 20 + i * (height - 40) / 4;
-            ctx.beginPath();
-            ctx.moveTo(30, y);
-            ctx.lineTo(width - 15, y);
-            ctx.stroke();
-        }
+        // Compute dynamic LAT Chart Datum scale [0.0m .. maxScale]
+        const heights = points.map(p => Number(p.height) || 0);
+        const maxPointH = Math.max(...heights, 1.6);
+        const minScale = 0.0;
+        const maxScale = Math.max(2.0, Math.ceil((maxPointH + 0.25) * 2) / 2);
 
-        // Draw wave curve
-        ctx.beginPath();
-        const getX = (hour) => 30 + (hour / 24) * (width - 45);
-        // Map height (-1.6 to +1.6) to canvas space (20 to height-20)
+        const padLeft = 36;
+        const padRight = 14;
+        const padTop = 18;
+        const padBottom = 20;
+        const plotW = Math.max(40, width - padLeft - padRight);
+        const plotH = Math.max(30, height - padTop - padBottom);
+
+        const getX = (hour) => padLeft + (hour / 24) * plotW;
         const getY = (hVal) => {
-            const normalized = (hVal + 1.6) / 3.2; // 0 to 1
-            return height - 20 - normalized * (height - 40);
+            const clamped = Math.max(minScale, Math.min(maxScale, Number(hVal) || 0));
+            const normalized = (clamped - minScale) / (maxScale - minScale);
+            return padTop + plotH - normalized * plotH;
         };
 
-        // Draw curve lines
+        // Draw horizontal grid lines and Y-axis LAT height labels (0.0m, mid, max)
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
+        ctx.lineWidth = 1;
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '9px Inter, sans-serif';
+        ctx.textAlign = 'right';
+
+        for (let i = 0; i <= 2; i++) {
+            const val = minScale + (i / 2) * (maxScale - minScale);
+            const y = getY(val);
+            ctx.beginPath();
+            ctx.moveTo(padLeft, y);
+            ctx.lineTo(width - padRight, y);
+            ctx.stroke();
+            ctx.fillText(`${val.toFixed(1)}m`, padLeft - 5, y + 3);
+        }
+
+        // Draw smooth wave curve
+        ctx.beginPath();
         ctx.moveTo(getX(points[0].hour), getY(points[0].height));
         for (let i = 1; i < points.length; i++) {
-            ctx.lineTo(getX(points[i].hour), getY(points[i].height));
+            const prev = points[i - 1];
+            const curr = points[i];
+            const midX = (getX(prev.hour) + getX(curr.hour)) / 2;
+            const midY = (getY(prev.height) + getY(curr.height)) / 2;
+            ctx.quadraticCurveTo(getX(prev.hour), getY(prev.height), midX, midY);
         }
-        ctx.strokeStyle = 'var(--accent-blue)';
-        ctx.lineWidth = 3;
+        const lastPt = points[points.length - 1];
+        ctx.lineTo(getX(lastPt.hour), getY(lastPt.height));
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.5;
         ctx.stroke();
 
-        // Create gradient fill under wave
-        ctx.lineTo(getX(24), height - 20);
-        ctx.lineTo(getX(0), height - 20);
+        // Gradient fill under tide curve down to 0.0m LAT datum
+        ctx.lineTo(getX(24), padTop + plotH);
+        ctx.lineTo(getX(0), padTop + plotH);
         ctx.closePath();
-        const gradient = ctx.createLinearGradient(0, 20, 0, height - 20);
-        gradient.addColorStop(0, 'rgba(0, 210, 255, 0.15)');
-        gradient.addColorStop(1, 'rgba(0, 210, 255, 0.0)');
+        const gradient = ctx.createLinearGradient(0, padTop, 0, padTop + plotH);
+        gradient.addColorStop(0, 'rgba(56, 189, 248, 0.28)');
+        gradient.addColorStop(1, 'rgba(56, 189, 248, 0.02)');
         ctx.fillStyle = gradient;
         ctx.fill();
 
-        // Draw marker representing current hour (at x-index = 0)
-        ctx.fillStyle = 'var(--accent-teal)';
+        // Draw current hour marker ("Now" at hour = 0)
+        const nowX = getX(0);
+        const nowY = getY(points[0].height);
+        ctx.fillStyle = '#2dd4bf';
         ctx.beginPath();
-        ctx.arc(getX(0), getY(points[0].height), 6, 0, 2 * Math.PI);
+        ctx.arc(nowX, nowY, 5, 0, 2 * Math.PI);
         ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.8;
         ctx.stroke();
 
         // Hour labels on bottom
-        ctx.fillStyle = 'var(--text-secondary)';
-        ctx.font = '9px Inter';
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '9px Inter, sans-serif';
         ctx.textAlign = 'center';
-        
-        // Print 4 labels: Now, +6h, +12h, +18h, +24h
         ctx.fillText("Now", getX(0), height - 5);
         ctx.fillText("+6h", getX(6), height - 5);
         ctx.fillText("+12h", getX(12), height - 5);
