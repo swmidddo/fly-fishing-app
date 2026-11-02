@@ -169,11 +169,11 @@ const DB = {
     async addTackle(item) {
         if (!item.id) item.id = Date.now() + Math.floor(Math.random() * 100000);
 
-        // If item has a large photo, store full photo in IndexedDB and keep lightweight thumb
+        // Preserve full-resolution photo in IndexedDB and in-memory item (do not overwrite item.photo with a micro-thumbnail)
         if (item.photo && item.photo.length > 50000) {
             await this.saveFullPhoto(item.id, item.photo, 'tackle');
-            item.thumbnail = await this.generateMicroThumbnail(item.photo, 300);
-            item.photo = item.thumbnail; // keep lightweight in memory
+            item.thumbnail = await this.generateMicroThumbnail(item.photo, 600, 0.85);
+            item.hasFullPhoto = true;
         }
 
         return getStore('tackle', 'readwrite').then((store) => {
@@ -185,21 +185,40 @@ const DB = {
         });
     },
 
-    getAllTackle() {
-        return getStore('tackle', 'readonly').then((store) => {
+    async getAllTackle() {
+        const items = await getStore('tackle', 'readonly').then((store) => {
             return new Promise((resolve, reject) => {
                 const request = store.getAll();
                 request.onsuccess = () => resolve(request.result || []);
                 request.onerror = () => reject(request.error);
             });
         });
+        // Hydrate full-resolution photos from tackle_photos store if an older record had its photo replaced by a thumbnail
+        try {
+            const photoStore = await getStore('tackle_photos', 'readonly');
+            const fullPhotos = await new Promise((resolve) => {
+                const req = photoStore.getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => resolve([]);
+            });
+            if (fullPhotos.length > 0) {
+                const pMap = new Map(fullPhotos.map(p => [String(p.id), p.photo]));
+                items.forEach(t => {
+                    const fp = pMap.get(String(t.id));
+                    if (fp && (!t.photo || fp.length > t.photo.length)) {
+                        t.photo = fp;
+                    }
+                });
+            }
+        } catch (e) {}
+        return items;
     },
 
     async updateTackle(item) {
         if (item.photo && item.photo.length > 50000) {
             await this.saveFullPhoto(item.id, item.photo, 'tackle');
-            item.thumbnail = await this.generateMicroThumbnail(item.photo, 300);
-            item.photo = item.thumbnail;
+            item.thumbnail = await this.generateMicroThumbnail(item.photo, 600, 0.85);
+            item.hasFullPhoto = true;
         }
 
         return getStore('tackle', 'readwrite').then((store) => {
@@ -232,22 +251,20 @@ const DB = {
         });
     },
 
-    // Catch Operations with High-Performance Photo Partitioning
+    // Catch Operations with Full-Resolution Photo Preservation in IndexedDB
     async addCatch(item) {
         if (!item.id) item.id = Date.now();
         
         try { localStorage.removeItem('demo_catches_cleared'); } catch(e){}
 
-        // Save full resolution photo to IndexedDB only if it is a full photo (not already a thumbnail)
+        // Save full camera resolution photo to IndexedDB while keeping item.photo at full resolution in memory & IDB
         if (item.photo && item.photo.length > 50000) {
             await this.saveFullPhoto(item.id, item.photo, 'catch');
-            // Generate micro-thumbnail for instant list card rendering
-            item.thumbnail = await this.generateMicroThumbnail(item.photo, 320);
+            item.thumbnail = await this.generateMicroThumbnail(item.photo, 600, 0.85);
             item.hasFullPhoto = true;
-            item.photo = item.thumbnail;
         }
 
-        // Lightweight storage copy for localStorage (uses thumbnail, avoids QuotaExceededError)
+        // Lightweight storage copy ONLY for localStorage 5MB fallback (IndexedDB keeps full resolution!)
         const storageCopy = { ...item };
         if (storageCopy.photo && storageCopy.photo.length > 60000) {
             storageCopy.photo = storageCopy.thumbnail || '';
@@ -291,7 +308,28 @@ const DB = {
                 }
             });
 
-            return Array.from(catchMap.values());
+            const combined = Array.from(catchMap.values());
+
+            // Hydrate full-resolution camera photos from the dedicated catch_photos IndexedDB store
+            try {
+                const photoStore = await getStore('catch_photos', 'readonly');
+                const fullPhotos = await new Promise((resolve) => {
+                    const req = photoStore.getAll();
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => resolve([]);
+                });
+                if (fullPhotos.length > 0) {
+                    const photoMap = new Map(fullPhotos.map(p => [String(p.id), p.photo]));
+                    combined.forEach(c => {
+                        const fp = photoMap.get(String(c.id));
+                        if (fp && (!c.photo || fp.length > c.photo.length)) {
+                            c.photo = fp;
+                        }
+                    });
+                }
+            } catch (pErr) {}
+
+            return combined;
         } catch(e) {
             return localCatches;
         }
@@ -300,9 +338,14 @@ const DB = {
     async updateCatch(item) {
         if (item.photo && item.photo.length > 50000) {
             await this.saveFullPhoto(item.id, item.photo, 'catch');
-            item.thumbnail = await this.generateMicroThumbnail(item.photo, 320);
+            item.thumbnail = await this.generateMicroThumbnail(item.photo, 600, 0.85);
             item.hasFullPhoto = true;
-            item.photo = item.thumbnail;
+        } else if (item.hasFullPhoto && item.id) {
+            // Ensure an existing full-res photo in catch_photos is never overwritten by a thumbnail during metadata updates
+            const existingFull = await this.getFullPhoto(item.id, 'catch');
+            if (existingFull && (!item.photo || existingFull.length > item.photo.length)) {
+                item.photo = existingFull;
+            }
         }
 
         const storageCopy = { ...item };

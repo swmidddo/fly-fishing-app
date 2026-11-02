@@ -117,7 +117,7 @@ window.toggleMapToolsDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101710';
+window.APP_VERSION = 'v101715';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -2788,9 +2788,14 @@ window.initMainApp = async function() {
         const file = event.target.files && event.target.files[0];
         if (!file) return;
         try {
-            const dataUrl = await resizeImageToDataUrl(file, 1200);
+            const dataUrl = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
             window.setTacklePhotoPreview(dataUrl);
-            if (window.showSyncToast) window.showSyncToast("📷 Photo attached! Ready to save.");
+            if (window.showSyncToast) window.showSyncToast("📷 Full-resolution photo attached! Ready to save.");
         } catch(err) {
             console.error("Error setting tackle photo:", err);
             alert("Could not load photo. Please choose another image.");
@@ -4731,19 +4736,21 @@ window.initMainApp = async function() {
             const regBox = document.getElementById('catch-regulation-box');
             if (regBox) regBox.style.display = 'none';
 
-            // 1. Read preview, compress high-res photo, & trigger scan
+            // 1. Read preview at 100% original camera resolution & trigger AI scan
             const reader = new FileReader();
             reader.onload = async (event) => {
                 const rawPhotoDataUrl = event.target.result;
-                const compressedPhoto = await compressCatchPhoto(rawPhotoDataUrl, 1920, 0.82);
                 
-                elements.catchPhotoPreview.src = compressedPhoto;
+                // Preserve 100% original camera resolution in preview & IndexedDB catch_photos store
+                elements.catchPhotoPreview.src = rawPhotoDataUrl;
                 elements.catchPhotoPreviewContainer.style.display = 'block';
 
                 const currentLat = elements.catchLatInput && elements.catchLatInput.value ? parseFloat(elements.catchLatInput.value) : null;
                 const currentLng = elements.catchLngInput && elements.catchLngInput.value ? parseFloat(elements.catchLngInput.value) : null;
                 
-                analyzeFishPhoto(compressedPhoto, file.name, currentLat, currentLng);
+                // Use lightweight copy ONLY for the AI species identification scan
+                const aiScanPhoto = await compressCatchPhoto(rawPhotoDataUrl, 1280, 0.85);
+                analyzeFishPhoto(aiScanPhoto, file.name, currentLat, currentLng);
             };
             reader.readAsDataURL(file);
 
@@ -11297,9 +11304,14 @@ window.initMainApp = async function() {
         }
         if (window.showSyncToast) window.showSyncToast("🔍 Reading photo & cross-referencing product...");
 
-        // Automatically preserve the scanned photo and display it in the photo preview!
+        // Automatically preserve the scanned photo at full camera resolution and display it in the photo preview!
         try {
-            const previewDataUrl = await resizeImageToDataUrl(file, 1200);
+            const previewDataUrl = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
             if (typeof window.setTacklePhotoPreview === 'function') {
                 window.setTacklePhotoPreview(previewDataUrl);
             }
