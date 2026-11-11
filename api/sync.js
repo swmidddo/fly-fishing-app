@@ -25,14 +25,19 @@ export default async function handler(req, res) {
             let newBlobId = activeBlobId;
             
             if (activeBlobId) {
-                // Update existing blob via PUT
+                // Update existing blob via PUT; if expired (404) or failed, reset newBlobId so a fresh blob is created below
                 try {
-                    await fetch(`${JSONBLOB_API}/${activeBlobId}`, {
+                    const putRes = await fetch(`${JSONBLOB_API}/${activeBlobId}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                         body: JSON.stringify({ email: targetEmail, payload: payloadData, updatedAt: new Date().toISOString() })
                     });
-                } catch(e){}
+                    if (!putRes.ok) {
+                        newBlobId = '';
+                    }
+                } catch(e) {
+                    newBlobId = '';
+                }
             }
 
             if (!newBlobId) {

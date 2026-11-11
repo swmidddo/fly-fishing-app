@@ -87,6 +87,9 @@ window.toggleMobileMoreDrawer = function(forceState) {
     } else {
         drawer.classList.remove('active');
         backdrop.classList.remove('active');
+        if (!document.querySelector('.modal.active')) {
+            document.body.style.overflow = '';
+        }
     }
 };
 
@@ -117,7 +120,7 @@ window.toggleMapToolsDrawer = function(forceState) {
 };
 
 // Single Source of Truth for App Build Version & Default Key Config (Runtime Decoded to Bypass GitHub Secret Scanner)
-window.APP_VERSION = 'v101715';
+window.APP_VERSION = 'v101720';
 window.DEFAULT_GOOGLE_MAPS_KEY = typeof atob === 'function' ? atob('QUl6YVN5QjVBSjR6ajlJaHQ2Z19aTU1UVGNER1h5QUFHeUxmZHBJ') : '';
 window.DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SVZCODZWSk53bmV5bVJLeGZ3Y0twOEFiaERmemUtczYzZWdtWTlzVk83OFE=') : '';
 
@@ -2816,6 +2819,7 @@ window.initMainApp = async function() {
         const spec = (item.spec || '').trim();
         const notes = (item.notes || '').trim();
         const photo = item.photo || null;
+        const thumbnail = item.thumbnail || null;
         const brand = (item.brand || '').trim();
 
         // 1. Direct tackle ID link check
@@ -2838,6 +2842,7 @@ window.initMainApp = async function() {
                 fly.name = targetName;
             }
             if (photo) fly.photo = photo;
+            if (thumbnail) fly.thumbnail = thumbnail;
             if (brand) fly.region = brand;
             if (spec && (!fly.hookSizes || !fly.hookSizes.length)) fly.hookSizes = [spec];
             if (notes && !fly.description) fly.description = notes;
@@ -2869,6 +2874,7 @@ window.initMainApp = async function() {
                 hookSizes: [spec || '#14'],
                 icon: icon,
                 photo: photo,
+                thumbnail: thumbnail,
                 description: notes || `${brand ? brand + ' ' : ''}${targetName} fly pattern in your personal fly box.`,
                 rating: 5,
                 catchCount: 0
@@ -3082,7 +3088,7 @@ window.initMainApp = async function() {
         }
     };
 
-    elements.formAddTackle.addEventListener('submit', async (e) => {
+    elements.formAddTackle?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const type = document.getElementById('tackle-type').value;
         const name = document.getElementById('tackle-name').value.trim();
@@ -3198,7 +3204,7 @@ window.initMainApp = async function() {
         }
     };
 
-    elements.formAddRig.addEventListener('submit', async (e) => {
+    elements.formAddRig?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = elements.rigName.value.trim();
         const rodId = elements.rigComboRod.value;
@@ -4775,7 +4781,8 @@ window.initMainApp = async function() {
                         console.warn("Non-fatal EXIF read error:", err);
                     }
                 };
-                exifReader.readAsArrayBuffer(file);
+                // Slice only the first 256KB header so 15MB+ camera photos parse EXIF in <1ms without full ArrayBuffer allocation
+                exifReader.readAsArrayBuffer(typeof file.slice === 'function' ? file.slice(0, 262144) : file);
             } catch (err) {
                 console.warn("Non-fatal EXIF buffer error:", err);
             }
@@ -4819,7 +4826,7 @@ window.initMainApp = async function() {
         catchWaterTempEl.addEventListener('change', () => window.updateCatchThermalBadge(catchWaterTempEl.value));
     }
 
-    elements.useGpsBtn.addEventListener('click', () => {
+    elements.useGpsBtn?.addEventListener('click', () => {
         if (AppState.userCoords) {
             elements.catchLatInput.value = AppState.userCoords.lat.toFixed(6);
             elements.catchLngInput.value = AppState.userCoords.lng.toFixed(6);
@@ -4836,7 +4843,7 @@ window.initMainApp = async function() {
         }
     });
 
-    elements.formLogCatch.addEventListener('submit', async (e) => {
+    elements.formLogCatch?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const speciesInput = document.getElementById('catch-species') ? document.getElementById('catch-species').value.trim() : '';
         const waterTypeRaw = document.getElementById('catch-water') ? document.getElementById('catch-water').value : '';
@@ -6475,11 +6482,13 @@ window.initMainApp = async function() {
                         }
                     }
 
-                    // Pre-match database to obtain scientific name and category for search
-                    const fishNameLower = fish.name.toLowerCase();
-                    const cleanFishName = fishNameLower.replace(/\s*\([^)]*\)/g, '').trim();
+                    // Memoize FISH_DATABASE lookup on each rule object so filtering & startup avoid O(N*M) regex rescans
+                    const fishNameLower = fish._cachedNameLower || (fish._cachedNameLower = fish.name.toLowerCase());
                     let dbMatch = null;
-                    if (window.FISH_DATABASE) {
+                    if (fish._cachedDbMatch !== undefined) {
+                        dbMatch = fish._cachedDbMatch;
+                    } else if (window.FISH_DATABASE) {
+                        const cleanFishName = fishNameLower.replace(/\s*\([^)]*\)/g, '').trim();
                         dbMatch = window.FISH_DATABASE.find(f => f.name.toLowerCase() === fishNameLower);
                         if (!dbMatch) {
                             dbMatch = window.FISH_DATABASE.find(f => f.name.toLowerCase().replace(/\s*\([^)]*\)/g, '').trim() === cleanFishName);
@@ -6500,6 +6509,7 @@ window.initMainApp = async function() {
                                 return false;
                             });
                         }
+                        fish._cachedDbMatch = dbMatch || null;
                     }
 
                     const sciName = (dbMatch && dbMatch.sciName) ? dbMatch.sciName : '';
@@ -6551,13 +6561,17 @@ window.initMainApp = async function() {
         }
 
         const cardsGrid = document.getElementById('reg-cards-grid');
-        if (cardsGrid) cardsGrid.innerHTML = '';
+        const tableRowsHtml = [];
+        const cardsHtml = [];
 
         rows.forEach(item => {
             const fish = item.fish;
             const dbMatch = item.dbMatch;
             const statusInfo = item.statusInfo;
             const imgUrl = (dbMatch && dbMatch.image) ? dbMatch.image : 'images/dpi_illustrations/rainbow_trout.jpg';
+            const safeImgUrlJs = String(imgUrl).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const safeFishNameJs = String(fish.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const safeFishAlt = String(fish.name || '').replace(/"/g, '&quot;');
             const sciName = (dbMatch && dbMatch.sciName) ? dbMatch.sciName : 'Species Identification';
 
             let minSize = 'No Limit';
@@ -6578,13 +6592,13 @@ window.initMainApp = async function() {
                 maxSize = 'No Limit';
             }
             
-            // 1. Render Table Row with DPIRD Official Cutout Photo & Status Badge
+            // 1. Batch Table Row with DPIRD Official Cutout Photo & Status Badge
             if (elements.regTbody) {
-                elements.regTbody.insertAdjacentHTML('beforeend', `
+                tableRowsHtml.push(`
                     <tr>
                         <td>
                             <div style="width: 70px; height: 44px; background: #ffffff; border-radius: 6px; display: flex; align-items: center; justify-content: center; padding: 2px; border: 1px solid rgba(255,255,255,0.15);">
-                                <img src="${imgUrl}" alt="${fish.name}" loading="lazy" decoding="async" onerror="this.onerror=null; this.src='images/dpi_illustrations/rainbow_trout.jpg';" style="max-width: 100%; max-height: 100%; object-fit: contain; cursor: pointer;" onclick="window.viewEnlargedPhoto('${imgUrl}', '${fish.name}')" title="Click to view scientific illustration">
+                                <img src="${imgUrl}" alt="${safeFishAlt}" loading="lazy" decoding="async" onerror="this.onerror=null; this.src='images/dpi_illustrations/rainbow_trout.jpg';" style="max-width: 100%; max-height: 100%; object-fit: contain; cursor: pointer;" onclick="window.viewEnlargedPhoto('${safeImgUrlJs}', '${safeFishNameJs}')" title="Click to view scientific illustration">
                             </div>
                         </td>
                         <td style="color: var(--accent-blue); font-weight:700;">${item.state}</td>
@@ -6607,12 +6621,12 @@ window.initMainApp = async function() {
                 `);
             }
 
-            // 2. Render NSW DPIRD Style Visual Card with White Cutout Backdrop & Status Badge
+            // 2. Batch NSW DPIRD Style Visual Card with White Cutout Backdrop & Status Badge
             if (cardsGrid) {
-                cardsGrid.insertAdjacentHTML('beforeend', `
+                cardsHtml.push(`
                     <div class="card glass shadow-lg" style="padding: 0; overflow: hidden; border: 1px solid var(--border-color); display: flex; flex-direction: column;">
                         <div style="position: relative; height: 160px; overflow: hidden; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 12px;">
-                            <img src="${imgUrl}" alt="${fish.name}" loading="lazy" decoding="async" onerror="this.onerror=null; this.src='images/dpi_illustrations/rainbow_trout.jpg';" style="max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.4s ease;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
+                            <img src="${imgUrl}" alt="${safeFishAlt}" loading="lazy" decoding="async" onerror="this.onerror=null; this.src='images/dpi_illustrations/rainbow_trout.jpg';" style="max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.4s ease;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
                             <span class="badge" style="position: absolute; top: 10px; right: 10px; background: rgba(0, 210, 255, 0.85); color: #fff; font-weight: 700; font-size: 11px;">${item.state}</span>
                             <div style="position: absolute; top: 10px; left: 10px;">${statusInfo.badgeHtml}</div>
                             <span class="badge" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: var(--accent-teal); font-size: 10.5px; text-transform: uppercase;">${dbMatch ? dbMatch.category : (item.waterType || 'Fish Species')}</span>
@@ -6660,6 +6674,9 @@ window.initMainApp = async function() {
                 `);
             }
         });
+
+        if (elements.regTbody) elements.regTbody.innerHTML = tableRowsHtml.join('');
+        if (cardsGrid) cardsGrid.innerHTML = cardsHtml.join('');
     }
     window.renderRegulations = renderRegulations;
 
@@ -8036,7 +8053,7 @@ window.initMainApp = async function() {
     }
 
     // 9. Demo Data Importer
-    elements.importDemoBtn.addEventListener('click', async () => {
+    elements.importDemoBtn?.addEventListener('click', async () => {
         if (!confirm("This will load demo fly fishing gear and catches into your library. Proceed?")) return;
 
         const demoTackle = [
@@ -8118,18 +8135,18 @@ window.initMainApp = async function() {
         }
     });
 
-    elements.clearDbBtn.addEventListener('click', async () => {
+    elements.clearDbBtn?.addEventListener('click', async () => {
         if (!confirm("WARNING: This will permanently erase ALL catches, photos, tackle, and licenses from local browser storage. Are you absolutely sure?")) return;
 
         try {
-            // Re-open DB and clear tables
+            // Re-open DB and clear all tables including full-res photo stores & localStorage catch mirror
             const db = await initDB();
+            const allStores = ['tackle', 'catches', 'rigs', 'licenses', 'catch_photos', 'tackle_photos']
+                .filter(name => db.objectStoreNames.contains(name));
             
-            const transaction = db.transaction(['tackle', 'catches', 'rigs', 'licenses'], 'readwrite');
-            transaction.objectStore('tackle').clear();
-            transaction.objectStore('catches').clear();
-            transaction.objectStore('rigs').clear();
-            transaction.objectStore('licenses').clear();
+            const transaction = db.transaction(allStores, 'readwrite');
+            allStores.forEach(name => transaction.objectStore(name).clear());
+            try { localStorage.removeItem('fly_catches_db'); } catch(e) {}
 
             transaction.oncomplete = () => {
                 alert("Database wiped successfully.");
@@ -8251,7 +8268,7 @@ window.initMainApp = async function() {
                             if (t.photo && t.photo.length > 50000) {
                                 await window.DB.saveFullPhoto(t.id, t.photo, 'tackle');
                                 t.thumbnail = await window.DB.generateMicroThumbnail(t.photo, 300);
-                                t.photo = t.thumbnail;
+                                t.hasFullPhoto = true;
                             }
                         }
                         await importStore('tackle', backup.tackle);
@@ -8295,22 +8312,30 @@ window.initMainApp = async function() {
             reader.readAsText(file);
         };
 
-        // Direct Sync String Copy & Paste
+        // Direct Sync String Copy & Paste (uses compact thumbnails so clipboard Base64 payload never overflows memory)
         window.copyDirectSyncString = async function() {
             try {
-                const catches = await window.DB.getAllCatches();
-                const tackle = await window.DB.getAllTackle();
+                const rawCatches = await window.DB.getAllCatches();
+                const rawTackle = await window.DB.getAllTackle();
                 const rigs = await window.DB.getAllRigs();
                 const licenses = await window.DB.getAllLicenses();
                 const fishingSpots = JSON.parse(localStorage.getItem('fishingSpots') || '[]');
                 const userFlyBox = JSON.parse(localStorage.getItem('user_fly_box') || '[]');
 
+                const compactPhotoItem = (item) => {
+                    if (!item) return item;
+                    if (item.photo && typeof item.photo === 'string' && item.photo.length > 120000) {
+                        return { ...item, photo: item.thumbnail || '' };
+                    }
+                    return item;
+                };
+
                 const compactObj = {
-                    c: catches || [],
-                    t: tackle || [],
+                    c: (rawCatches || []).map(compactPhotoItem),
+                    t: (rawTackle || []).map(compactPhotoItem),
                     r: rigs || [],
                     l: licenses || [],
-                    f: userFlyBox || [],
+                    f: (userFlyBox || []).map(compactPhotoItem),
                     s: fishingSpots || []
                 };
 
@@ -8487,6 +8512,7 @@ window.initMainApp = async function() {
             const expiryDate = new Date(lic.expiry);
             expiryDate.setHours(0,0,0,0);
             const isExpired = expiryDate < today;
+            const licNumber = lic.number || lic.permitNumber || 'N/A';
 
             const badgeClass = isExpired ? 'badge-expired' : 'badge-active';
             const badgeText = isExpired ? '🔴 EXPIRED' : '🟢 ACTIVE';
@@ -8497,7 +8523,7 @@ window.initMainApp = async function() {
                 <div class="card-content-body">
                     <span class="card-badge ${badgeClass}">${badgeText}</span>
                     <h3>🪪 ${lic.state} Permit</h3>
-                    <div class="license-info-row">License ID: <strong>${lic.number}</strong></div>
+                    <div class="license-info-row">License ID: <strong>${licNumber}</strong></div>
                     <div class="license-info-row">Expires: <strong style="${isExpired ? 'color: var(--danger);' : ''}">${lic.expiry}</strong></div>
                     
                     ${lic.conditions ? `
@@ -8538,6 +8564,7 @@ window.initMainApp = async function() {
         AppState.licenses.forEach(lic => {
             const expiryDate = new Date(lic.expiry);
             expiryDate.setHours(0,0,0,0);
+            const licNumber = lic.number || lic.permitNumber || 'Permit';
             
             const diffTime = expiryDate - today;
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -8546,13 +8573,13 @@ window.initMainApp = async function() {
                 expiredCount++;
                 warnings.push({
                     type: 'danger',
-                    text: `⚠️ ${lic.state} license (${lic.number}) expired on ${lic.expiry}!`
+                    text: `⚠️ ${lic.state} license (${licNumber}) expired on ${lic.expiry}!`
                 });
             } else if (diffDays <= 30) {
                 soonExpiringCount++;
                 warnings.push({
                     type: 'warning',
-                    text: `🕒 ${lic.state} license (${lic.number}) expires in ${diffDays} days (${lic.expiry})!`
+                    text: `🕒 ${lic.state} license (${licNumber}) expires in ${diffDays} days (${lic.expiry})!`
                 });
                 activeCount++;
             } else {
@@ -8612,7 +8639,7 @@ window.initMainApp = async function() {
         AppState.editingLicenseId = id;
         
         elements.licenseState.value = lic.state;
-        elements.licenseNumber.value = lic.number;
+        elements.licenseNumber.value = lic.number || lic.permitNumber || '';
         elements.licenseExpiry.value = lic.expiry;
         elements.licenseConditions.value = lic.conditions || '';
 
@@ -8635,7 +8662,7 @@ window.initMainApp = async function() {
         }
     };
 
-    elements.formAddLicense.addEventListener('submit', async (e) => {
+    elements.formAddLicense?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const state = elements.licenseState.value;
         const number = elements.licenseNumber.value.trim();
@@ -8689,8 +8716,8 @@ window.initMainApp = async function() {
             const existingLicenses = await window.DB.getAllLicenses();
             if (!existingLicenses || existingLicenses.length === 0) {
                 const demoLicenses = [
-                    { state: 'NSW', type: 'General Recreational Fishing Licence', permitNumber: 'NSW-FSH-884920', expiry: '2027-11-30', conditions: 'General Recreational Fishing Licence across all NSW public waters.' },
-                    { state: 'VIC', type: 'All Waters Fishing Permit', permitNumber: 'VIC-RFL-402911', expiry: '2027-08-15', conditions: 'All Waters Recreational Fishing Licence for Victoria inland & marine.' }
+                    { state: 'NSW', type: 'General Recreational Fishing Licence', number: 'NSW-FSH-884920', permitNumber: 'NSW-FSH-884920', expiry: '2027-11-30', conditions: 'General Recreational Fishing Licence across all NSW public waters.' },
+                    { state: 'VIC', type: 'All Waters Fishing Permit', number: 'VIC-RFL-402911', permitNumber: 'VIC-RFL-402911', expiry: '2027-08-15', conditions: 'All Waters Recreational Fishing Licence for Victoria inland & marine.' }
                 ];
                 for (const l of demoLicenses) await window.DB.addLicense(l);
             }
@@ -8871,13 +8898,14 @@ window.initMainApp = async function() {
                 timestamp: new Date().toISOString()
             };
 
+            const bodyStr = JSON.stringify(payload);
             fetch('/api/save-backup', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(payload),
-                keepalive: true
+                body: bodyStr,
+                keepalive: bodyStr.length < 60000
             }).catch(() => {});
         } catch (e) {
             console.error("Failed to compile or send session backup:", e);

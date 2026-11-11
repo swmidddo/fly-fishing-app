@@ -245,6 +245,7 @@ const KnotsApp = {
             state.isPlaying = false;
             state.timer = null;
         } else {
+            if (state.timer) clearInterval(state.timer);
             state.isPlaying = true;
             if (state.activeStep >= knot.steps.length - 1) {
                 state.activeStep = 0;
@@ -252,8 +253,11 @@ const KnotsApp = {
             }
             state.timer = setInterval(() => {
                 const curState = this.getKnotState(knotId);
-                if (!curState.isPlaying) {
+                const knotsTab = document.getElementById('tab-knots');
+                if (!curState.isPlaying || !document.getElementById(`knot-card-${knotId}`) || (knotsTab && !knotsTab.classList.contains('active'))) {
                     clearInterval(curState.timer);
+                    curState.isPlaying = false;
+                    curState.timer = null;
                     return;
                 }
                 if (curState.activeStep < knot.steps.length - 1) {

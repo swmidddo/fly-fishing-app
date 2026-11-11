@@ -44,8 +44,21 @@ export default async function handler(req, res) {
     }
 
     try {
-        const decodedUrl = decodeURIComponent(target);
-        const fetchRes = await fetch(decodedUrl, {
+        const decodedUrl = (target.startsWith('http://') || target.startsWith('https://'))
+            ? target
+            : decodeURIComponent(target);
+        const parsedTarget = new URL(decodedUrl);
+        if (parsedTarget.protocol !== 'https:' && parsedTarget.protocol !== 'http:') {
+            res.status(400).json({ error: 'Unsupported target protocol' });
+            return;
+        }
+        const hostLower = parsedTarget.hostname.toLowerCase();
+        if (hostLower === 'localhost' || hostLower === '127.0.0.1' || hostLower.startsWith('169.254.') || hostLower.startsWith('10.') || hostLower.startsWith('192.168.')) {
+            res.status(403).json({ error: 'Restricted target host' });
+            return;
+        }
+
+        const fetchRes = await fetch(parsedTarget.toString(), {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }

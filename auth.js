@@ -332,14 +332,22 @@ window.AuthApp = (function() {
 
         try {
             const rawCatches = window.DB && window.DB.getAllCatches ? await window.DB.getAllCatches() : [];
-            const tackle = window.DB && window.DB.getAllTackle ? await window.DB.getAllTackle() : [];
+            const rawTackle = window.DB && window.DB.getAllTackle ? await window.DB.getAllTackle() : [];
             const rigs = window.DB && window.DB.getAllRigs ? await window.DB.getAllRigs() : [];
             const licenses = window.DB && window.DB.getAllLicenses ? await window.DB.getAllLicenses() : [];
 
-            // Sanitize catches to prevent huge base64 string quota crashes without corrupting JPEG data
+            // Sanitize catches & tackle to prevent multi-MB base64 string quota crashes on cloud sync without corrupting JPEG data
             const catches = rawCatches.map(c => {
                 const item = { ...c };
                 if (item.photo && typeof item.photo === 'string' && item.photo.length > 100000) {
+                    item.photo = item.thumbnail || '';
+                }
+                return item;
+            });
+
+            const tackle = rawTackle.map(t => {
+                const item = { ...t };
+                if (item.photo && typeof item.photo === 'string' && item.photo.length > 120000) {
                     item.photo = item.thumbnail || '';
                 }
                 return item;
@@ -530,9 +538,9 @@ window.AuthApp = (function() {
                 if (cloudData.licenses && Array.isArray(cloudData.licenses)) {
                     const existingLic = await window.DB.getAllLicenses();
                     const licMap = new Map();
-                    existingLic.forEach(l => licMap.set(String(l.id || l.permitNumber), true));
+                    existingLic.forEach(l => licMap.set(String(l.id || l.number || l.permitNumber), true));
                     for (const l of cloudData.licenses) {
-                        const lKey = String(l.id || l.permitNumber);
+                        const lKey = String(l.id || l.number || l.permitNumber);
                         if (!licMap.has(lKey)) await window.DB.addLicense(l);
                     }
                 }

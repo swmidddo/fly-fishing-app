@@ -377,8 +377,9 @@ const FlyBoxApp = {
             this.saveFliesToStorage();
         }
 
-        // Ensure every fly has a numeric qty and boolean onTyingList
+        // Ensure every fly has a numeric qty, boolean onTyingList, and uncorrupted photo data
         let seededLowStockDemo = false;
+        let repairedTruncatedPhoto = false;
         const hasAnyLow = this.flies.some(f => typeof f.qty === 'number' && f.qty <= 2);
         this.flies.forEach((f, idx) => {
             if (typeof f.qty !== 'number' || isNaN(f.qty)) {
@@ -390,28 +391,54 @@ const FlyBoxApp = {
             if (typeof f.onTyingList !== 'boolean') {
                 f.onTyingList = f.qty <= 1;
             }
+            // Repair any legacy 1000-byte sliced base64 photo strings
+            if (typeof f.photo === 'string' && f.photo.startsWith('data:image') && f.photo.length === 1000) {
+                f.photo = f.thumbnail || '';
+                repairedTruncatedPhoto = true;
+            }
         });
-        if (seededLowStockDemo) {
+        if (seededLowStockDemo || repairedTruncatedPhoto) {
             this.saveFliesToStorage();
+        }
+
+        // Asynchronously hydrate any full-resolution fly photos stored in IndexedDB tackle_photos
+        if (window.DB && typeof window.DB.getFullPhoto === 'function') {
+            Promise.all(this.flies.map(async (f) => {
+                if (!f || !f.id) return false;
+                const fullPhoto = await window.DB.getFullPhoto(f.id, 'tackle');
+                if (fullPhoto && fullPhoto !== f.photo) {
+                    f.photo = fullPhoto;
+                    return true;
+                }
+                return false;
+            })).then((results) => {
+                if (results.some(Boolean) && typeof this.renderFlyBoxUI === 'function') {
+                    const tab = document.getElementById('tab-flybox');
+                    if (tab && tab.classList.contains('active')) this.renderFlyBoxUI();
+                }
+            }).catch(() => {});
         }
     },
 
     saveFliesToStorage() {
         try {
-            localStorage.setItem('user_fly_box', JSON.stringify(this.flies));
-            // Also keep virtualFlyBox_v1 summary map updated for Offline Pre-Flight Wizard
+            // Keep virtualFlyBox_v1 summary map updated for Offline Pre-Flight Wizard
             const summaryMap = {};
             this.flies.forEach(f => {
                 if (f && f.name) summaryMap[f.name] = typeof f.qty === 'number' ? f.qty : 3;
             });
             localStorage.setItem('virtualFlyBox_v1', JSON.stringify(summaryMap));
+            localStorage.setItem('user_fly_box', JSON.stringify(this.flies));
         } catch (e) {
-            console.warn("[FlyBoxApp] localStorage quota notice, applying photo compression fallback:", e);
+            console.warn("[FlyBoxApp] localStorage quota notice, offloading oversized photos to IndexedDB:", e);
             try {
-                // If storage quota is reached, compress oversized photo data strings in localStorage copy
+                // Offload oversized full-res fly photos to IndexedDB tackle_photos and store clean thumbnail in localStorage (never slice base64!)
                 const safeFlies = this.flies.map(f => {
-                    if (f.photo && f.photo.length > 40000) {
-                        return { ...f, photo: f.thumbnail || f.photo.slice(0, 1000) };
+                    if (f && f.photo && f.photo.length > 40000) {
+                        if (window.DB && typeof window.DB.saveFullPhoto === 'function' && f.id) {
+                            window.DB.saveFullPhoto(f.id, f.photo, 'tackle').catch(() => {});
+                        }
+                        return { ...f, photo: f.thumbnail || '' };
                     }
                     return f;
                 });
@@ -2106,7 +2133,7 @@ window.renderAIHatchResult = function(data, photoUrl = null) {
                 <button class="btn btn-glass" onclick="window.selectHatchFlyForCatchLog('${cleanFlyName}', '${cleanHookSize}')" style="display: flex; align-items: center; gap: 6px;">
                     <span>🎣</span> Log Catch with this Fly
                 </button>
-                <button class="btn btn-primary" onclick="FlyBoxApp.quickAddFromHatch('${cleanFlyName}', '${data.category || 'Dry Fly'}', '${cleanHookSize}', '${data.presentationTip || data.commonName}')" style="display: flex; align-items: center; gap: 6px;">
+                <button class="btn btn-primary" onclick="FlyBoxApp.quickAddFromHatch('${cleanFlyName}', '${String(data.category || 'Dry Fly').replace(/'/g, "\\'")}', '${cleanHookSize}', '${String(data.presentationTip || data.commonName || '').replace(/'/g, "\\'").replace(/\r?\n/g, ' ')}')" style="display: flex; align-items: center; gap: 6px;">
                     <span>➕</span> Stock Pattern in My Fly Box
                 </button>
             </div>
@@ -2145,7 +2172,7 @@ window.renderAIHatchOfflineFallback = function(photoUrl = null) {
                 <p style="font-size: 12px; color: #cbd5e1; margin: 4px 0 0 0;">🎯 ${topStage.tip} • Tippet: ${topStage.tippet}</p>
             </div>
             <div style="text-align: right;">
-                <button class="btn btn-primary btn-sm" onclick="FlyBoxApp.quickAddFromHatch('${topStage.pattern.split('/')[0].trim()}', 'Dry Fly', '${topStage.sizes.split('-')[0].trim()}', '${topStage.tip}')">
+                <button class="btn btn-primary btn-sm" onclick="FlyBoxApp.quickAddFromHatch('${topStage.pattern.split('/')[0].trim().replace(/'/g, "\\'")}', 'Dry Fly', '${topStage.sizes.split('-')[0].trim().replace(/'/g, "\\'")}', '${String(topStage.tip || '').replace(/'/g, "\\'")}')">
                     ➕ Stock in Fly Box
                 </button>
             </div>

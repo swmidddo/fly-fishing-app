@@ -1,5 +1,5 @@
 // sw.js - Middo's Fly Fishing Backcountry Offline Service Worker
-const CACHE_NAME = 'fly-fishing-v101715';
+const CACHE_NAME = 'fly-fishing-v101720';
 
 // Message Event: Allow web app clients to force immediate skipWaiting & activation
 self.addEventListener('message', (event) => {
@@ -122,8 +122,9 @@ self.addEventListener('fetch', (event) => {
     const req = event.request;
     const url = new URL(req.url);
 
-    // Skip non-GET requests
+    // Skip non-GET requests and non-HTTP(S) schemes (e.g. chrome-extension://, data:, blob:)
     if (req.method !== 'GET') return;
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
     // DIRECT NETWORK ONLY: Serverless proxy endpoints, dynamic IP geo, live weather API, dynamic map tiles
     if (url.pathname.startsWith('/api/') || 
@@ -205,7 +206,7 @@ self.addEventListener('fetch', (event) => {
                 }
                 return networkRes;
             } catch (err) {
-                return (await caches.match(req, { ignoreSearch: true })) || (await getCachedAppShell());
+                return (await caches.match(req, { ignoreSearch: true })) || new Response('', { status: 404, statusText: 'Offline Asset Not Found' });
             }
         })());
         return;
@@ -237,10 +238,11 @@ self.addEventListener('fetch', (event) => {
             try {
                 const networkRes = await fetch(req);
                 if (networkRes && (networkRes.status === 200 || networkRes.type === 'opaque')) {
-                    const clone = networkRes.clone();
-                    await tileCache.put(req, clone);
-                    if (url.hostname.includes('tile.openstreetmap.org')) {
-                        try { await tileCache.put(`https://tile.openstreetmap.org${url.pathname}`, networkRes.clone()); } catch(e){}
+                    const clonePrimary = networkRes.clone();
+                    const cloneOsm = url.hostname.includes('tile.openstreetmap.org') ? networkRes.clone() : null;
+                    await tileCache.put(req, clonePrimary);
+                    if (cloneOsm) {
+                        try { await tileCache.put(`https://tile.openstreetmap.org${url.pathname}`, cloneOsm); } catch(e){}
                     }
                 }
                 return networkRes;
@@ -285,10 +287,10 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 5. Default: Cache match with network fallback
+    // 5. Default: Cache match with network fallback (never serve HTML for non-navigation assets)
     event.respondWith(
         caches.match(req, { ignoreSearch: true }).then((cached) => {
-            return cached || fetch(req).catch(async () => (await caches.match('./', { ignoreSearch: true })) || new Response('', { status: 404 }));
+            return cached || fetch(req).catch(() => new Response('', { status: 404, statusText: 'Offline Resource Unavailable' }));
         })
     );
 });

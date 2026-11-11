@@ -1585,20 +1585,18 @@ const AppMap = {
     renderCatchSpots(catches) {
         if (!this.map) return;
 
-        if (!catches || catches.length === 0) {
-            if (window.AppState && window.AppState.catches && window.AppState.catches.length > 0) {
+        if (!Array.isArray(catches)) {
+            if (window.AppState && Array.isArray(window.AppState.catches)) {
                 catches = window.AppState.catches;
             } else if (window.DB && typeof window.DB.getAllCatches === 'function') {
                 window.DB.getAllCatches().then(cList => {
-                    if (cList && cList.length > 0) {
-                        this.renderCatchSpots(cList);
-                    }
-                });
+                    this.renderCatchSpots(Array.isArray(cList) ? cList : []);
+                }).catch(() => {});
                 return;
+            } else {
+                catches = [];
             }
         }
-
-        if (!catches) catches = [];
 
         // Clear previous catches markers
         this.markers.catches.forEach(m => {
@@ -1627,7 +1625,8 @@ const AppMap = {
                     ? `Recon: ${catchItem.sessionOutcome || 'River Exploration'}` 
                     : `Catch: ${catchItem.species}`);
 
-            const imgHtml = catchItem.photo ? `<img src="${catchItem.photo}" style="width:100%; max-height:100px; object-fit:cover; border-radius:5px; margin-top:5px;"/>` : '';
+            const popupPhoto = catchItem.thumbnail || catchItem.photo;
+            const imgHtml = popupPhoto ? `<img src="${popupPhoto}" style="width:100%; max-height:100px; object-fit:cover; border-radius:5px; margin-top:5px;"/>` : '';
             const tackleSummary = [catchItem.fly, catchItem.rod, catchItem.reel, catchItem.flyline, catchItem.rigCombo].filter(Boolean).join(' | ') || 'N/A';
             const safeId = String(catchItem.id).replace(/'/g, "\\'");
 

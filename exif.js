@@ -1,6 +1,9 @@
 // exif.js - Lightweight EXIF Parser for Fly Fishing companion app photo metadata extraction
 const EXIF = {
     readFromBinaryFile(arrayBuffer) {
+        if (!arrayBuffer || arrayBuffer.byteLength < 12) {
+            return null;
+        }
         const dataView = new DataView(arrayBuffer);
         
         // Check SOI marker (0xFFD8)
@@ -11,19 +14,24 @@ const EXIF = {
         let length = dataView.byteLength;
         let offset = 2;
         
-        while (offset < length) {
-            // If we run out of buffer, stop
-            if (offset + 4 > length) break;
-            
+        while (offset + 4 <= length) {
             const marker = dataView.getUint16(offset);
             
-            // Find APP1 marker (0xFFE1)
-            if (marker === 0xFFE1) {
-                return this.parseEXIFData(dataView, offset + 4);
-            } else {
-                const step = 2 + dataView.getUint16(offset + 2);
-                offset += step;
+            // Stop at Start of Scan (0xFFDA), End of Image (0xFFD9), or invalid marker alignment
+            if (marker === 0xFFDA || marker === 0xFFD9 || (marker & 0xFF00) !== 0xFF00) {
+                break;
             }
+            
+            const segLen = dataView.getUint16(offset + 2);
+            if (segLen < 2) break;
+            
+            // Check APP1 marker (0xFFE1) — continue scanning if this APP1 is XMP rather than Exif\0\0
+            if (marker === 0xFFE1) {
+                const parsed = this.parseEXIFData(dataView, offset + 4);
+                if (parsed) return parsed;
+            }
+            
+            offset += 2 + segLen;
         }
         return null;
     },
